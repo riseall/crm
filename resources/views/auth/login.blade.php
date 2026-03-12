@@ -22,7 +22,7 @@
                         @csrf
                         <div class="form-group">
                             <input
-                                class="form-control h-auto text-white bg-white-o-5 rounded-pill border-0 py-4 px-8 @error('nik') is-invalid @enderror"
+                                class="form-control h-auto text-white bg-white-o-5 rounded border-0 py-4 px-8 @error('nik') is-invalid @enderror"
                                 type="text" placeholder="NIK" name="nik" autocomplete="off"
                                 value="{{ old('nik') }}" />
                             @error('nik')
@@ -30,9 +30,17 @@
                             @enderror
                         </div>
                         <div class="form-group">
-                            <input
-                                class="form-control h-auto text-white bg-white-o-5 rounded-pill border-0 py-4 px-8 @error('password') is-invalid @enderror"
-                                type="password" placeholder="Password" name="password" />
+                            <div class="input-group">
+                                <input
+                                    class="form-control h-auto text-white bg-white-o-5 rounded-left border-0 py-4 px-8 @error('password') is-invalid @enderror"
+                                    id="password" placeholder="Password" name="password" />
+                                <div class="input-group-append rounded-right">
+                                    <span id="togglePassword" onclick="togglePassword()"
+                                        class="input-group-text cursor-pointer border-0 bg-white-o-5">
+                                        <i class="far fa-eye text-white bg-white-o-5 opacity-70" id="eyeIcon"></i>
+                                    </span>
+                                </div>
+                            </div>
                             @error('password')
                                 <div class="invalid-feedback text-left">{{ $message }}</div>
                             @enderror
@@ -42,19 +50,19 @@
                                 <input type="checkbox" name="remember" />Remember me
                                 <span></span>
                             </label>
-                            <a href="javascript:;" id="kt_login_forgot" class="text-white font-weight-bold">Forget Password
-                                ?</a>
+                            {{-- <a href="javascript:;" id="kt_login_forgot" class="text-white font-weight-bold">Forget Password
+                                ?</a> --}}
                         </div>
                         <div class="form-group text-center mt-10">
                             <button id="kt_login_signin_submit" class="btn btn-pill btn-primary opacity-90 px-15 py-3">Sign
                                 In</button>
                         </div>
                     </form>
-                    <div class="mt-10">
+                    {{-- <div class="mt-10">
                         <span class="opacity-40 mr-4">Don't have an account yet?</span>
                         <a href="javascript:;" id="kt_login_signup" class="text-white opacity-30 font-weight-normal">Sign
                             Up</a>
-                    </div>
+                    </div> --}}
                 </div>
                 <!--end::Login Sign in form-->
                 <!--begin::Login Sign up form-->
@@ -122,8 +130,7 @@
                         <h3 class="opacity-40 font-weight-normal">Forgotten Password ?</h3>
                         <p class="opacity-40">Enter your email to reset your password</p>
                     </div>
-                    <form class="form" id="kt_login_forgot_form" method="POST"
-                        action="{{ route('password.email') }}">
+                    <form class="form" id="kt_login_forgot_form" method="POST" action="{{ route('password.email') }}">
                         @csrf
                         <div class="form-group mb-10">
                             <input
@@ -147,3 +154,19 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.className = "far fa-eye-slash";
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.className = "far fa-eye";
+            }
+        }
+    </script>
+@endpush
