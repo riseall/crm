@@ -6,8 +6,11 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -44,23 +47,52 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         //register
-        Fortify::registerView(function () {
-            return view('auth.register');
-        });
+        // Fortify::registerView(function () {
+        //     return view('auth.register');
+        // });
 
         //login
         Fortify::loginView(function () {
             return view('auth.login');
         });
 
-        //forgot
-        Fortify::requestPasswordResetLinkView(function () {
-            return view('auth.forgot-password');
-        });
+        // //forgot
+        // Fortify::requestPasswordResetLinkView(function () {
+        //     return view('auth.forgot-password');
+        // });
 
-        //reset
-        Fortify::resetPasswordView(function ($request) {
-            return view('auth.reset-password', ['request' => $request]);
+        // //reset
+        // Fortify::resetPasswordView(function ($request) {
+        //     return view('auth.reset-password', ['request' => $request]);
+        // });
+
+        Fortify::authenticateUsing(function (Request $request) {
+            $spkUser = DB::connection('db_master')
+                ->table('mst_anggota')
+                ->where('nik', $request->nik)
+                ->first();
+
+            if ($spkUser && Hash::check($request->password, $spkUser->password_hash)) {
+
+                $kode_direktorat = $spkUser->kode_direktorat ?? '';
+
+                //insert new user spk
+                $localUser = User::firstOrCreate(['nik' => $spkUser->nik]);
+
+                if ($kode_direktorat === 'DR00003' && $localUser->roles()->count() === 0) {
+                    // $localUser->assignRole('mkt');
+                    return $localUser;
+                } elseif ($localUser->roles()->count() === 0) {
+                    return false;
+                }
+
+                session([
+                    'spk_name' => $spkUser->nama,
+                    'spk_kode_jabatan' => $spkUser->kode_jabatan,
+                ]);
+
+                return $localUser;
+            }
         });
     }
 }
