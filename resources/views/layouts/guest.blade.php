@@ -100,6 +100,7 @@
     <!--begin::Page Scripts(used by this page)-->
     <script src="{{ asset('js/login-general.js') }}"></script>
     <!--end::Page Scripts-->
+    @stack('scripts')
 </body>
 <!--end::Body-->
 
