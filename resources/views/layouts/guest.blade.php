@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" />
     <!--end::Fonts-->
     <!--begin::Page Custom Styles(used by this page)-->
-    <link href="{{ asset('css/plugins.bundle.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('plugins/plugins.bundle.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('css/login-3.css') }}" rel="stylesheet" type="text/css" />
     <!--end::Page Custom Styles-->
     <!--begin::Global Theme Styles(used by all pages)-->
@@ -94,7 +94,7 @@
         };
     </script>
     <!--begin::Global Theme Bundle(used by all pages)-->
-    <script src="{{ asset('js/plugins.bundle.js') }}"></script>
+    <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
     <!--end::Global Theme Bundle-->
     <!--begin::Page Scripts(used by this page)-->
