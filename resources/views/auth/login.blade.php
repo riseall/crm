@@ -33,7 +33,7 @@
                             <div class="input-group">
                                 <input
                                     class="form-control h-auto text-white bg-white-o-5 rounded-left border-0 py-4 px-8 @error('password') is-invalid @enderror"
-                                    id="password" placeholder="Password" name="password" />
+                                    type="password" id="password" placeholder="Password" name="password" />
                                 <div class="input-group-append rounded-right">
                                     <span id="togglePassword" onclick="togglePassword()"
                                         class="input-group-text cursor-pointer border-0 bg-white-o-5">
@@ -130,7 +130,8 @@
                         <h3 class="opacity-40 font-weight-normal">Forgotten Password ?</h3>
                         <p class="opacity-40">Enter your email to reset your password</p>
                     </div>
-                    <form class="form" id="kt_login_forgot_form" method="POST" action="{{ route('password.email') }}">
+                    <form class="form" id="kt_login_forgot_form" method="POST"
+                        action="{{ route('password.email') }}">
                         @csrf
                         <div class="form-group mb-10">
                             <input

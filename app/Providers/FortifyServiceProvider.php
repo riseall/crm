@@ -88,7 +88,8 @@ class FortifyServiceProvider extends ServiceProvider
 
                 session([
                     'spk_name' => $spkUser->nama,
-                    'spk_kode_jabatan' => $spkUser->kode_jabatan,
+                    'spk_jabatan' => $spkUser->ref_nama_jabatan,
+                    'spk_email' => $spkUser->email,
                 ]);
 
                 return $localUser;
