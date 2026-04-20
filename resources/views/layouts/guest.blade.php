@@ -19,6 +19,7 @@
     <!--end::Global Theme Styles-->
     <!--end::Layout Themes-->
     <link rel="shortcut icon" href="{{ asset('images/logo/crm-favicon.png') }}" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <!--end::Head-->
 <!--begin::Body-->
