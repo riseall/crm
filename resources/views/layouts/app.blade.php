@@ -28,6 +28,13 @@
 
 <body id="kt_body"
     class="header-fixed header-mobile-fixed subheader-enabled subheader-fixed aside-enabled aside-fixed aside-minimize-hoverable page-loading">
+
+    <div class="page-loader page-loader-logo">
+        <h1 style="font-size:7rem">CRM</h1>
+        <h4>Customer Relationship Management</h4>
+        <div class="spinner spinner-primary"></div>
+    </div>
+
     <!--begin::Main-->
     <!--begin::Header Mobile-->
     @include('layouts.partial.header-mobile')

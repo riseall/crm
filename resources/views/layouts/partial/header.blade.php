@@ -14,7 +14,7 @@
                     <span class="text-muted font-weight-bold font-size-base d-none d-md-inline mr-1">Hi,</span>
                     <span
                         class="text-dark-50 font-weight-bolder font-size-base d-none d-md-inline mr-3">{{ session('spk_name') }}!</span>
-                    <span class="symbol symbol-35 symbol-light-info">
+                    <span class="symbol symbol-35 symbol-info">
                         <span
                             class="symbol-label font-size-h5 font-weight-bold">{{ collect(explode(' ', session('spk_name')))->take(2)->map(fn($word) => strtoupper($word[0]))->implode('') }}</span>
                     </span>

@@ -12,9 +12,9 @@
         <!--begin::Header-->
         <div class="d-flex align-items-center mt-5">
             <div class="symbol symbol-100 mr-5">
-                <span class="symbol symbol-75 symbol-light-info">
+                <span class="symbol symbol-75 symbol-info">
                     <span
-                        class="symbol-label font-size-h2 font-weight-bold">{{ collect(explode(' ', session('spk_name')))->take(2)->map(fn($word) => strtoupper($word[0]))->implode('') }}</span>
+                        class="symbol-label font-size-h1 font-weight-bold">{{ collect(explode(' ', session('spk_name')))->take(2)->map(fn($word) => strtoupper($word[0]))->implode('') }}</span>
                 </span>
                 <i class="symbol-badge bg-info"></i>
             </div>
