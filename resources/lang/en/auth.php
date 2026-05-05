@@ -16,5 +16,7 @@ return [
     'failed' => 'These credentials do not match our records.',
     'password' => 'The provided password is incorrect.',
     'throttle' => 'Too many login attempts. Please try again in :seconds seconds.',
-
+    'captcha_failed' => 'Security verification failed. Please try again.',
+    'account_disabled' => 'Your account has been disabled. Please contact the administrator.',
+    'no_role_access' => 'Your account does not have the required access to log in.',
 ];
