@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Fortify;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -68,21 +67,65 @@ class FortifyServiceProvider extends ServiceProvider
 
             $spkUser = DB::connection('db_master')
                 ->table('mst_anggota')
-                ->where('nik', $request->nik)
+                ->where('nik', $request->input('nik'))
                 ->first();
 
-            if ($spkUser && Hash::check($request->password, $spkUser->password_hash)) {
+            if ($spkUser && Hash::check($request->input('password'), $spkUser->password_hash)) {
 
                 $kode_direktorat = $spkUser->kode_direktorat ?? '';
+                $kode_kelompok_jabatan = $spkUser->kode_kelompok_jabatan ?? '';
+                $kode_divisi = $spkUser->kode_divisi ?? '';
+                $kode_departemen = $spkUser->kode_departemen ?? '';
 
-                //insert new user spk
-                $localUser = User::firstOrCreate(['nik' => $spkUser->nik]);
+                // Tentukan Role ID-nya dulu di variabel (Default null)
+                $targetRoleId = null;
 
-                if ($kode_direktorat === 'DR00003' && $localUser->roles()->count() === 0) {
-                    // $localUser->assignRole('mkt');
-                    return $localUser;
-                } elseif ($localUser->roles()->count() === 0) {
-                    return false;
+                if ($kode_divisi === 'DV00004') {
+                    $targetRoleId = 2;
+                } elseif ($kode_direktorat === 'DR00003') {
+                    if ($kode_divisi === 'DV00022') {
+                        $targetRoleId = 3;
+                    } elseif ($kode_divisi === 'DV00021') {
+                        if ($kode_kelompok_jabatan === 'KJ00007') {
+                            $targetRoleId = 4;
+                        } elseif ($kode_kelompok_jabatan === 'KJ00004') {
+                            $targetRoleId = 6;
+                        }
+                    } else {
+                        if ($kode_kelompok_jabatan === 'KJ00007') {
+                            $targetRoleId = 4;
+                        } elseif ($kode_kelompok_jabatan === 'KJ00006') {
+                            $targetRoleId = 5;
+                        } elseif ($kode_kelompok_jabatan === 'KJ00005') {
+                            $targetRoleId = 7;
+                        } elseif ($kode_kelompok_jabatan === 'KJ00003') {
+                            $targetRoleId = 8;
+                        } elseif ($kode_kelompok_jabatan === 'KJ00002') {
+                            $targetRoleId = ($kode_departemen === 'DP00059') ? 10 : 9;
+                        }
+                    }
+                }
+
+                // Jika tidak ada role yang cocok, JANGAN simpan ke database
+                if (is_null($targetRoleId)) {
+                    throw ValidationException::withMessages([
+                        'nik' => [__('auth.no_role_access')],
+                    ]);
+                }
+
+                // Jika lolos (punya role), baru simpan/update user
+                $localUser = User::updateOrCreate(
+                    ['nik' => $spkUser->nik],
+                    [
+                        'name' => $spkUser->nama,
+                        'email' => $spkUser->email,
+                        'jabatan' => $spkUser->ref_nama_jabatan
+                    ]
+                );
+
+                // Sinkronisasi Role (Hanya assign jika belum punya)
+                if ($localUser->roles()->count() === 0) {
+                    $localUser->assignRole($targetRoleId);
                 }
 
                 session([
@@ -93,6 +136,8 @@ class FortifyServiceProvider extends ServiceProvider
 
                 return $localUser;
             }
+
+            return null;
         });
     }
 }
