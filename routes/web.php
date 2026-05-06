@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\MappingController;
+use App\Http\Controllers\OutletController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,6 +21,50 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->name('dashboard');
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', function () {
+        return view('dashboard');
+    })->name('dashboard');
+
+    // Users
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::resource('/', UserController::class)->only('index');
+        Route::get('/data', [UserController::class, 'getData'])->name('data');
+    });
+
+    // Mapping Coverage
+    Route::prefix('mapping')->name('mapping.')->group(function () {
+        Route::get('/', [MappingController::class, 'index'])->name('index');
+        Route::get('/data', [MappingController::class, 'getData'])->name('data');
+        Route::get('/anggota', [MappingController::class, 'getAnggota'])->name('anggota');
+        Route::post('/', [MappingController::class, 'store'])->name('store');
+        Route::get('/{id}', [MappingController::class, 'show'])->name('show');
+        Route::put('/{id}', [MappingController::class, 'update'])->name('update');
+        Route::patch('/{id}/toggle', [MappingController::class, 'toggleActive'])->name('toggle');
+        Route::delete('/{id}', [MappingController::class, 'destroy'])->name('destroy');
+    });
+
+    // Product
+    Route::prefix('product')->name('product.')->group(function () {
+        Route::get('/', [ProductController::class, 'index'])->name('index');
+        Route::get('/data', [ProductController::class, 'data'])->name('data');
+        Route::get('/produk', [ProductController::class, 'getProduk'])->name('produk');
+        Route::post('/', [ProductController::class, 'store'])->name('store');
+        Route::get('/{id}', [ProductController::class, 'show'])->name('show');
+        Route::put('/{id}', [ProductController::class, 'update'])->name('update');
+        Route::delete('/{id}', [ProductController::class, 'destroy'])->name('destroy');
+    });
+
+    // Outlet
+    Route::prefix('outlet')->name('outlet.')->group(function () {
+        Route::get('/', [OutletController::class, 'index'])->name('index');
+        Route::get('/data', [OutletController::class, 'data'])->name('data');
+        Route::get('/outlet', [OutletController::class, 'getOutlet'])->name('outlet');
+        Route::get('/outlet-by-coverage/{coverageId}', [OutletController::class, 'getOutletByCoverage'])->name('outlet.by.coverage');
+        Route::post('/', [OutletController::class, 'store'])->name('store');
+        Route::get('/{id}', [OutletController::class, 'show'])->name('show');
+        Route::put('/{id}', [OutletController::class, 'update'])->name('update');
+        Route::post('/bulk-update', [OutletController::class, 'bulkUpdateCoverage'])->name('bulk.update');
+        Route::delete('/{id}', [OutletController::class, 'destroy'])->name('destroy');
+    });
+});
