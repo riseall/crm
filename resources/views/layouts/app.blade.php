@@ -22,6 +22,8 @@
     <link href="{{ asset('css/aside/dark.css') }}" rel="stylesheet" type="text/css" />
     <!--end::Layout Themes-->
     <link rel="shortcut icon" href="{{ asset('images/logo/crm-favicon.png') }}" />
+
+    @stack('styles')
 </head>
 <!--end::Head-->
 <!--begin::Body-->
