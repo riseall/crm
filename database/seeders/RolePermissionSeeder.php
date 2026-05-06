@@ -15,21 +15,45 @@ class RolePermissionSeeder extends Seeder
      */
     public function run()
     {
-        $adminRole = Role::create(['name' => 'admin']);
+        $roles = [
+            'Super Admin',
+            'Admin IT',
+            'Marketing Insight',
+            'General Manager',
+            'Regional Manager',
+            'Product Manager',
+            'Senior Area Manager',
+            'Area Manager',
+            'Medical Representative',
+            'Sales Representative'
+        ];
+
+        foreach ($roles as $role) {
+            Role::create(['name' => $role]);
+        }
 
         $admin1 = User::create([
             'nik' => '00343',
+            'name' => '',
+            'email' => 'qxRdD@example.com',
+            'jabatan' => '',
         ]);
-        $admin1->assignRole($adminRole);
+        $admin1->assignRole('Admin IT');
 
         $admin2 = User::create([
             'nik' => '00836',
+            'name' => '',
+            'email' => 'wM0lU@example.com',
+            'jabatan' => '',
         ]);
-        $admin2->assignRole($adminRole);
+        $admin2->assignRole('Admin IT');
 
         $admin3 = User::create([
             'nik' => '03130',
+            'name' => '',
+            'email' => 'q1LJH@example.com',
+            'jabatan' => '',
         ]);
-        $admin3->assignRole($adminRole);
+        $admin3->assignRole('Admin IT');
     }
 }
