@@ -8,7 +8,7 @@
     'tableId' => 'kt_datatable',
     'tableClass' => 'table table-separate table-head-custom table-checkable',
     'createUrl' => '#',
-    'createLabel' => 'New Record',
+    'createLabel' => 'Tambah Data ',
     'showExport' => false,
     'showCreate' => false,
 ])
@@ -67,7 +67,7 @@
             @endif
 
             @if ($showCreate)
-                <a href="{{ $createUrl }}" class="btn btn-primary font-weight-bolder">
+                <a href="{{ $createUrl }}" class="btn btn-primary font-weight-bolder" id="btnTambah">
                     <span class="svg-icon svg-icon-md">
                         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                             width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
@@ -82,10 +82,6 @@
                     </span>{{ $createLabel }}
                 </a>
             @endif
-
-            @isset($toolbar)
-                {{ $toolbar }}
-            @endisset
         </div>
     </div>
 
@@ -93,15 +89,16 @@
         @isset($beforeTable)
             {{ $beforeTable }}
         @endisset
-
-        <table class="{{ $tableClass }}" id="{{ $tableId }}">
-            <thead class="text-center">
-                <tr>
-                    {{ $slot }}
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover table-striped {{ $tableClass }}" id="{{ $tableId }}">
+                <thead class="text-center">
+                    <tr>
+                        {{ $slot }}
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
