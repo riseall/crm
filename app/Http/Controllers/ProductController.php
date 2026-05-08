@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Mapping;
+use App\Models\MPart;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,31 +19,75 @@ class ProductController extends Controller
     public function index()
     {
         $totalData = Product::count();
+        $totalProdDist = MPart::where('dist', '!=', 'Nusindo')->count();
         $newData = Product::where('created_at', '>=', now()->subDays(7))->count();
-        // $activeData = Product::where('is_active', true)->count();
         $updatedToday = Product::whereDate('updated_at', today())->count();
 
-        return view('page.product.index', compact('totalData', 'newData', 'updatedToday'));
+        $coverage = Mapping::where('cov_level_desc', 'PM')->with('user')->get();
+
+        return view('page.product.index', compact('totalData', 'newData', 'totalProdDist', 'updatedToday', 'coverage'));
     }
 
     public function data()
     {
-        $query = Product::with('coverage')
-            ->join('mst_mappings', 'mst_products.id_coverage', '=', 'mst_mappings.id_coverage')
-            ->select('mst_products.*', 'mst_mappings.cov_desc', 'mst_mappings.cov_pilar', 'mst_mappings.cov_nik');
+        $partQuery = MPart::query()
+            ->select('pt_ph', DB::raw('MIN(pt_desc) as pt_desc'))
+            ->groupBy('pt_ph');
+
+        $query = Product::query()
+            ->leftJoinSub($partQuery, 'parts', function ($join) {
+                $join->on('mst_products.pt_ph', '=', 'parts.pt_ph');
+            })
+            ->select([
+                'mst_products.id',
+                'mst_products.pt_ph as c_ph',
+                'mst_products.id_coverage',
+                DB::raw("COALESCE(parts.pt_desc, '-') as p_desc"),
+            ]);
 
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('action', function ($row) {
-                $edit = '<button class="btn btn-sm btn-warning btn-edit" data-id="' . $row->id_pm . '">
+                $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id . '">
                             <i class="fas fa-edit"></i>
                          </button>';
-                $delete = '<button class="btn btn-sm btn-danger btn-delete" data-id="' . $row->id_pm . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon btn-delete" data-id="' . $row->id . '">
                                <i class="fas fa-trash"></i>
                            </button>';
-                return $edit . ' ' . $delete;
+
+                return '<div class="d-flex flex-nowrap justify-content-center align-items-center action-buttons">'
+                    . $edit . $delete .
+                    '</div>';
             })
             ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function dataDistPM()
+    {
+        $query = MPart::where('dist', '!=', 'Nusindo')
+            ->leftJoin('mst_products', function ($join) {
+                $join->on('v_pt_mstr_dist.pt_ph', '=', 'mst_products.pt_ph')
+                    ->whereNull('mst_products.deleted_at');
+            })
+            ->leftJoin('mst_mappings', function ($join) {
+                $join->on('mst_products.id_coverage', '=', 'mst_mappings.id_coverage')
+                    ->whereNull('mst_mappings.deleted_at');
+            })
+            ->leftJoin('users', 'mst_mappings.cov_nik', '=', 'users.nik')
+            ->select([
+                'v_pt_mstr_dist.pt_dist as c_dist',
+                'v_pt_mstr_dist.pt_ph as c_ph',
+                'v_pt_mstr_dist.pt_desc as p_desc',
+                'v_pt_mstr_dist.dist',
+                'v_pt_mstr_dist.pilar_sub as pilar',
+                'mst_mappings.id_coverage as cov',
+                DB::raw("COALESCE(mst_mappings.cov_nik, '-') as cov_pm"),
+                DB::raw("COALESCE(users.name, '-') as nama_pm"),
+            ]);
+
+        return DataTables::of($query)
+            ->addIndexColumn()
             ->make(true);
     }
 
@@ -49,13 +95,12 @@ class ProductController extends Controller
     public function getProduk(Request $request)
     {
         $search = $request->get('q', '');
-        $produk = DB::connection('db_master')
-            ->table('ph_pt_mstr')
-            ->where(function ($q) use ($search) {
-                $q->where('pt_part', 'like', "%$search%")
-                    ->orWhere('pt_desc', 'like', "%$search%");
-            })
-            ->select('pt_part as id', DB::raw("CONCAT(pt_part, ' - ', pt_desc) as text"))
+        $produk = MPart::where(function ($q) use ($search) {
+            $q->where('pt_ph', 'like', "%$search%")
+                ->orWhere('pt_desc', 'like', "%$search%");
+        })
+            ->select('pt_ph as id', DB::raw("CONCAT(pt_ph, ' - ', MIN(pt_desc)) as text"))
+            ->groupBy('pt_ph')
             ->limit(30)
             ->get();
 
@@ -89,7 +134,7 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        return response()->json(Product::findOrFail($id));
+        return response()->json(Product::with(['mpart', 'coverage.user'])->findOrFail($id));
     }
 
     public function update(Request $request, $id)

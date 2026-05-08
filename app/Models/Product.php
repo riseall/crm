@@ -15,7 +15,17 @@ class Product extends Model
     protected $fillable = [
         'pt_ph',
         'id_coverage',
+        'needs_replacement',
     ];
+
+    protected $casts = [
+        'needs_replacement' => 'boolean',
+    ];
+
+    public function mpart()
+    {
+        return $this->belongsTo(MPart::class, 'pt_ph', 'pt_ph');
+    }
 
     public function coverage()
     {
