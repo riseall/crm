@@ -37,31 +37,49 @@ class MappingController extends Controller
     {
         $query = Mapping::query()
             ->select('mst_mappings.*')
-            ->with([]);
+            ->with('user');
 
         return DataTables::of($query)
             ->addIndexColumn()
+            ->addColumn('user_name', function ($row) {
+                return $row->user->name ?? '-';
+            })
+            ->filterColumn('cov_nik', function ($query, $keyword) {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('cov_nik', 'like', "%{$keyword}%")
+                        ->orWhereHas('user', function ($userQuery) use ($keyword) {
+                            $userQuery->where('name', 'like', "%{$keyword}%");
+                        });
+                });
+            })
+            ->filterColumn('user_name', function ($query, $keyword) {
+                $query->whereHas('user', function ($userQuery) use ($keyword) {
+                    $userQuery->where('name', 'like', "%{$keyword}%");
+                });
+            })
             ->addColumn('status', function ($row) {
                 $badge = $row->is_active
-                    ? '<span class="badge badge-success">Aktif</span>'
-                    : '<span class="badge badge-danger">Nonaktif</span>';
+                    ? '<span class="label label-inline label-success">Aktif</span>'
+                    : '<span class="label label-inline label-danger">Nonaktif</span>';
                 return $badge;
             })
             ->addColumn('action', function ($row) {
-                $edit = '<button class="btn btn-sm btn-warning btn-edit btn-icon mr-2" data-id="' . $row->id_coverage . '">
+                $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id_coverage . '">
                             <i class="fas fa-edit"></i>
                          </button>';
                 $toggle = $row->is_active
-                    ? '<button class="btn btn-sm btn-danger btn-toggle btn-icon mr-2" data-id="' . $row->id_coverage . '" title="Nonaktifkan">
+                    ? '<button class="btn btn-sm btn-outline-primary btn-icon mr-2 btn-toggle" data-id="' . $row->id_coverage . '" title="Nonaktifkan">
                             <i class="fas fa-toggle-on"></i>
                        </button>'
-                    : '<button class="btn btn-sm btn-success btn-toggle btn-icon mr-2" data-id="' . $row->id_coverage . '" title="Aktifkan">
+                    : '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-toggle" data-id="' . $row->id_coverage . '" title="Aktifkan">
                             <i class="fas fa-toggle-off"></i>
                        </button>';
-                $delete = '<button class="btn btn-sm btn-danger btn-delete btn-icon mr-2" data-id="' . $row->id_coverage . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-delete" data-id="' . $row->id_coverage . '">
                                <i class="fas fa-trash"></i>
                            </button>';
-                return $edit . ' ' . $toggle . ' ' . $delete;
+                return '<div class="d-flex flex-nowrap justify-content-center align-items-center action-buttons">'
+                    . $edit . $toggle . $delete .
+                    '</div>';
             })
             ->rawColumns(['status', 'action'])
             ->make(true);
@@ -73,7 +91,7 @@ class MappingController extends Controller
         $search = $request->get('q', '');
         $anggota = DB::connection('db_master')
             ->table('mst_anggota')
-            ->where('is_active', 1)
+            ->where('status_hapus', 1)
             ->where(function ($q) use ($search) {
                 $q->where('nik', 'like', "%$search%")
                     ->orWhere('nama', 'like', "%$search%");
@@ -89,10 +107,12 @@ class MappingController extends Controller
     {
         $request->validate([
             'id_coverage'        => 'required|string|unique:mst_mappings,id_coverage',
-            'cov_nik'            => 'required|string',
-            'cov_pilar'          => 'required|in:ETHICAL,OGB,OTC',
+            'cov_desc'           => 'required|string',
+            'cov_divisi'         => 'required|string',
+            'cov_pilar'          => 'nullable|in:ETHICAL,OGB,OTC',
             'cov_level_desc'     => 'required|in:MR/SR,AM,SAM,RM,PM,GM',
             'tanggung_jwb_pilar' => 'required|in:Single,Combo',
+            'cov_nik'            => 'required|string',
             'valid_from'         => 'required|date',
             'valid_to'           => 'nullable|date|after_or_equal:valid_from',
         ]);
@@ -145,7 +165,7 @@ class MappingController extends Controller
 
     public function show($id)
     {
-        $coverage = Mapping::findOrFail($id);
+        $coverage = Mapping::with('user')->findOrFail($id);
         return response()->json($coverage);
     }
 
@@ -155,7 +175,9 @@ class MappingController extends Controller
 
         $request->validate([
             'cov_nik'            => 'required|string',
-            'cov_pilar'          => 'required|in:ETHICAL,OGB,OTC',
+            'cov_desc'           => 'required|string',
+            'cov_divisi'         => 'required|string',
+            'cov_pilar'          => 'nullable|in:ETHICAL,OGB,OTC',
             'cov_level_desc'     => 'required|in:MR/SR,AM,SAM,RM,PM,GM',
             'tanggung_jwb_pilar' => 'required|in:Single,Combo',
             'valid_from'         => 'required|date',
@@ -211,6 +233,7 @@ class MappingController extends Controller
     public function toggleActive($id)
     {
         $coverage = Mapping::findOrFail($id);
+        $notificationData = null;
 
         DB::beginTransaction();
         try {
@@ -231,11 +254,9 @@ class MappingController extends Controller
                 Product::where('id_coverage', $coverage->id_coverage)
                     ->update(['needs_replacement' => true]);
 
-                // Kirim notifikasi ke admin
-                $admins = User::role('admin')->get();
                 $outletCount = Outlet::where('id_coverage', $coverage->id_coverage)->count();
                 $productCount = Product::where('id_coverage', $coverage->id_coverage)->count();
-                Notification::send($admins, new CoverageNeedsReplacementNotification($coverage, $outletCount, $productCount));
+                $notificationData = compact('outletCount', 'productCount');
             } else {
                 $coverage->is_active = true;
                 $coverage->valid_to  = null;
@@ -243,6 +264,23 @@ class MappingController extends Controller
             }
 
             DB::commit();
+
+            if ($notificationData) {
+                try {
+                    $admins = User::role('admin')->get();
+                    Notification::send(
+                        $admins,
+                        new CoverageNeedsReplacementNotification(
+                            $coverage,
+                            $notificationData['outletCount'],
+                            $notificationData['productCount']
+                        )
+                    );
+                } catch (\Exception $notificationException) {
+                    report($notificationException);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => $newStatus ? 'Coverage diaktifkan.' : 'Coverage dinonaktifkan. Notifikasi dikirim ke admin.',

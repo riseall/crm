@@ -24,15 +24,27 @@
         </div>
     </div>
 
-    <x-datatable-card title="Master Coverage" subtitle="Daftar coverage aktif" table-id="table_coverage"
-        table-class="table table-bordered table-hover">
+    <x-datatable-card title="Master Coverage" subtitle="Daftar coverage aktif" table-id="table_coverage" showCreate
+        createLabel="Tambah Mapping Coverage">
+
+        @if (isset($needsReplacement) && $needsReplacement > 0)
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Ada <strong>{{ $needsReplacement }}</strong> outlet yang butuh pengganti coverage.
+                <a href="{{ route('master.mapping.index') }}" class="alert-link">Kelola Mapping</a>
+            </div>
+        @endif
+
         <th>No</th>
         <th>ID Coverage</th>
         <th>Deskripsi</th>
-        <th>NIK</th>
+        <th>Divisi</th>
+        <th>Ket. Cabang</th>
         <th>Pilar</th>
-        <th>Level</th>
         <th>Tgg. Jwb Pilar</th>
+        <th>NIK</th>
+        <th>Nama</th>
+        <th>Level</th>
         <th>Valid From</th>
         <th>Valid To</th>
         <th>Status</th>
@@ -40,91 +52,9 @@
     </x-datatable-card>
 
     {{-- Modal Form --}}
-    <div class="modal fade" id="modalCoverage" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">Tambah Coverage</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="coverageId">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>ID Coverage <span class="text-danger">*</span></label>
-                                <input type="text" id="id_coverage" class="form-control" placeholder="Contoh: 1.2.3.4.5">
-                                <small class="text-muted" id="idCoverageHelp"></small>
-                            </div>
-                            <div class="form-group">
-                                <label>NIK / Anggota <span class="text-danger">*</span></label>
-                                <select id="cov_nik" class="form-control select2-anggota" style="width:100%"></select>
-                            </div>
-                            <div class="form-group">
-                                <label>Pilar <span class="text-danger">*</span></label>
-                                <select id="cov_pilar" class="form-control">
-                                    <option value="">-- Pilih Pilar --</option>
-                                    <option value="ETHICAL">ETHICAL</option>
-                                    <option value="OGB">OGB</option>
-                                    <option value="OTC">OTC</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Tanggung Jawab Pilar <span class="text-danger">*</span></label>
-                                <select id="tanggung_jwb_pilar" class="form-control">
-                                    <option value="Single">Single</option>
-                                    <option value="Combo">Combo (Ethical + OGB)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Level <span class="text-danger">*</span></label>
-                                <select id="cov_level" class="form-control">
-                                    <option value="">-- Pilih Level --</option>
-                                    <option value="MR">MR - Medical Representative</option>
-                                    <option value="AM">AM - Area Manager</option>
-                                    <option value="SAM">SAM - Senior Area Manager</option>
-                                    <option value="RM">RM - Regional Manager</option>
-                                    <option value="GM">GM - General Manager</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Deskripsi</label>
-                                <input type="text" id="cov_desc" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Divisi</label>
-                                <input type="text" id="cov_divisi" class="form-control">
-                            </div>
-                            <div class="form-group">
-                                <label>Ket. CBG</label>
-                                <input type="text" id="cov_ket_cbg" class="form-control">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Valid From <span class="text-danger">*</span></label>
-                                <input type="date" id="valid_from" class="form-control">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Valid To</label>
-                                <input type="date" id="valid_to" class="form-control">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="btnSimpan">Simpan</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <x-modal id="modalCoverage" title="Tambah Coverage" size="modal-lg" submitBtnId="btnSimpanCoverage">
+        @include('page.mapping.form')
+    </x-modal>
 @endsection
 
 @push('scripts')
@@ -133,6 +63,7 @@
             var table = $('#table_coverage').DataTable({
                 processing: true,
                 serverSide: true,
+                autoWidth: false,
                 ajax: {
                     url: "{{ route('mapping.data') }}",
                     type: 'GET'
@@ -140,7 +71,8 @@
                 columns: [{
                         data: 'DT_RowIndex',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     },
                     {
                         data: 'id_coverage'
@@ -149,16 +81,27 @@
                         data: 'cov_desc'
                     },
                     {
-                        data: 'cov_nik'
+                        data: 'cov_divisi'
+                    },
+                    {
+                        data: 'cov_ket_cbg'
                     },
                     {
                         data: 'cov_pilar'
                     },
                     {
-                        data: 'cov_level'
+                        data: 'tanggung_jwb_pilar'
                     },
                     {
-                        data: 'tanggung_jwb_pilar'
+                        data: 'cov_nik'
+                    },
+                    {
+                        data: 'user_name',
+                        orderable: false,
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'cov_level_desc'
                     },
                     {
                         data: 'valid_from'
@@ -169,14 +112,25 @@
                     },
                     {
                         data: 'status',
-                        orderable: false
+                        orderable: false,
+                        className: 'text-center'
                     },
                     {
                         data: 'action',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center text-nowrap',
+                        width: '125px'
                     },
                 ]
+            });
+
+            var resizeTimer;
+            $(window).on('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    table.columns.adjust();
+                }, 150);
             });
 
             // Select2 untuk dropdown NIK anggota (AJAX)
@@ -213,7 +167,7 @@
             // Tambah
             $('#btnTambah').on('click', function() {
                 resetForm();
-                $('#modalTitle').text('Tambah Coverage');
+                $('#modalCoverageLabel').text('Tambah Coverage');
                 $('#id_coverage').prop('readonly', false);
                 $('#modalCoverage').modal('show');
             });
@@ -223,20 +177,23 @@
                 var id = $(this).data('id');
                 $.get('{{ url('mapping') }}/' + id, function(data) {
                     resetForm();
-                    $('#modalTitle').text('Edit Coverage');
+                    $('#modalCoverageLabel').text('Edit Coverage');
                     $('#coverageId').val(data.id_coverage);
                     $('#id_coverage').val(data.id_coverage).prop('readonly', true);
                     $('#cov_desc').val(data.cov_desc);
-                    $('#cov_divisi').val(data.cov_divisi);
+                    setSelectValue($('#cov_divisi'), data.cov_divisi);
                     $('#cov_ket_cbg').val(data.cov_ket_cbg);
                     $('#cov_pilar').val(data.cov_pilar).trigger('change');
-                    $('#cov_level').val(data.cov_level);
+                    setSelectValue($('#cov_level'), getLevelDesc(data));
                     $('#tanggung_jwb_pilar').val(data.tanggung_jwb_pilar);
                     $('#valid_from').val(data.valid_from);
                     $('#valid_to').val(data.valid_to);
 
                     // Set select2 NIK
-                    var option = new Option(data.cov_nik, data.cov_nik, true, true);
+                    var anggotaText = data.user && data.user.name ? data.cov_nik + ' - ' + data.user
+                        .name :
+                        data.cov_nik;
+                    var option = new Option(anggotaText, data.cov_nik, true, true);
                     $('.select2-anggota').append(option).trigger('change');
 
                     $('#modalCoverage').modal('show');
@@ -254,19 +211,23 @@
                     confirmButtonText: 'Ya, ubah!',
                     cancelButtonText: 'Batal',
                 }).then(function(result) {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value) {
                         $.ajax({
-                            url: '{{ url('mapping') }}/' + id + '/toggle',
+                            url: '{{ route('mapping.toggle', ':id') }}'.replace(':id', id),
                             type: 'PATCH',
                             data: {
                                 _token: '{{ csrf_token() }}'
                             },
                             success: function(res) {
                                 Swal.fire('Berhasil', res.message, 'success');
-                                table.ajax.reload();
+                                table.ajax.reload(null, false);
                             },
                             error: function(xhr) {
-                                Swal.fire('Gagal', xhr.responseJSON.message, 'error');
+                                var message = xhr.responseJSON && xhr.responseJSON
+                                    .message ?
+                                    xhr.responseJSON.message :
+                                    'Status coverage gagal diubah.';
+                                Swal.fire('Gagal', message, 'error');
                             }
                         });
                     }
@@ -274,7 +235,9 @@
             });
 
             // Simpan (Store/Update)
-            $('#btnSimpan').on('click', function() {
+            $('#btnSimpanCoverage').on('click', function() {
+                clearFormErrors();
+
                 var id = $('#coverageId').val();
                 var url = id ? '{{ url('mapping') }}/' + id :
                     '{{ route('mapping.store') }}';
@@ -290,7 +253,7 @@
                         cov_divisi: $('#cov_divisi').val(),
                         cov_ket_cbg: $('#cov_ket_cbg').val(),
                         cov_pilar: $('#cov_pilar').val(),
-                        cov_level: $('#cov_level').val(),
+                        cov_level_desc: $('#cov_level').val(),
                         cov_nik: $('#cov_nik').val(),
                         tanggung_jwb_pilar: $('#tanggung_jwb_pilar').val(),
                         valid_from: $('#valid_from').val(),
@@ -302,9 +265,7 @@
                         table.ajax.reload();
                     },
                     error: function(xhr) {
-                        var msg = xhr.responseJSON.message || xhr.responseJSON.errors;
-                        Swal.fire('Gagal', typeof msg === 'object' ? Object.values(msg).join(
-                            '\n') : msg, 'error');
+                        showFormErrors(xhr);
                     }
                 });
             });
@@ -340,6 +301,7 @@
             });
 
             function resetForm() {
+                clearFormErrors();
                 $('#coverageId').val('');
                 $('#id_coverage').val('');
                 $('#cov_desc').val('');
@@ -351,6 +313,85 @@
                 $('#valid_from').val('');
                 $('#valid_to').val('');
                 $('.select2-anggota').val(null).trigger('change');
+            }
+
+            function setSelectValue($select, value) {
+                if (!value) {
+                    $select.val('');
+                    return;
+                }
+
+                if (!$select.find('option').filter(function() {
+                        return this.value === value;
+                    }).length) {
+                    $select.append(new Option(value, value));
+                }
+
+                $select.val(value).trigger('change');
+            }
+
+            function getLevelDesc(data) {
+                if (data.cov_level_desc) {
+                    return data.cov_level_desc;
+                }
+
+                var levelMap = {
+                    1: 'GM',
+                    2: 'RM',
+                    3: 'SAM',
+                    4: 'AM',
+                    5: 'MR/SR',
+                };
+
+                return levelMap[data.cov_level] || '';
+            }
+
+            function clearFormErrors() {
+                $('#formErrorAlert').addClass('d-none').text('');
+                $('#modalCoverage .is-invalid').removeClass('is-invalid');
+                $('#modalCoverage .invalid-feedback').text('');
+                $('.select2-anggota').next('.select2-container').find('.select2-selection')
+                    .removeClass('border border-danger');
+            }
+
+            function showFormErrors(xhr) {
+                var response = xhr.responseJSON || {};
+                var errors = response.errors || {};
+                var hasFieldErrors = Object.keys(errors).length > 0;
+
+                if (hasFieldErrors) {
+                    $.each(errors, function(field, messages) {
+                        var message = Array.isArray(messages) ? messages.join('<br>') : messages;
+                        var inputId = field === 'cov_level_desc' ? 'cov_level' : field;
+                        var $input = $('#' + inputId);
+
+                        $input.addClass('is-invalid');
+                        $('#error_' + field).html(message);
+
+                        if ($input.hasClass('select2-anggota')) {
+                            $input.next('.select2-container').find('.select2-selection')
+                                .addClass('border border-danger');
+                        }
+                    });
+                }
+
+                if (response.message && !hasFieldErrors && xhr.status === 422) {
+                    $('#cov_nik').addClass('is-invalid');
+                    $('#error_cov_nik').text(response.message);
+                    $('#cov_nik').next('.select2-container').find('.select2-selection')
+                        .addClass('border border-danger');
+                    return;
+                }
+
+                if (response.message && !hasFieldErrors) {
+                    $('#formErrorAlert').removeClass('d-none').text(response.message);
+                    return;
+                }
+
+                if (!hasFieldErrors) {
+                    $('#formErrorAlert').removeClass('d-none')
+                        .text('Terjadi kesalahan saat menyimpan data.');
+                }
             }
         });
     </script>

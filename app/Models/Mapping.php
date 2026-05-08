@@ -31,10 +31,20 @@ class Mapping extends Model
     ];
 
     protected $casts = [
-        'valid_from' => 'date',
-        'valid_to'   => 'date',
+        'valid_from' => 'date:Y-m-d',
+        'valid_to'   => 'date:Y-m-d',
         'is_active'  => 'boolean',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'cov_nik', 'nik');
+    }
+
+    public function users()
+    {
+        return $this->user();
+    }
 
     public function outlets()
     {
