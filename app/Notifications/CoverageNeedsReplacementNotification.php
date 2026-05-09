@@ -13,11 +13,13 @@ class CoverageNeedsReplacementNotification extends Notification
 
     protected $coverage;
     protected $outletCount;
+    protected $productCount;
 
-    public function __construct(Mapping $coverage, int $outletCount)
+    public function __construct(Mapping $coverage, int $outletCount, int $productCount = 0)
     {
-        $this->coverage    = $coverage;
-        $this->outletCount = $outletCount;
+        $this->coverage     = $coverage;
+        $this->outletCount  = $outletCount;
+        $this->productCount = $productCount;
     }
 
     public function via($notifiable)
@@ -36,6 +38,7 @@ class CoverageNeedsReplacementNotification extends Notification
             ->line('**NIK Lama:** ' . $this->coverage->cov_nik)
             ->line('**Pilar:** ' . $this->coverage->cov_pilar)
             ->line('**Jumlah Outlet Terdampak:** ' . $this->outletCount . ' outlet')
+            ->line('**Jumlah Produk Terdampak:** ' . $this->productCount . ' produk')
             ->action('Kelola Mapping', url('/master/mapping'))
             ->line('Segera assign coverage baru untuk outlet yang terdampak.');
     }
@@ -49,7 +52,8 @@ class CoverageNeedsReplacementNotification extends Notification
             'cov_nik'       => $this->coverage->cov_nik,
             'cov_pilar'     => $this->coverage->cov_pilar,
             'outlet_count'  => $this->outletCount,
-            'message'       => "Coverage {$this->coverage->id_coverage} ({$this->coverage->cov_desc}) dinonaktifkan. {$this->outletCount} outlet butuh pengganti.",
+            'product_count' => $this->productCount,
+            'message'       => "Coverage {$this->coverage->id_coverage} ({$this->coverage->cov_desc}) dinonaktifkan. {$this->outletCount} outlet dan {$this->productCount} produk butuh pengganti.",
             'url'           => '/master/mapping',
         ];
     }
