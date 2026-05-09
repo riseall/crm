@@ -11,6 +11,7 @@ class Outlet extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'mst_outlets';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'id_outlet',
@@ -25,6 +26,11 @@ class Outlet extends Model
     public function coverage()
     {
         return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage');
+    }
+
+    public function custDist()
+    {
+        return $this->belongsTo(MCustDist::class, 'id_outlet', 'id_outlet');
     }
 
     // Scope: outlet yang butuh pengganti
