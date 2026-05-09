@@ -50,35 +50,28 @@
                 },
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false
                     },
                     {
                         data: 'nik',
-                        name: 'nik'
                     },
                     {
                         data: 'name',
-                        name: 'name'
                     },
                     {
                         data: 'email',
-                        name: 'email'
                     },
                     {
                         data: 'jabatan',
-                        name: 'jabatan'
                     },
                     {
                         data: 'role',
-                        name: 'role',
                         className: 'text-center',
                         orderable: false
                     },
                     {
                         data: 'is_active',
-                        name: 'is_active',
                         className: 'text-center'
                     },
                     // {
