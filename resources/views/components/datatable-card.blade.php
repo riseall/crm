@@ -1,7 +1,3 @@
-@push('styles')
-    <link href="{{ asset('css/datatables.bundle.css') }}" rel="stylesheet" type="text/css" />
-@endpush
-
 @props([
     'title' => 'Tabel Data',
     'subtitle' => '',
@@ -11,7 +7,14 @@
     'createLabel' => 'Tambah Data ',
     'showExport' => false,
     'showCreate' => false,
+    'loadAssets' => true,
 ])
+
+@if ($loadAssets)
+    @push('styles')
+        <link href="{{ asset('css/datatables.bundle.css') }}" rel="stylesheet" type="text/css" />
+    @endpush
+@endif
 
 <div class="card card-custom gutter-b">
     <div class="card-header flex-wrap border-0 pt-6 pb-0">
@@ -102,6 +105,8 @@
     </div>
 </div>
 
-@push('scripts')
-    <script src="{{ asset('js/datatables.bundle.js') }}"></script>
-@endpush
+@if ($loadAssets)
+    @push('scripts')
+        <script src="{{ asset('js/datatables.bundle.js') }}"></script>
+    @endpush
+@endif
