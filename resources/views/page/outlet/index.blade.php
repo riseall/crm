@@ -3,13 +3,18 @@
 @section('content')
     <div class="row">
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="TOTAL DATA" value="{{ $totalData }}" subtitle="Entitas" subtitleColor="text-primary"
+            <x-stat-card title="outlet tercoverage" value="{{ $totalData }}" subtitle="Entitas" subtitleColor="text-primary"
                 icon="far fa-folder-open" color="primary">
             </x-stat-card>
         </div>
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="DATA BARU" value="{{ $newData }}" subtitle="(7 Hari Terakhir)" subtitleColor="text-info"
-                icon="far fa-file-alt" color="info">
+            <x-stat-card title="outlet belum tercoverage" value="{{ $totalBelumCoverage }}" subtitle="Entitas"
+                subtitleColor="text-danger" icon="far fa-folder-open" color="danger">
+            </x-stat-card>
+        </div>
+        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+            <x-stat-card title="DATA BARU" value="{{ $newData }}" subtitle="(7 Hari Terakhir)"
+                subtitleColor="text-info" icon="far fa-file-alt" color="info">
             </x-stat-card>
         </div>
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
@@ -62,37 +67,37 @@
                     },
                     {
                         data: 'dist',
-                        name: 'v_cust_dist.dist',
+                        name: 'mst_cust_dist.dist',
                         defaultContent: '-'
                     },
                     {
                         data: 'id_outlet',
-                        name: 'v_cust_dist.id_outlet'
+                        name: 'mst_cust_dist.id_outlet'
                     },
                     {
                         data: 'nama_outlet',
-                        name: 'v_cust_dist.nama_outlet',
+                        name: 'mst_cust_dist.nama_outlet',
                         defaultContent: '-'
                     },
                     {
                         data: 'kode_cabang',
-                        name: 'v_cust_dist.id_cbg_dist',
+                        name: 'mst_cust_dist.id_cbg_dist',
                         defaultContent: '-',
                         className: 'text-center'
                     },
                     // {
                     //     data: 'nama_cabang',
-                    //     name: 'v_cust_dist.nama_cabang',
+                    //     name: 'mst_cust_dist.nama_cabang',
                     //     defaultContent: '-'
                     // },
                     // {
                     //     data: 'kota',
-                    //     name: 'v_cust_dist.kota',
+                    //     name: 'mst_cust_dist.kota',
                     //     defaultContent: '-'
                     // },
                     {
                         data: 'segment',
-                        name: 'v_cust_dist.segment',
+                        name: 'mst_cust_dist.segment',
                         defaultContent: '-'
                     },
                     {

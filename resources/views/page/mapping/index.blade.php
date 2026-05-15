@@ -27,14 +27,6 @@
     <x-datatable-card title="Master Coverage" subtitle="Daftar coverage aktif" table-id="table_coverage" showCreate
         createLabel="Tambah Mapping Coverage">
 
-        @if (isset($needsReplacement) && $needsReplacement > 0)
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                Ada <strong>{{ $needsReplacement }}</strong> outlet yang butuh pengganti coverage.
-                <a href="{{ route('master.mapping.index') }}" class="alert-link">Kelola Mapping</a>
-            </div>
-        @endif
-
         <th>No</th>
         <th>ID Coverage</th>
         <th>Deskripsi</th>
@@ -97,8 +89,6 @@
                     },
                     {
                         data: 'user_name',
-                        orderable: false,
-                        defaultContent: '-'
                     },
                     {
                         data: 'cov_level_desc'
@@ -112,7 +102,6 @@
                     },
                     {
                         data: 'status',
-                        orderable: false,
                         className: 'text-center'
                     },
                     {
@@ -175,10 +164,10 @@
             // Edit
             $(document).on('click', '.btn-edit', function() {
                 var id = $(this).data('id');
-                $.get('{{ url('mapping') }}/' + id, function(data) {
+                $.get('{{ route('mapping.show', ':id') }}'.replace(':id', id), function(data) {
                     resetForm();
                     $('#modalCoverageLabel').text('Edit Coverage');
-                    $('#coverageId').val(data.id_coverage);
+                    $('#coverageId').val(data.id);
                     $('#id_coverage').val(data.id_coverage).prop('readonly', true);
                     $('#cov_desc').val(data.cov_desc);
                     setSelectValue($('#cov_divisi'), data.cov_divisi);
@@ -219,8 +208,10 @@
                                 _token: '{{ csrf_token() }}'
                             },
                             success: function(res) {
-                                Swal.fire('Berhasil', res.message, 'success');
-                                table.ajax.reload(null, false);
+                                Swal.fire('Berhasil', res.message, 'success').then(
+                                    function() {
+                                        window.location.reload();
+                                    });
                             },
                             error: function(xhr) {
                                 var message = xhr.responseJSON && xhr.responseJSON
@@ -239,7 +230,7 @@
                 clearFormErrors();
 
                 var id = $('#coverageId').val();
-                var url = id ? '{{ url('mapping') }}/' + id :
+                var url = id ? '{{ route('mapping.update', ':id') }}'.replace(':id', id) :
                     '{{ route('mapping.store') }}';
                 var method = id ? 'PUT' : 'POST';
 
@@ -261,8 +252,9 @@
                     },
                     success: function(res) {
                         $('#modalCoverage').modal('hide');
-                        Swal.fire('Berhasil', res.message, 'success');
-                        table.ajax.reload();
+                        Swal.fire('Berhasil', res.message, 'success').then(function() {
+                            window.location.reload();
+                        });
                     },
                     error: function(xhr) {
                         showFormErrors(xhr);
@@ -283,7 +275,7 @@
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '{{ url('mapping') }}/' + id,
+                            url: '{{ route('mapping.destroy', ':id') }}'.replace(':id', id),
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'

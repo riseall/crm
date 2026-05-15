@@ -23,7 +23,7 @@ class ProductController extends Controller
         $newData = Product::where('created_at', '>=', now()->subDays(7))->count();
         $updatedToday = Product::whereDate('updated_at', today())->count();
 
-        $coverage = Mapping::where('cov_level_desc', 'PM')->with('user')->get();
+        $coverage = Mapping::active()->where('cov_level_desc', 'PM')->with('user')->get();
 
         return view('page.product.index', compact('totalData', 'newData', 'totalProdDist', 'updatedToday', 'coverage'));
     }
@@ -72,7 +72,8 @@ class ProductController extends Controller
             })
             ->leftJoin('mst_mappings', function ($join) {
                 $join->on('mst_products.id_coverage', '=', 'mst_mappings.id_coverage')
-                    ->whereNull('mst_mappings.deleted_at');
+                    ->whereNull('mst_mappings.deleted_at')
+                    ->where('mst_mappings.is_active', true);
             })
             ->leftJoin('users', 'mst_mappings.cov_nik', '=', 'users.nik')
             ->select([

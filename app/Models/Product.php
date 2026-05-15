@@ -29,6 +29,7 @@ class Product extends Model
 
     public function coverage()
     {
-        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage');
+        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage')
+            ->where('is_active', true);
     }
 }

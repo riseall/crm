@@ -30,9 +30,9 @@ class CoverageNeedsReplacementNotification extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject('[CRM] Coverage Butuh Pengganti: ' . $this->coverage->id_coverage)
+            ->subject('[CRM] Coverage Perlu Diganti: ' . $this->coverage->id_coverage)
             ->greeting('Halo, ' . $notifiable->name)
-            ->line('Coverage berikut telah dinonaktifkan dan membutuhkan pengganti:')
+            ->line('Coverage berikut sudah tidak aktif atau memiliki valid_to, sehingga perlu pengganti:')
             ->line('**ID Coverage:** ' . $this->coverage->id_coverage)
             ->line('**Deskripsi:** ' . $this->coverage->cov_desc)
             ->line('**NIK Lama:** ' . $this->coverage->cov_nik)
@@ -53,7 +53,7 @@ class CoverageNeedsReplacementNotification extends Notification
             'cov_pilar'     => $this->coverage->cov_pilar,
             'outlet_count'  => $this->outletCount,
             'product_count' => $this->productCount,
-            'message'       => "Coverage {$this->coverage->id_coverage} ({$this->coverage->cov_desc}) dinonaktifkan. {$this->outletCount} outlet dan {$this->productCount} produk butuh pengganti.",
+            'message'       => "Coverage {$this->coverage->id_coverage} ({$this->coverage->cov_desc}) perlu diganti. {$this->outletCount} outlet dan {$this->productCount} produk butuh coverage baru.",
             'url'           => '/master/mapping',
         ];
     }

@@ -6,7 +6,7 @@
     <label>ID Coverage <span class="text-danger">*</span></label>
     <input type="text" id="id_coverage" class="form-control" placeholder="Contoh: 1.2.3.4.5">
     <div class="invalid-feedback" id="error_id_coverage"></div>
-    <small class="text-muted" id="idCoverageHelp"></small>
+    <small class="text-muted" id="idCoverageHelp">Kode coverage bisa dipakai ulang. Sistem hanya menjaga 1 baris aktif untuk setiap ID.</small>
 </div>
 <div class="row">
     <div class="col-md-6">

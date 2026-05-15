@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\DashboardService;
+use App\Services\CoverageReplacementAlertService;
+use App\Services\SelloutQueryService;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        $this->app->bind(SelloutQueryService::class);
+        $this->app->singleton(DashboardService::class);
+        $this->app->singleton(CoverageReplacementAlertService::class);
     }
 
     /**

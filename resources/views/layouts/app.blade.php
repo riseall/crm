@@ -23,6 +23,30 @@
     <!--end::Layout Themes-->
     <link rel="shortcut icon" href="{{ asset('images/logo/crm-favicon.png') }}" />
 
+    <style>
+        .dataTables_wrapper .dataTables_filter {
+            text-align: right !important;
+        }
+
+        .dataTables_wrapper .dataTables_filter label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            width: 100%;
+            margin-bottom: 0;
+        }
+
+        .dataTables_wrapper .dataTables_filter input {
+            margin-left: 0 !important;
+            max-width: 260px;
+        }
+
+        .dataTables_wrapper .dataTables_processing {
+            display: none !important;
+        }
+    </style>
+
     @stack('styles')
 </head>
 <!--end::Head-->
@@ -61,6 +85,27 @@
                     <div class="d-flex flex-column-fluid">
                         <!--begin::Container-->
                         <div class="container">
+                            @php
+                                $coverageAlertService = app(\App\Services\CoverageReplacementAlertService::class);
+                                $coverageNotificationPayload = collect();
+                                $coverageAlertSignature = null;
+                                $shouldShowCoverageAlert = false;
+
+                                if (auth()->check()) {
+                                    $hasAlertRole = auth()
+                                        ->user()
+                                        ->hasAnyRole(['Admin IT', 'Marketing Insight']);
+
+                                    if ($hasAlertRole) {
+                                        $coverageNotificationPayload = $coverageAlertService->pendingAlertPayload();
+                                        $coverageAlertSignature = $coverageAlertService->alertSignature();
+                                        $shouldShowCoverageAlert =
+                                            $coverageNotificationPayload->isNotEmpty() &&
+                                            session('coverage_alert_signature') !== $coverageAlertSignature;
+                                    }
+                                }
+                            @endphp
+
                             @yield('content')
                         </div>
                         <!--end::Container-->
@@ -152,6 +197,133 @@
     <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
     <!--end::Global Theme Bundle-->
+    <script>
+        (function($) {
+            if (!$.fn || !$.fn.dataTable) {
+                return;
+            }
+
+            $.extend(true, $.fn.dataTable.defaults, {
+                autoWidth: false,
+                dom: "<'row align-items-center mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-right'f>>" +
+                    "rt" +
+                    "<'row align-items-center mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Cari...',
+                    lengthMenu: '_MENU_',
+                    info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
+                    infoEmpty: 'Menampilkan 0 - 0 dari 0 data',
+                    infoFiltered: '(disaring dari _MAX_ data)',
+                    zeroRecords: 'Tidak ada data yang cocok',
+                    paginate: {
+                        previous: 'Sebelumnya',
+                        next: 'Berikutnya',
+                    },
+                },
+            });
+
+            $.fn.dataTable.ext.errMode = 'none';
+
+            let loadingCount = 0;
+            let loadingTimer = null;
+            let loadingVisible = false;
+
+            function openLoading() {
+                if (!window.Swal || loadingVisible) {
+                    return;
+                }
+
+                loadingVisible = true;
+                Swal.fire({
+                    title: 'Loading data...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading(),
+                });
+            }
+
+            function closeLoading() {
+                if (loadingTimer) {
+                    clearTimeout(loadingTimer);
+                    loadingTimer = null;
+                }
+
+                if (loadingVisible && window.Swal) {
+                    Swal.close();
+                }
+
+                loadingVisible = false;
+            }
+
+            $(document).on('processing.dt', 'table.dataTable', function(e, settings, processing) {
+                if (processing) {
+                    loadingCount += 1;
+
+                    if (loadingTimer) {
+                        clearTimeout(loadingTimer);
+                    }
+
+                    loadingTimer = window.setTimeout(function() {
+                        if (loadingCount > 0) {
+                            openLoading();
+                        }
+                    }, 150);
+                    return;
+                }
+
+                loadingCount = Math.max(loadingCount - 1, 0);
+
+                if (loadingCount === 0) {
+                    closeLoading();
+                }
+            });
+
+        })(jQuery);
+    </script>
+    <script>
+        var indexRoute = "{{ route('mapping.index') }}";
+    </script>
+    <script>
+        (function() {
+            const coverageNotifications = @json($coverageNotificationPayload ?? []);
+            const shouldShowCoverageAlert = {{ $shouldShowCoverageAlert ? 'true' : 'false' }};
+
+            // Pastikan variabel ini ada atau beri default null agar tidak error JS
+            const coverageAlertSignature = @json($coverageAlertSignature ?? null);
+
+            if (!shouldShowCoverageAlert || !coverageNotifications.length) {
+                return;
+            }
+
+            const itemsHtml = coverageNotifications.map(function(item) {
+                return `<li class="mb-2"><strong>${item.id_coverage || '-'}</strong> - ${item.cov_desc || '-'}<br><small>${item.message || ''}</small></li>`;
+            }).join('');
+
+            Swal.fire({
+                title: `Ada ${coverageNotifications.length} coverage butuh pengganti`,
+                html: `
+                <div class="text-left">
+                    <p class="mb-3">Coverage berikut sudah nonaktif atau punya <code>valid_to</code>. Silakan siapkan coverage pengganti untuk outlet dan product terkait.</p>
+                    <ul class="pl-4 mb-0">${itemsHtml}</ul>
+                </div>
+            `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ganti Coverage',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'text-left',
+                },
+            }).then(function(result) {
+                if (result.value) {
+                    window.location.href = indexRoute;
+                }
+            });
+        })();
+    </script>
     @stack('scripts')
     <!--end::Page Scripts-->
 </body>

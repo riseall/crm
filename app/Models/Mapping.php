@@ -11,9 +11,6 @@ class Mapping extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'mst_mappings';
-    protected $primaryKey = 'id_coverage';
-    public $incrementing = false;
-    protected $keyType = 'string';
 
     protected $fillable = [
         'id_coverage',
@@ -68,7 +65,7 @@ class Mapping extends Model
         $query = self::where('cov_nik', $nik)->where('is_active', true);
 
         if ($excludeId) {
-            $query->where('id_coverage', '!=', $excludeId);
+            $query->where('id', '!=', $excludeId);
         }
 
         $existing = $query->get();

@@ -3,14 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\Mapping;
-use App\Models\Outlet;
 use App\Models\User;
-use App\Notifications\CoverageNeedsReplacementNotification;
+use App\Services\CoverageReplacementAlertService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 class SyncHrmsCommand extends Command
 {
@@ -37,11 +36,17 @@ class SyncHrmsCommand extends Command
             $this->info('Total anggota dari HRMS: ' . count($anggotaList));
 
             $deactivatedNiks = [];
+            $inactiveNiks = [];
+            $today = now()->toDateString();
 
             // 2. Loop dan update tabel users
             foreach ($anggotaList as $anggota) {
                 $nik       = $anggota['nik'];
                 $isActive  = $anggota['is_active'] ?? 1;
+
+                if ((int) $isActive === 0) {
+                    $inactiveNiks[] = $nik;
+                }
 
                 // Cek apakah user sudah ada di local
                 $localUser = User::where('nik', $nik)->first();
@@ -67,40 +72,68 @@ class SyncHrmsCommand extends Command
             }
 
             // 4. Proses coverage yang perlu di-flag
-            if (!empty($deactivatedNiks)) {
-                $this->info('Memproses ' . count($deactivatedNiks) . ' NIK nonaktif...');
-                $admins = User::role('admin')->get();
+            $niksToProcess = array_values(array_unique(array_merge($deactivatedNiks, $inactiveNiks)));
 
-                foreach ($deactivatedNiks as $nik) {
-                    // Cari coverage aktif dengan NIK ini
-                    $activeCoverages = Mapping::where('cov_nik', $nik)
-                        ->where('is_active', true)
-                        ->get();
+            if (!empty($niksToProcess)) {
+                $this->info('Memproses ' . count($niksToProcess) . ' NIK nonaktif...');
+                $alertService = app(CoverageReplacementAlertService::class);
 
-                    foreach ($activeCoverages as $coverage) {
-                        // Flag outlet terkait
-                        $outletCount = Outlet::where('id_coverage', $coverage->id_coverage)
-                            ->update(['needs_replacement' => true]);
+                foreach ($niksToProcess as $nik) {
+                    $closedCoverages = $this->closeActiveCoveragesForNik($nik, $today);
 
-                        // Kirim notifikasi ke semua admin
-                        Notification::send($admins, new CoverageNeedsReplacementNotification(
-                            $coverage,
-                            Outlet::where('id_coverage', $coverage->id_coverage)->count()
-                        ));
+                    foreach ($closedCoverages as $item) {
+                        $coverage = $item['coverage'];
+                        $originalState = $item['original_state'];
 
-                        $this->info("Coverage {$coverage->id_coverage} di-flag. {$outletCount} outlet butuh pengganti.");
-                        Log::info("HRMS Sync: Coverage {$coverage->id_coverage} flagged for NIK {$nik}");
+                        if ($alertService->shouldNotify($originalState, $coverage)) {
+                            $alertService->notify($coverage);
+                        }
+
+                        $outletCount = $coverage->outlets()->count();
+                        $productCount = $coverage->products()->count();
+                        $this->info("Coverage {$coverage->id_coverage} ditutup otomatis. {$outletCount} outlet dan {$productCount} produk butuh pengganti.");
+                        Log::info("HRMS Sync: Coverage {$coverage->id_coverage} closed for NIK {$nik}");
                     }
                 }
             }
 
             $this->info('Sync HRMS selesai.');
-            Log::info('HRMS Sync completed', ['total' => count($anggotaList), 'deactivated' => count($deactivatedNiks)]);
+            Log::info('HRMS Sync completed', [
+                'total'       => count($anggotaList),
+                'deactivated' => count($deactivatedNiks),
+                'inactive'    => count($inactiveNiks),
+            ]);
             return 0;
         } catch (\Exception $e) {
             $this->error('Error: ' . $e->getMessage());
             Log::error('HRMS Sync error', ['message' => $e->getMessage()]);
             return 1;
         }
+    }
+
+    /**
+     * Tutup semua coverage aktif milik NIK tertentu dan kembalikan daftar coverage yang diubah.
+     */
+    protected function closeActiveCoveragesForNik(string $nik, string $today): Collection
+    {
+        $activeCoverages = Mapping::where('cov_nik', $nik)
+            ->where('is_active', true)
+            ->get();
+
+        $activeCoverages->transform(function ($coverage) use ($today) {
+            $originalState = $coverage->only(['is_active', 'valid_to']);
+
+            $coverage->update([
+                'valid_to'  => $today,
+                'is_active' => false,
+            ]);
+
+            return [
+                'coverage' => $coverage,
+                'original_state' => $originalState,
+            ];
+        });
+
+        return $activeCoverages;
     }
 }

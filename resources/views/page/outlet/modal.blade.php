@@ -105,7 +105,7 @@
             $(document).on('click', '.btn-edit', function() {
                 var id = $(this).data('id');
 
-                $.get('{{ url('outlet') }}/' + id, function(data) {
+                $.get('{{ route('outlet.show', ':id') }}'.replace(':id', id), function(data) {
                     resetMappingModal();
                     $('#mappingId').val(data.id);
                     $('#modalMappingLabel').text('Edit Mapping');
@@ -124,7 +124,7 @@
 
             $(document).on('click', '#btnSimpan', function() {
                 var id = $('#mappingId').val();
-                var url = id ? '{{ url('outlet') }}/' + id : '{{ route('outlet.store') }}';
+                var url = id ? '{{ route('outlet.update', ':id') }}'.replace(':id', id) : '{{ route('outlet.store') }}';
                 var method = id ? 'PUT' : 'POST';
 
                 $.ajax({
@@ -158,7 +158,7 @@
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '{{ url('outlet') }}/' + id,
+                            url: '{{ route('outlet.destroy', ':id') }}'.replace(':id', id),
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'

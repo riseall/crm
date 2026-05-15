@@ -4,12 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Mapping;
 use App\Models\Outlet;
-use App\Models\Product;
-use App\Models\User;
-use App\Notifications\CoverageNeedsReplacementNotification;
+use App\Services\CoverageReplacementAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 
@@ -29,8 +26,15 @@ class MappingController extends Controller
         $newData = Mapping::where('created_at', '>=', now()->subDays(7))->count();
         $activeData = Mapping::where('is_active', true)->count();
         $updatedToday = Mapping::whereDate('updated_at', today())->count();
+        $needsReplacement = app(CoverageReplacementAlertService::class)->pendingAlerts()->count();
 
-        return view('page.mapping.index', compact('totalData', 'newData', 'activeData', 'updatedToday'));
+        return view('page.mapping.index', compact(
+            'totalData',
+            'newData',
+            'activeData',
+            'updatedToday',
+            'needsReplacement'
+        ));
     }
 
     public function getData(Request $request)
@@ -57,24 +61,30 @@ class MappingController extends Controller
                     $userQuery->where('name', 'like', "%{$keyword}%");
                 });
             })
+            ->orderColumn('user_name', function ($query, $order) {
+                $query->orderBy('cov_nik', $order);
+            })
             ->addColumn('status', function ($row) {
                 $badge = $row->is_active
                     ? '<span class="label label-inline label-success">Aktif</span>'
                     : '<span class="label label-inline label-danger">Nonaktif</span>';
                 return $badge;
             })
+            ->orderColumn('status', function ($query, $order) {
+                $query->orderBy('is_active', $order);
+            })
             ->addColumn('action', function ($row) {
-                $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id_coverage . '">
+                $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id . '">
                             <i class="fas fa-edit"></i>
                          </button>';
                 $toggle = $row->is_active
-                    ? '<button class="btn btn-sm btn-outline-primary btn-icon mr-2 btn-toggle" data-id="' . $row->id_coverage . '" title="Nonaktifkan">
+                    ? '<button class="btn btn-sm btn-outline-primary btn-icon mr-2 btn-toggle" data-id="' . $row->id . '" title="Nonaktifkan">
                             <i class="fas fa-toggle-on"></i>
                        </button>'
-                    : '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-toggle" data-id="' . $row->id_coverage . '" title="Aktifkan">
+                    : '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-toggle" data-id="' . $row->id . '" title="Aktifkan">
                             <i class="fas fa-toggle-off"></i>
                        </button>';
-                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-delete" data-id="' . $row->id_coverage . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-delete" data-id="' . $row->id . '">
                                <i class="fas fa-trash"></i>
                            </button>';
                 return '<div class="d-flex flex-nowrap justify-content-center align-items-center action-buttons">'
@@ -106,7 +116,7 @@ class MappingController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id_coverage'        => 'required|string|unique:mst_mappings,id_coverage',
+            'id_coverage'        => 'required|string',
             'cov_desc'           => 'required|string',
             'cov_divisi'         => 'required|string',
             'cov_pilar'          => 'nullable|in:ETHICAL,OGB,OTC',
@@ -127,19 +137,26 @@ class MappingController extends Controller
         ];
         $autoLevel = $levelMapping[$request->cov_level_desc] ?? null;
 
-        // Validasi Single/Combo
-        $validation = Mapping::validateCoverage(
-            $request->cov_nik,
-            $request->cov_pilar,
-            $request->tanggung_jwb_pilar
-        );
-
-        if (!$validation['valid']) {
-            return response()->json(['success' => false, 'message' => $validation['message']], 422);
-        }
-
         DB::beginTransaction();
         try {
+            $today = Carbon::today()->toDateString();
+            $alertService = app(CoverageReplacementAlertService::class);
+            $closedCoverages = collect();
+
+            $closedCoverages = $this->closeActiveMappingsByCode($request->id_coverage, $today);
+
+            // Validasi Single/Combo setelah coverage lama ditutup
+            $validation = Mapping::validateCoverage(
+                $request->cov_nik,
+                $request->cov_pilar,
+                $request->tanggung_jwb_pilar
+            );
+
+            if (!$validation['valid']) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => $validation['message']], 422);
+            }
+
             Mapping::create([
                 'id_coverage'        => $request->id_coverage,
                 'cov_desc'           => $request->cov_desc,
@@ -156,6 +173,13 @@ class MappingController extends Controller
             ]);
 
             DB::commit();
+
+            foreach ($closedCoverages as $item) {
+                if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
+                    $alertService->notify($item['coverage']);
+                }
+            }
+
             return response()->json(['success' => true, 'message' => 'Coverage berhasil ditambahkan.']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -172,6 +196,7 @@ class MappingController extends Controller
     public function update(Request $request, $id)
     {
         $coverage = Mapping::findOrFail($id);
+        $originalState = $coverage->only(['is_active', 'valid_to']);
 
         $request->validate([
             'cov_nik'            => 'required|string',
@@ -222,6 +247,9 @@ class MappingController extends Controller
             ]);
 
             DB::commit();
+
+            $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
+
             return response()->json(['success' => true, 'message' => 'Coverage berhasil diupdate.']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -233,53 +261,37 @@ class MappingController extends Controller
     public function toggleActive($id)
     {
         $coverage = Mapping::findOrFail($id);
-        $notificationData = null;
+        $originalState = $coverage->only(['is_active', 'valid_to']);
+        $today = Carbon::today()->toDateString();
+        $alertService = app(CoverageReplacementAlertService::class);
 
         DB::beginTransaction();
         try {
             $newStatus = !$coverage->is_active;
+            $closedCoverages = collect();
 
             // Jika dinonaktifkan
             if (!$newStatus) {
                 // Auto-fill valid_to jika masih null
                 if (is_null($coverage->valid_to)) {
-                    $coverage->valid_to = Carbon::today();
+                    $coverage->valid_to = $today;
                 }
                 $coverage->is_active = false;
                 $coverage->save();
-
-                // Flag outlet terkait butuh pengganti
-                Outlet::where('id_coverage', $coverage->id_coverage)
-                    ->update(['needs_replacement' => true]);
-                Product::where('id_coverage', $coverage->id_coverage)
-                    ->update(['needs_replacement' => true]);
-
-                $outletCount = Outlet::where('id_coverage', $coverage->id_coverage)->count();
-                $productCount = Product::where('id_coverage', $coverage->id_coverage)->count();
-                $notificationData = compact('outletCount', 'productCount');
             } else {
+                $closedCoverages = $this->closeActiveMappingsByCode($coverage->id_coverage, $today);
                 $coverage->is_active = true;
                 $coverage->valid_to  = null;
                 $coverage->save();
             }
 
             DB::commit();
-
-            if ($notificationData) {
-                try {
-                    $admins = User::role('admin')->get();
-                    Notification::send(
-                        $admins,
-                        new CoverageNeedsReplacementNotification(
-                            $coverage,
-                            $notificationData['outletCount'],
-                            $notificationData['productCount']
-                        )
-                    );
-                } catch (\Exception $notificationException) {
-                    report($notificationException);
+            foreach ($closedCoverages as $item) {
+                if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
+                    $alertService->notify($item['coverage']);
                 }
             }
+            $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
 
             return response()->json([
                 'success' => true,
@@ -296,8 +308,12 @@ class MappingController extends Controller
     {
         $coverage = Mapping::findOrFail($id);
 
-        // Cek apakah masih ada mapping aktif
-        $mappingCount = Outlet::where('id_coverage', $id)->count();
+        // Hanya blok jika record aktif masih dipakai outlet
+        $mappingCount = 0;
+        if ($coverage->is_active) {
+            $mappingCount = Outlet::where('id_coverage', $coverage->id_coverage)->count();
+        }
+
         if ($mappingCount > 0) {
             return response()->json([
                 'success' => false,
@@ -307,5 +323,43 @@ class MappingController extends Controller
 
         $coverage->delete();
         return response()->json(['success' => true, 'message' => 'Coverage berhasil dihapus.']);
+    }
+
+    protected function dispatchCoverageReplacementAlertIfNeeded(Mapping $coverage, array $originalState): void
+    {
+        $alertService = app(CoverageReplacementAlertService::class);
+
+        if (!$alertService->shouldNotify($originalState, $coverage)) {
+            return;
+        }
+
+        try {
+            $alertService->notify($coverage);
+        } catch (\Throwable $notificationException) {
+            report($notificationException);
+        }
+    }
+
+    protected function closeActiveMappingsByCode(string $idCoverage, string $today): \Illuminate\Support\Collection
+    {
+        $closed = collect();
+
+        Mapping::where('id_coverage', $idCoverage)
+            ->where('is_active', true)
+            ->get()
+            ->each(function (Mapping $mapping) use ($today, $closed) {
+                $originalState = $mapping->only(['is_active', 'valid_to']);
+                $mapping->update([
+                    'valid_to'  => $today,
+                    'is_active' => false,
+                ]);
+
+                $closed->push([
+                    'coverage' => $mapping,
+                    'original_state' => $originalState,
+                ]);
+            });
+
+        return $closed;
     }
 }

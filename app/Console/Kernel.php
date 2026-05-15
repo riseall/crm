@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command('hrms:sync')
+            ->timezone('Asia/Jakarta')
             ->dailyAt('01:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/hrms-sync.log'));

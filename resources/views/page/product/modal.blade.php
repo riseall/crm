@@ -62,7 +62,7 @@
             $(document).on('click', '.btn-edit', function() {
                 var id = $(this).data('id');
 
-                $.get('{{ url('product') }}/' + id, function(data) {
+                $.get('{{ route('product.show', ':id') }}'.replace(':id', id), function(data) {
                     resetProductModal();
                     $('#pmId').val(data.id);
                     $('#modalPmLabel').text('Edit PM');
@@ -80,7 +80,7 @@
 
             $('#btnSimpan').on('click', function() {
                 var id = $('#pmId').val();
-                var url = id ? '{{ url('product') }}/' + id : '{{ route('product.store') }}';
+                var url = id ? '{{ route('product.update', ':id') }}'.replace(':id', id) : '{{ route('product.store') }}';
                 var method = id ? 'PUT' : 'POST';
 
                 $.ajax({
@@ -116,7 +116,7 @@
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '{{ url('product') }}/' + id,
+                            url: '{{ route('product.destroy', ':id') }}'.replace(':id', id),
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'
