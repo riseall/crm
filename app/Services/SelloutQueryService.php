@@ -5,11 +5,15 @@ namespace App\Services;
 use App\Http\Requests\DashboardFilterRequest;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SelloutQueryService
 {
     private const CACHE_TTL = 300;
+    private const CACHE_VERSION = 'v2';
+
+    private CoverageAccessService $coverageAccess;
 
     public const LEVEL_MAP = [
         'GM'  => '1',
@@ -28,6 +32,11 @@ class SelloutQueryService
      */
     private bool $tempTableCreated = false;
     private ?string $currentRange = null;
+
+    public function __construct(CoverageAccessService $coverageAccess)
+    {
+        $this->coverageAccess = $coverageAccess;
+    }
 
     // -------------------------------------------------------
     // TEMP TABLE — materialize union 3 distributor sekali saja
@@ -172,6 +181,16 @@ class SelloutQueryService
         return $query->whereBetween($column, [$start, $end]);
     }
 
+    private function normalizedPilarSql(string $column): string
+    {
+        return "CASE
+            WHEN {$column} IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
+            WHEN {$column} IN ('OGB', 'GENERIK') THEN 'OGB'
+            WHEN {$column} = 'OTC' THEN 'OTC'
+            ELSE {$column}
+        END";
+    }
+
     public function selloutUnion(?array $dateRange = null): Builder
     {
         if ($dateRange) {
@@ -238,6 +257,7 @@ class SelloutQueryService
         // FROM tmp_sellout langsung (bukan subquery union lagi)
         $query = DB::table('tmp_sellout as so');
         $query = $this->applyStandardJoins($query);
+        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
         // 1. Join ke Mapping dengan filter tanggal di ON clause
         if ($isHierarchical) {
@@ -245,7 +265,10 @@ class SelloutQueryService
             $query->leftJoin('mst_mappings as mc', function ($join) use ($targetLevelNum) {
                 $join->on('mo.id_coverage', 'like', DB::raw("CONCAT(mc.id_coverage, '%')"))
                     ->where('mc.cov_level', $targetLevelNum)
-                    ->whereRaw('so.tgl_faktur >= mc.valid_from')
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_from')
+                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                    })
                     ->where(function ($q) {
                         $q->whereNull('mc.valid_to')
                             ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
@@ -254,7 +277,10 @@ class SelloutQueryService
         } else {
             $query->leftJoin('mst_mappings as mc', function ($join) {
                 $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                    ->whereRaw('so.tgl_faktur >= mc.valid_from')
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_from')
+                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                    })
                     ->where(function ($q) {
                         $q->whereNull('mc.valid_to')
                             ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
@@ -308,10 +334,14 @@ class SelloutQueryService
 
         $query = DB::table('tmp_sellout as so');
         $query = $this->applyChartJoins($query);
+        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
         $query->leftJoin('mst_mappings as mc', function ($join) {
             $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                ->whereRaw('so.tgl_faktur >= mc.valid_from')
+                ->where(function ($q) {
+                    $q->whereNull('mc.valid_from')
+                        ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                })
                 ->where(function ($q) {
                     $q->whereNull('mc.valid_to')
                         ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
@@ -351,7 +381,7 @@ class SelloutQueryService
     {
         $this->ensureSelloutTempTable([$request->startDate(), $request->endDate()]);
 
-        return DB::table('tmp_sellout as so')
+        $query = DB::table('tmp_sellout as so')
             // Gunakan LEFT JOIN ke master outlet agar yang belum termapping tidak hilang
             ->leftJoin('mst_cust_dist as vcd', function ($join) {
                 $join->on('so.id_outlet', '=', 'vcd.id_outlet')
@@ -361,10 +391,28 @@ class SelloutQueryService
                 $join->on('so.code_product', '=', 'vp.pt_dist')
                     ->on('so.dist', '=', 'vp.dist');
             })
-            ->leftJoin('mst_outlets as mo', 'so.id_outlet', '=', 'mo.id_outlet')
-            ->leftJoin('mst_mappings as mc', 'mo.id_coverage', '=', 'mc.id_coverage')
+            ->leftJoin('mst_outlets as mo', function ($join) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')
+                    ->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from('mst_mappings as mx')
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                    });
+            })
+            ->leftJoin('mst_mappings as mc', function ($join) {
+                $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_from')
+                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_to')
+                            ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+                    });
+            })
             ->leftJoin('users as ma', 'mc.cov_nik', '=', 'ma.nik')
-            ->when($request->get('pilar'), fn($q, $p) => $q->where('vp.pilar', $p))
             ->when($request->get('coverage_id'), fn($q, $c) => $q->where('mo.id_coverage', $c))
             ->when($request->get('level'), fn($q, $l) => $q->where('mc.cov_level', $this->levelToNum($l)))
             ->select([
@@ -376,7 +424,7 @@ class SelloutQueryService
                 'mc.cov_nik',
                 'ma.name as user_name',
                 'mc.cov_level',
-                'vp.pilar',
+                DB::raw('COALESCE(mc.cov_pilar, vp.pilar) as pilar'),
                 DB::raw("CONCAT(MONTHNAME(so.tgl_faktur), ' ', YEAR(so.tgl_faktur)) as period"),
                 DB::raw('COUNT(so.id) as total_transaksi'),
                 DB::raw('SUM(so.netto) as total_netto'),
@@ -390,13 +438,18 @@ class SelloutQueryService
                 'mo.id_coverage',
                 'mc.cov_desc',
                 'mc.cov_nik',
-                'user_name',
+                'ma.name',
                 'mc.cov_level',
+                'mc.cov_pilar',
                 'vp.pilar',
-                'period',
+                DB::raw("CONCAT(MONTHNAME(so.tgl_faktur), ' ', YEAR(so.tgl_faktur))"),
                 'mc.valid_from',
                 'mc.valid_to'
             );
+
+        $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+
+        return $query;
     }
 
     // -------------------------------------------------------
@@ -414,7 +467,14 @@ class SelloutQueryService
     // -------------------------------------------------------
     public function cacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
     {
+        $user = Auth::user();
+        $userKey = $user
+            ? ($user->id . '|' . $user->nik . '|' . $user->getRoleNames()->sort()->implode(','))
+            : 'guest';
+
         $params = [
+            self::CACHE_VERSION,
+            $userKey,
             $request->bulan(),
             $request->tahun(),
             $request->get('level', ''),

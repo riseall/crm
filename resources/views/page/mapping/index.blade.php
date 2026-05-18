@@ -122,6 +122,19 @@
                 }, 150);
             });
 
+            var lookupTimer;
+            $('#id_coverage').on('input change', function() {
+                clearTimeout(lookupTimer);
+
+                if ($('#coverageId').val()) {
+                    return;
+                }
+
+                lookupTimer = setTimeout(function() {
+                    lookupCoverage();
+                }, 400);
+            });
+
             // Select2 untuk dropdown NIK anggota (AJAX)
             $('.select2-anggota').select2({
                 dropdownParent: $('#modalCoverage'),
@@ -144,12 +157,18 @@
                 minimumInputLength: 2,
             });
 
+            $('.select2-anggota').on('select2:select', function(e) {
+                var data = e.params && e.params.data ? e.params.data : {};
+                fillPicMetadata(data);
+            });
+
             // Auto-disable Combo jika pilar OTC
             $('#cov_pilar').on('change', function() {
                 if ($(this).val() === 'OTC') {
-                    $('#tanggung_jwb_pilar').val('Single').prop('disabled', true);
+                    setSelectValue($('#tanggung_jwb_pilar'), 'Single');
+                    $('#tanggung_jwb_pilar').prop('disabled', true).selectpicker('refresh');
                 } else {
-                    $('#tanggung_jwb_pilar').prop('disabled', false);
+                    $('#tanggung_jwb_pilar').prop('disabled', false).selectpicker('refresh');
                 }
             });
 
@@ -159,6 +178,10 @@
                 $('#modalCoverageLabel').text('Tambah Coverage');
                 $('#id_coverage').prop('readonly', false);
                 $('#modalCoverage').modal('show');
+            });
+
+            $('#modalCoverage').on('hidden.bs.modal', function() {
+                resetForm();
             });
 
             // Edit
@@ -172,9 +195,9 @@
                     $('#cov_desc').val(data.cov_desc);
                     setSelectValue($('#cov_divisi'), data.cov_divisi);
                     $('#cov_ket_cbg').val(data.cov_ket_cbg);
-                    $('#cov_pilar').val(data.cov_pilar).trigger('change');
+                    setSelectValue($('#cov_pilar'), data.cov_pilar);
                     setSelectValue($('#cov_level'), getLevelDesc(data));
-                    $('#tanggung_jwb_pilar').val(data.tanggung_jwb_pilar);
+                    setSelectValue($('#tanggung_jwb_pilar'), data.tanggung_jwb_pilar);
                     $('#valid_from').val(data.valid_from);
                     $('#valid_to').val(data.valid_to);
 
@@ -275,7 +298,8 @@
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '{{ route('mapping.destroy', ':id') }}'.replace(':id', id),
+                            url: '{{ route('mapping.destroy', ':id') }}'.replace(':id',
+                                id),
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'
@@ -297,19 +321,98 @@
                 $('#coverageId').val('');
                 $('#id_coverage').val('');
                 $('#cov_desc').val('');
-                $('#cov_divisi').val('');
+                setSelectValue($('#cov_divisi'), '');
                 $('#cov_ket_cbg').val('');
-                $('#cov_pilar').val('').trigger('change');
-                $('#cov_level').val('');
-                $('#tanggung_jwb_pilar').val('Single').prop('disabled', false);
+                setSelectValue($('#cov_pilar'), '');
+                setSelectValue($('#cov_level'), '');
+                setSelectValue($('#tanggung_jwb_pilar'), 'Single');
+                $('#tanggung_jwb_pilar').prop('disabled', false).selectpicker('refresh');
                 $('#valid_from').val('');
                 $('#valid_to').val('');
                 $('.select2-anggota').val(null).trigger('change');
+                $('#idCoverageHelp')
+                    .removeClass('text-success text-warning')
+                    .addClass('text-muted')
+                    .text('Kode coverage bisa dipakai ulang. Sistem hanya menjaga 1 baris aktif untuk setiap ID.');
+            }
+
+            function lookupCoverage() {
+                var idCoverage = $.trim($('#id_coverage').val());
+
+                if (!idCoverage) {
+                    $('#idCoverageHelp')
+                        .removeClass('text-success text-warning')
+                        .addClass('text-muted')
+                        .text(
+                            'Kode coverage bisa dipakai ulang. Sistem hanya menjaga 1 baris aktif untuk setiap ID.'
+                        );
+                    return;
+                }
+
+                $.get('{{ route('mapping.lookup.coverage') }}', {
+                    id_coverage: idCoverage
+                }).done(function(res) {
+                    if (!res.found || !res.coverage) {
+                        $('#idCoverageHelp')
+                            .removeClass('text-success')
+                            .addClass('text-muted')
+                            .text('Coverage belum pernah ada. Lengkapi data coverage baru.');
+                        return;
+                    }
+
+                    fillCoverageMetadata(res.coverage);
+                    $('#idCoverageHelp')
+                        .removeClass('text-muted text-warning')
+                        .addClass('text-success')
+                        .text(
+                            'Data coverage lama ditemukan dan otomatis diisi. Silakan lengkapi PIC dan tanggal valid baru.'
+                        );
+                });
+            }
+
+            function fillCoverageMetadata(data) {
+                $('#cov_desc').val(data.cov_desc || '');
+                setSelectValue($('#cov_divisi'), data.cov_divisi);
+                $('#cov_ket_cbg').val(data.cov_ket_cbg || '');
+                setSelectValue($('#cov_pilar'), data.cov_pilar || '');
+                // setSelectValue($('#cov_level'), data.level_desc || getLevelDesc(data));
+
+                if ($('#cov_pilar').val() === 'OTC') {
+                    setSelectValue($('#tanggung_jwb_pilar'), 'Single');
+                    $('#tanggung_jwb_pilar').prop('disabled', true).selectpicker('refresh');
+                } else {
+                    setSelectValue($('#tanggung_jwb_pilar'), data.responsibility || data.tanggung_jwb_pilar ||
+                        'Single');
+                    $('#tanggung_jwb_pilar').prop('disabled', false).selectpicker('refresh');
+                }
+            }
+
+            function fillPicMetadata(data) {
+                // if (data.level_desc) {
+                //     setSelectValue($('#cov_level'), data.level_desc);
+                // }
+
+                if (data.tanggal_masuk && !$('#valid_from').val()) {
+                    $('#valid_from').val(data.tanggal_masuk);
+                }
+
+                $('#valid_to').val(data.tanggal_keluar || '');
+
+                if (data.is_active === 0) {
+                    $('#formErrorAlert')
+                        .removeClass('d-none')
+                        .text('PIC yang dipilih berstatus nonaktif di HRMS.');
+                } else {
+                    $('#formErrorAlert').addClass('d-none').text('');
+                }
             }
 
             function setSelectValue($select, value) {
                 if (!value) {
-                    $select.val('');
+                    $select.val('').trigger('change');
+                    if ($select.hasClass('selectpicker')) {
+                        $select.selectpicker('refresh');
+                    }
                     return;
                 }
 
@@ -320,6 +423,10 @@
                 }
 
                 $select.val(value).trigger('change');
+
+                if ($select.hasClass('selectpicker')) {
+                    $select.selectpicker('refresh');
+                }
             }
 
             function getLevelDesc(data) {
