@@ -178,7 +178,7 @@
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
     <x-datatable-card title="Detail Performance per Anggota" subtitle="Data anggota sesuai filter yang dipilih"
         table-id="tblAnggota" table-class="table-sm" :load-assets="false">
-        <th>#</th>
+        <th>No</th>
         <th>NIK</th>
         <th>Nama</th>
         <th>Level</th>

@@ -3,22 +3,22 @@
 @section('content')
     <div class="row">
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="outlet tercoverage" value="{{ $totalData }}" subtitle="Entitas" subtitleColor="text-primary"
+            <x-stat-card title="total outlet" value="{{ $totalData }}" subtitle="Entitas" subtitleColor="text-primary"
                 icon="far fa-folder-open" color="primary">
             </x-stat-card>
         </div>
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="outlet belum tercoverage" value="{{ $totalBelumCoverage }}" subtitle="Entitas"
-                subtitleColor="text-danger" icon="far fa-folder-open" color="danger">
-            </x-stat-card>
-        </div>
-        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="DATA BARU" value="{{ $newData }}" subtitle="(7 Hari Terakhir)"
+            <x-stat-card title="outlet tercoverage" value="{{ $totalTercoverage }}" subtitle="Entitas"
                 subtitleColor="text-info" icon="far fa-file-alt" color="info">
             </x-stat-card>
         </div>
         <div class="col-xl col-lg-6 col-md-6 col-sm-6">
-            <x-stat-card title="PERUBAHAN HARI INI" value="{{ $updatedToday }}" subtitle="Updates"
+            <x-stat-card title="outlet belum tercoverage" value="{{ $totalBelumCoverage }}" subtitle="Entitas"
+                subtitleColor="text-danger" icon="far fa-file-excel" color="danger">
+            </x-stat-card>
+        </div>
+        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+            <x-stat-card title="butuh pengganti coverage" value="{{ $totalButuhPengganti }}" subtitle="Entitas"
                 subtitleColor="text-warning" icon="fas fa-history" color="warning">
             </x-stat-card>
         </div>
@@ -124,7 +124,7 @@
                     },
                     {
                         data: 'status',
-                        name: 'mst_outlets.needs_replacement',
+                        name: 'status',
                         className: 'text-center'
                     },
                     {

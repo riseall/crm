@@ -110,7 +110,7 @@ Dashboard.Charts = (function ($, H) {
                 : 'Netto per Bulan - ' + $('#filter_tahun').val();
             $('#chartTrendTitle').text(title);
 
-            var showLabel = res.data.length <= 15;
+            var showLabel = res.mode === 'hari' || res.data.length <= 15;
             chartTrend.updateOptions({
                 xaxis: { categories: res.labels },
                 dataLabels: { enabled: showLabel }

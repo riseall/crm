@@ -55,6 +55,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [MappingController::class, 'index'])->name('index');
         Route::get('/data', [MappingController::class, 'getData'])->name('data');
         Route::get('/anggota', [MappingController::class, 'getAnggota'])->name('anggota');
+        Route::get('/lookup-coverage', [MappingController::class, 'lookupByCoverage'])->name('lookup.coverage');
         Route::post('/', [MappingController::class, 'store'])->name('store');
         Route::get('/{id}', [MappingController::class, 'show'])->name('show');
         Route::put('/{id}', [MappingController::class, 'update'])->name('update');

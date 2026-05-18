@@ -50,13 +50,13 @@
 
     <x-datatable-card title="History Outlet"
         subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet"
-        table-class="table-sm" :load-assets="false">
-        <th>#</th>
+        :load-assets="true">
+        <th>No</th>
         <th>Dist</th>
         <th>Kode Outlet</th>
         <th>Nama Outlet</th>
-        <th>Coverage</th>
-        <th>Coverage Desc</th>
+        {{-- <th>Coverage</th>
+        <th>Coverage Desc</th> --}}
         <th>NIK</th>
         <th>Nama</th>
         <th>Level</th>
@@ -70,131 +70,15 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('js/datatables.bundle.js') }}"></script>
     <script>
-        $(document).ready(function() {
-            const defaultMonth = '{{ $currentMonth }}';
-            const defaultYear = '{{ $currentYear }}';
-
-            $('#filter_bulan').val(defaultMonth);
-            $('#filter_tahun').val(defaultYear);
-
-            const table = $('#tblHistoryOutlet').DataTable({
-                processing: true,
-                serverSide: true,
-                autoWidth: false,
-                searchDelay: 400,
-                ajax: {
-                    url: '{{ route('outlet.history.data') }}',
-                    data: d => $.extend({}, d, {
-                        bulan: $('#filter_bulan').val(),
-                        tahun: $('#filter_tahun').val(),
-                        coverage_id: $('#filter_coverage_id').val(),
-                    })
-                },
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'dist',
-                        name: 'so.dist',
-                        searchable: false
-                    },
-                    {
-                        data: 'id_outlet',
-                        name: 'so.id_outlet',
-                        searchable: false
-                    },
-                    {
-                        data: 'nama_outlet',
-                        name: 'vcd.nama_outlet',
-                        searchable: false
-                    },
-                    {
-                        data: 'id_coverage',
-                        name: 'mo.id_coverage',
-                        searchable: false,
-                        render: (data) => `<span class="font-weight-bold">${data}</span>`
-                    },
-                    {
-                        data: 'cov_desc',
-                        name: 'mc.cov_desc',
-                        defaultContent: '-',
-                        searchable: false
-                    },
-                    {
-                        data: 'cov_nik',
-                        name: 'mc.cov_nik',
-                        searchable: false
-                    },
-                    {
-                        data: 'user_name',
-                        name: 'ma.name',
-                        searchable: false,
-                        render: function(data) {
-                            return data || '-';
-                        }
-                    },
-                    {
-                        data: 'level_name',
-                        name: 'mc.cov_level',
-                        searchable: false,
-                        render: v => `<span class="badge badge-light-primary">${v}</span>`
-                    },
-                    {
-                        data: 'pilar',
-                        name: 'vp.pilar',
-                        searchable: false
-                    },
-                    {
-                        data: 'valid_from',
-                        name: 'mc.valid_from',
-                        searchable: false
-                    },
-                    {
-                        data: 'valid_to',
-                        name: 'mc.valid_to',
-                        searchable: false,
-                        render: v => v || 'Sekarang'
-                    },
-                    {
-                        data: 'status_label',
-                        name: 'status_label',
-                        searchable: false,
-                        render: (v, t, r) =>
-                            `<span class="badge ${r.status_class || 'badge-secondary'}">${v || 'Aktif'}</span>`,
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'total_transaksi',
-                        name: 'total_transaksi',
-                        searchable: false,
-                        className: 'text-right',
-                        render: $.fn.dataTable.render.number('.', ',', 0)
-                    },
-                    {
-                        data: 'total_netto',
-                        name: 'total_netto',
-                        searchable: false,
-                        className: 'text-right',
-                        render: (data) =>
-                            `<strong>Rp ${parseFloat(data).toLocaleString('id-ID')}</strong>`
-                    }
-                ],
-                order: [
-                    [14, 'desc']
-                ],
-            });
-
-            $('#btnApplyHistoryFilter').on('click', function() {
-                table.ajax.reload(null, false);
-            });
-
-            $('#btnAllOutlets').on('click', function() {
-                window.location.href = '{{ route('outlet.history') }}';
-            });
-        });
+        window.OutletHistoryPage = {
+            defaultMonth: @json($currentMonth),
+            defaultYear: @json($currentYear),
+            routes: {
+                index: "{{ route('outlet.history') }}",
+                data: "{{ route('outlet.history.data') }}",
+            }
+        };
     </script>
+    <script src="{{ asset('js/outlet/history.js') }}"></script>
 @endpush

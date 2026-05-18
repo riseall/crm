@@ -1,5 +1,6 @@
 <script>
     window.DashboardPage = {
+        access: @json($dashboardAccess ?? []),
         routes: {
             summary: "{{ route('dashboard.summary') }}",
             chartHari: "{{ route('dashboard.chart.hari') }}",

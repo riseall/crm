@@ -23,30 +23,6 @@
     <!--end::Layout Themes-->
     <link rel="shortcut icon" href="{{ asset('images/logo/crm-favicon.png') }}" />
 
-    <style>
-        .dataTables_wrapper .dataTables_filter {
-            text-align: right !important;
-        }
-
-        .dataTables_wrapper .dataTables_filter label {
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            width: 100%;
-            margin-bottom: 0;
-        }
-
-        .dataTables_wrapper .dataTables_filter input {
-            margin-left: 0 !important;
-            max-width: 260px;
-        }
-
-        .dataTables_wrapper .dataTables_processing {
-            display: none !important;
-        }
-    </style>
-
     @stack('styles')
 </head>
 <!--end::Head-->
@@ -94,7 +70,7 @@
                                 if (auth()->check()) {
                                     $hasAlertRole = auth()
                                         ->user()
-                                        ->hasAnyRole(['Admin IT', 'Marketing Insight']);
+                                        ->hasAnyRole(['Super Admin', 'Admin IT', 'Marketing Insight']);
 
                                     if ($hasAlertRole) {
                                         $coverageNotificationPayload = $coverageAlertService->pendingAlertPayload();
@@ -220,65 +196,10 @@
                         previous: 'Sebelumnya',
                         next: 'Berikutnya',
                     },
-                },
+                }
             });
 
             $.fn.dataTable.ext.errMode = 'none';
-
-            let loadingCount = 0;
-            let loadingTimer = null;
-            let loadingVisible = false;
-
-            function openLoading() {
-                if (!window.Swal || loadingVisible) {
-                    return;
-                }
-
-                loadingVisible = true;
-                Swal.fire({
-                    title: 'Loading data...',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => Swal.showLoading(),
-                });
-            }
-
-            function closeLoading() {
-                if (loadingTimer) {
-                    clearTimeout(loadingTimer);
-                    loadingTimer = null;
-                }
-
-                if (loadingVisible && window.Swal) {
-                    Swal.close();
-                }
-
-                loadingVisible = false;
-            }
-
-            $(document).on('processing.dt', 'table.dataTable', function(e, settings, processing) {
-                if (processing) {
-                    loadingCount += 1;
-
-                    if (loadingTimer) {
-                        clearTimeout(loadingTimer);
-                    }
-
-                    loadingTimer = window.setTimeout(function() {
-                        if (loadingCount > 0) {
-                            openLoading();
-                        }
-                    }, 150);
-                    return;
-                }
-
-                loadingCount = Math.max(loadingCount - 1, 0);
-
-                if (loadingCount === 0) {
-                    closeLoading();
-                }
-            });
 
         })(jQuery);
     </script>
