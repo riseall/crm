@@ -31,18 +31,9 @@ class CoverageReplacementAlertService
 
     public function notify(Mapping $coverage): void
     {
-        $outletCount = Outlet::where('id_coverage', $coverage->id_coverage)->count();
-        $productCount = Product::where('id_coverage', $coverage->id_coverage)->count();
-
-        if ($outletCount > 0) {
-            Outlet::where('id_coverage', $coverage->id_coverage)
-                ->update(['needs_replacement' => true]);
-        }
-
-        if ($productCount > 0) {
-            Product::where('id_coverage', $coverage->id_coverage)
-                ->update(['needs_replacement' => true]);
-        }
+        $counts = $this->syncReplacementFlag($coverage);
+        $outletCount = $counts['outlets'];
+        $productCount = $counts['products'];
 
         if ($outletCount === 0 && $productCount === 0) {
             return;
@@ -66,6 +57,25 @@ class CoverageReplacementAlertService
                 'message'     => $notificationException->getMessage(),
             ]);
         }
+    }
+
+    public function syncReplacementFlag(Mapping $coverage): array
+    {
+        $needsReplacement = !$coverage->is_active || !empty($coverage->valid_to);
+
+        $outletCount = Outlet::where('id_coverage', $coverage->id_coverage)->count();
+        $productCount = Product::where('id_coverage', $coverage->id_coverage)->count();
+
+        Outlet::where('id_coverage', $coverage->id_coverage)
+            ->update(['needs_replacement' => $needsReplacement]);
+
+        Product::where('id_coverage', $coverage->id_coverage)
+            ->update(['needs_replacement' => $needsReplacement]);
+
+        return [
+            'outlets' => $outletCount,
+            'products' => $productCount,
+        ];
     }
 
     public function recipients(): Collection

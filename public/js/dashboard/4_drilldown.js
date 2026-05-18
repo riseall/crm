@@ -7,14 +7,18 @@ var Dashboard = Dashboard || {};
 Dashboard.Drilldown = (function ($, H) {
     var route = '';
     var drillStack = [];
+    var defaultLevel = 'GM';
 
-    function init(drillRoute) {
+    function init(drillRoute, options) {
         route = drillRoute;
+        options = options || {};
+        defaultLevel = options.defaultLevel || 'GM';
         bindEvents();
     }
 
-    function reset() {
-        drillStack = [{ level: 'GM', parentId: '', label: 'GM' }];
+    function reset(level) {
+        var startLevel = level || defaultLevel || 'GM';
+        drillStack = [{ level: startLevel, parentId: '', label: startLevel }];
         loadDrillDown();
     }
 

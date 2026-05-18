@@ -10,10 +10,12 @@ use Yajra\DataTables\DataTables;
 class DashboardService
 {
     private $sellout;
+    private CoverageAccessService $coverageAccess;
 
-    public function __construct(SelloutQueryService $sellout)
+    public function __construct(SelloutQueryService $sellout, CoverageAccessService $coverageAccess)
     {
         $this->sellout = $sellout;
+        $this->coverageAccess = $coverageAccess;
     }
 
     // -------------------------------------------------------
@@ -215,7 +217,12 @@ class DashboardService
     // -------------------------------------------------------
     public function getDrillDown(DashboardFilterRequest $request): array
     {
+        $accessConfig = $this->coverageAccess->dashboardAccessConfig(auth()->user());
+        $allowedLevels = $accessConfig['drilldown_levels'] ?? [];
         $levelName  = $request->get('level', 'GM');
+        if (!empty($allowedLevels) && !in_array($levelName, $allowedLevels, true)) {
+            $levelName = $allowedLevels[0];
+        }
         $parentId   = $request->get('coverage_id');
         $levelNum   = $this->sellout->levelToNum($levelName);
 
@@ -341,6 +348,7 @@ class DashboardService
         $base = $this->sellout->baseQueryByYear($request)
             ->selectRaw('
       so.id_outlet,
+      mo.id_coverage,
       vcd.nama_outlet,
       mc.cov_nik,      -- Penting: Masuk Select
       ma.name,        -- Penting: Masuk Select
@@ -353,6 +361,7 @@ class DashboardService
     ')
             ->groupBy(
                 'so.id_outlet',
+                'mo.id_coverage',
                 'vcd.nama_outlet',
                 'mc.cov_nik',
                 'ma.name',
@@ -361,6 +370,10 @@ class DashboardService
                 'mc.valid_from',
                 'mc.valid_to'
             );
+
+        if ($request->filled('coverage_id')) {
+            $base->where('mo.id_coverage', $request->coverage_id);
+        }
 
         $total = $this->sellout->countGrouped(clone $base);
 

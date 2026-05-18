@@ -1,5 +1,10 @@
 <div class="row mb-5">
     <div class="col-md-12">
+        @php
+            $dashboardAccess = $dashboardAccess ?? [];
+            $drilldownLevels = $dashboardAccess['drilldown_levels'] ?? ($drilldownLevels ?? ['GM']);
+            $drilldownDefaultLevel = $dashboardAccess['default_drilldown_level'] ?? ($drilldownDefaultLevel ?? ($drilldownLevels[0] ?? 'GM'));
+        @endphp
         <div class="card card-custom">
             <div class="card-header flex-wrap py-3">
                 <div class="card-title">
@@ -14,7 +19,9 @@
                 <div class="card-toolbar">
                     {{-- Breadcrumb navigasi drill-down --}}
                     <div class="drill-path" id="drillPath">
-                        <span class="crumb active" data-level="GM" data-parent="">GM</span>
+                        <span class="crumb active" data-level="{{ $drilldownDefaultLevel }}" data-parent="">
+                            {{ $drilldownDefaultLevel }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -23,9 +30,9 @@
                 {{-- Tombol pilih level --}}
                 <div class="mb-4 d-flex align-items-center">
                     <span class="text-muted font-size-sm mr-3">Tampilkan level:</span>
-                    @foreach (['GM', 'RM', 'SAM', 'AM', 'MR'] as $lv)
+                    @foreach ($drilldownLevels as $lv)
                         <button
-                            class="btn btn-sm btn-outline-primary mr-2 btn-drill-level {{ $lv === 'GM' ? 'active' : '' }}"
+                            class="btn btn-sm btn-outline-primary mr-2 btn-drill-level {{ $lv === $drilldownDefaultLevel ? 'active' : '' }}"
                             data-level="{{ $lv }}">
                             {{ $lv }}
                         </button>

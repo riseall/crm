@@ -28,7 +28,7 @@ class DashboardFilterRequest extends FormRequest
             'bulan'       => 'nullable|integer|min:1|max:12',
             'tahun'       => 'nullable|integer|min:2020|max:' . date('Y'),
             'level'       => 'nullable|in:GM,RM,SAM,AM,MR',
-            'pilar'       => 'nullable|in:ETHICAL,OGB,OTC',
+            'pilar'       => 'nullable|in:ETHICAL,OGB,GENERIK,OTC',
             'distributor' => 'nullable|in:KFTD,AAM,METD',
             'coverage_id' => 'nullable|string',
         ];

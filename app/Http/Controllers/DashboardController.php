@@ -3,16 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\DashboardFilterRequest;
+use App\Services\CoverageAccessService;
 use App\Services\DashboardService;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
     private DashboardService $service;
+    private CoverageAccessService $coverageAccess;
 
-    public function __construct(DashboardService $service)
+    public function __construct(DashboardService $service, CoverageAccessService $coverageAccess)
     {
         $this->middleware('auth');
         $this->service = $service;
+        $this->coverageAccess = $coverageAccess;
     }
 
     // -------------------------------------------------------
@@ -20,8 +24,13 @@ class DashboardController extends Controller
     // -------------------------------------------------------
     public function index()
     {
+        $user = Auth::user();
+        $dashboardAccess = $this->coverageAccess->dashboardAccessConfig($user);
+
         return view('page.dashboard.index', [
-            'levels' => ['GM', 'RM', 'SAM', 'AM', 'MR'],
+            'dashboardAccess' => $dashboardAccess,
+            'drilldownLevels' => $dashboardAccess['drilldown_levels'],
+            'drilldownDefaultLevel' => $dashboardAccess['default_drilldown_level'],
             'pilars' => ['ETHICAL', 'OGB', 'OTC'],
             'months' => collect(range(1, 12))
                 ->mapWithKeys(fn($m) => [$m => date('F', mktime(0, 0, 0, $m, 1))])
