@@ -119,7 +119,10 @@ class FortifyServiceProvider extends ServiceProvider
                     [
                         'name' => $spkUser->nama,
                         'email' => $spkUser->email,
-                        'jabatan' => $spkUser->ref_nama_jabatan
+                        'jabatan' => $spkUser->ref_nama_jabatan,
+                        'is_active' => $this->hrmsIsActive((array) $spkUser),
+                        'tanggal_masuk' => $this->hrmsDate((array) $spkUser, ['tanggal_masuk', 'tgl_masuk', 'date_in', 'join_date']),
+                        'tanggal_keluar' => $this->hrmsDate((array) $spkUser, ['tanggal_keluar', 'tgl_keluar', 'date_out', 'resign_date']),
                     ]
                 );
 
@@ -139,5 +142,29 @@ class FortifyServiceProvider extends ServiceProvider
 
             return null;
         });
+    }
+
+    protected function hrmsIsActive(array $anggota): int
+    {
+        if (array_key_exists('is_active', $anggota)) {
+            return (int) $anggota['is_active'] === 1 ? 1 : 0;
+        }
+
+        if (array_key_exists('status_hapus', $anggota)) {
+            return (int) $anggota['status_hapus'] === 1 ? 1 : 0;
+        }
+
+        return 1;
+    }
+
+    protected function hrmsDate(array $anggota, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!empty($anggota[$key])) {
+                return date('Y-m-d', strtotime($anggota[$key]));
+            }
+        }
+
+        return null;
     }
 }

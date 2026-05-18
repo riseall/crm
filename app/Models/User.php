@@ -21,7 +21,16 @@ class User extends Authenticatable
         'nik',
         'name',
         'email',
-        'jabatan'
+        'jabatan',
+        'is_active',
+        'tanggal_masuk',
+        'tanggal_keluar',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'tanggal_masuk' => 'date:Y-m-d',
+        'tanggal_keluar' => 'date:Y-m-d',
     ];
 
     /**
@@ -32,4 +41,9 @@ class User extends Authenticatable
     protected $hidden = [
         'remember_token',
     ];
+
+    public function coverages()
+    {
+        return $this->hasMany(Mapping::class, 'cov_nik', 'nik')->active();
+    }
 }

@@ -36,13 +36,14 @@ class SyncHrmsCommand extends Command
             $this->info('Total anggota dari HRMS: ' . count($anggotaList));
 
             $deactivatedNiks = [];
+            $activatedNiks = [];
             $inactiveNiks = [];
             $today = now()->toDateString();
 
             // 2. Loop dan update tabel users
             foreach ($anggotaList as $anggota) {
                 $nik       = $anggota['nik'];
-                $isActive  = $anggota['is_active'] ?? 1;
+                $isActive  = $this->hrmsIsActive($anggota);
 
                 if ((int) $isActive === 0) {
                     $inactiveNiks[] = $nik;
@@ -60,12 +61,19 @@ class SyncHrmsCommand extends Command
                         'email'     => $anggota['email'] ?? $localUser->email,
                         'jabatan'   => $anggota['ref_nama_jabatan'] ?? $localUser->jabatan,
                         'is_active' => $isActive,
+                        'tanggal_masuk' => $this->hrmsDate($anggota, ['tanggal_masuk', 'tgl_masuk', 'date_in', 'join_date']),
+                        'tanggal_keluar' => $this->hrmsDate($anggota, ['tanggal_keluar', 'tgl_keluar', 'date_out', 'resign_date']),
                     ]);
 
                     // 3. Deteksi perubahan is_active menjadi 0
                     if ($wasActive == 1 && $isActive == 0) {
                         $deactivatedNiks[] = $nik;
                         $this->warn("NIK {$nik} ({$anggota['nama']}) terdeteksi resign/nonaktif.");
+                    }
+
+                    if ($wasActive == 0 && $isActive == 1) {
+                        $activatedNiks[] = $nik;
+                        $this->info("NIK {$nik} ({$anggota['nama']}) aktif kembali.");
                     }
                 }
                 // Jika belum pernah login, skip (user dibuat saat login)
@@ -97,10 +105,27 @@ class SyncHrmsCommand extends Command
                 }
             }
 
+            $niksToActivate = array_values(array_unique($activatedNiks));
+
+            if (!empty($niksToActivate)) {
+                $this->info('Memproses ' . count($niksToActivate) . ' NIK aktif...');
+                $alertService = app(CoverageReplacementAlertService::class);
+
+                foreach ($niksToActivate as $nik) {
+                    $openedCoverages = $this->openCoveragesForNik($nik);
+
+                    foreach ($openedCoverages as $coverage) {
+                        $alertService->syncReplacementFlag($coverage);
+                        $this->info("Coverage {$coverage->id_coverage} disesuaikan aktif untuk NIK {$nik}.");
+                    }
+                }
+            }
+
             $this->info('Sync HRMS selesai.');
             Log::info('HRMS Sync completed', [
                 'total'       => count($anggotaList),
                 'deactivated' => count($deactivatedNiks),
+                'activated'   => count($activatedNiks),
                 'inactive'    => count($inactiveNiks),
             ]);
             return 0;
@@ -135,5 +160,45 @@ class SyncHrmsCommand extends Command
         });
 
         return $activeCoverages;
+    }
+
+    protected function openCoveragesForNik(string $nik): Collection
+    {
+        $coverages = Mapping::where('cov_nik', $nik)
+            ->where('is_active', false)
+            ->get();
+
+        $coverages->each(function ($coverage) {
+            $coverage->update([
+                'valid_to'  => null,
+                'is_active' => true,
+            ]);
+        });
+
+        return $coverages;
+    }
+
+    protected function hrmsIsActive(array $anggota): int
+    {
+        if (array_key_exists('is_active', $anggota)) {
+            return (int) $anggota['is_active'] === 1 ? 1 : 0;
+        }
+
+        if (array_key_exists('status_hapus', $anggota)) {
+            return (int) $anggota['status_hapus'] === 1 ? 1 : 0;
+        }
+
+        return 1;
+    }
+
+    protected function hrmsDate(array $anggota, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!empty($anggota[$key])) {
+                return date('Y-m-d', strtotime($anggota[$key]));
+            }
+        }
+
+        return null;
     }
 }

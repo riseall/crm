@@ -106,11 +106,63 @@ class MappingController extends Controller
                 $q->where('nik', 'like', "%$search%")
                     ->orWhere('nama', 'like', "%$search%");
             })
-            ->select('nik as id', DB::raw("CONCAT(nik, ' - ', nama) as text"))
             ->limit(30)
-            ->get();
+            ->get()
+            ->map(function ($row) {
+                $anggota = (array) $row;
+
+                return [
+                    'id' => $row->nik,
+                    'text' => $row->nik . ' - ' . $row->nama,
+                    'name' => $row->nama,
+                    'email' => $row->email ?? null,
+                    'jabatan' => $row->ref_nama_jabatan ?? null,
+                    'is_active' => $this->hrmsIsActive($anggota),
+                    'tanggal_masuk' => $this->hrmsDate($anggota, ['tanggal_masuk', 'tgl_masuk', 'date_in', 'join_date']),
+                    'tanggal_keluar' => $this->hrmsDate($anggota, ['tanggal_keluar', 'tgl_keluar', 'date_out', 'resign_date']),
+                    // 'level_desc' => $this->inferLevelDesc($row->ref_nama_jabatan ?? null),
+                ];
+            });
 
         return response()->json(['results' => $anggota]);
+    }
+
+    public function lookupByCoverage(Request $request)
+    {
+        $request->validate([
+            'id_coverage' => 'required|string',
+        ]);
+
+        $coverage = Mapping::query()
+            ->where('id_coverage', $request->id_coverage)
+            ->orderByDesc('id')
+            ->first([
+                'id_coverage',
+                'cov_desc',
+                'cov_divisi',
+                'cov_ket_cbg',
+                'cov_pilar',
+                'cov_level',
+                'cov_level_desc',
+                'tanggung_jwb_pilar',
+            ]);
+
+        if (!$coverage) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'coverage' => [
+                'id_coverage' => $coverage->id_coverage,
+                'cov_desc' => $coverage->cov_desc,
+                'cov_divisi' => $coverage->cov_divisi,
+                'cov_ket_cbg' => $coverage->cov_ket_cbg,
+                'cov_pilar' => $coverage->cov_pilar,
+                'level_desc' => $coverage->cov_level_desc ?: $this->levelNumToDesc($coverage->cov_level),
+                'responsibility' => $coverage->tanggung_jwb_pilar,
+            ],
+        ]);
     }
 
     public function store(Request $request)
@@ -137,6 +189,10 @@ class MappingController extends Controller
         ];
         $autoLevel = $levelMapping[$request->cov_level_desc] ?? null;
 
+        if (!$this->isNikActive($request->cov_nik)) {
+            return response()->json(['success' => false, 'message' => 'PIC yang dipilih berstatus nonaktif di HRMS.'], 422);
+        }
+
         DB::beginTransaction();
         try {
             $today = Carbon::today()->toDateString();
@@ -157,7 +213,7 @@ class MappingController extends Controller
                 return response()->json(['success' => false, 'message' => $validation['message']], 422);
             }
 
-            Mapping::create([
+            $coverage = Mapping::create([
                 'id_coverage'        => $request->id_coverage,
                 'cov_desc'           => $request->cov_desc,
                 'cov_divisi'         => $request->cov_divisi,
@@ -179,6 +235,7 @@ class MappingController extends Controller
                     $alertService->notify($item['coverage']);
                 }
             }
+            $alertService->syncReplacementFlag($coverage);
 
             return response()->json(['success' => true, 'message' => 'Coverage berhasil ditambahkan.']);
         } catch (\Exception $e) {
@@ -219,12 +276,17 @@ class MappingController extends Controller
         ];
         $autoLevel = $levelMapping[$request->cov_level_desc] ?? null;
 
+        if (!$this->isNikActive($request->cov_nik)) {
+            return response()->json(['success' => false, 'message' => 'PIC yang dipilih berstatus nonaktif di HRMS.'], 422);
+        }
+
         // Validasi Single/Combo (exclude diri sendiri)
         $validation = Mapping::validateCoverage(
             $request->cov_nik,
             $request->cov_pilar,
             $request->tanggung_jwb_pilar,
-            $id
+            $id,
+            (bool) $coverage->is_active
         );
 
         if (!$validation['valid']) {
@@ -248,6 +310,7 @@ class MappingController extends Controller
 
             DB::commit();
 
+            app(CoverageReplacementAlertService::class)->syncReplacementFlag($coverage);
             $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
 
             return response()->json(['success' => true, 'message' => 'Coverage berhasil diupdate.']);
@@ -280,6 +343,20 @@ class MappingController extends Controller
                 $coverage->save();
             } else {
                 $closedCoverages = $this->closeActiveMappingsByCode($coverage->id_coverage, $today);
+
+                $validation = Mapping::validateCoverage(
+                    $coverage->cov_nik,
+                    $coverage->cov_pilar,
+                    $coverage->tanggung_jwb_pilar,
+                    $coverage->id,
+                    true
+                );
+
+                if (!$validation['valid']) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => $validation['message']], 422);
+                }
+
                 $coverage->is_active = true;
                 $coverage->valid_to  = null;
                 $coverage->save();
@@ -291,6 +368,7 @@ class MappingController extends Controller
                     $alertService->notify($item['coverage']);
                 }
             }
+            $alertService->syncReplacementFlag($coverage);
             $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
 
             return response()->json([
@@ -325,6 +403,19 @@ class MappingController extends Controller
         return response()->json(['success' => true, 'message' => 'Coverage berhasil dihapus.']);
     }
 
+    protected function levelNumToDesc($level): ?string
+    {
+        $levelMap = [
+            1 => 'GM',
+            2 => 'RM',
+            3 => 'SAM',
+            4 => 'AM',
+            5 => 'MR/SR',
+        ];
+
+        return $levelMap[(int) $level] ?? null;
+    }
+
     protected function dispatchCoverageReplacementAlertIfNeeded(Mapping $coverage, array $originalState): void
     {
         $alertService = app(CoverageReplacementAlertService::class);
@@ -338,6 +429,75 @@ class MappingController extends Controller
         } catch (\Throwable $notificationException) {
             report($notificationException);
         }
+    }
+
+    protected function isNikActive(string $nik): bool
+    {
+        $anggota = DB::connection('db_master')
+            ->table('mst_anggota')
+            ->where('nik', $nik)
+            ->first();
+
+        if (!$anggota) {
+            return true;
+        }
+
+        return $this->hrmsIsActive((array) $anggota) === 1;
+    }
+
+    protected function hrmsIsActive(array $anggota): int
+    {
+        if (array_key_exists('is_active', $anggota)) {
+            return (int) $anggota['is_active'] === 1 ? 1 : 0;
+        }
+
+        if (array_key_exists('status_hapus', $anggota)) {
+            return (int) $anggota['status_hapus'] === 1 ? 1 : 0;
+        }
+
+        return 1;
+    }
+
+    protected function hrmsDate(array $anggota, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!empty($anggota[$key])) {
+                return date('Y-m-d', strtotime($anggota[$key]));
+            }
+        }
+
+        return null;
+    }
+
+    protected function inferLevelDesc(?string $jabatan): ?string
+    {
+        if (!$jabatan) {
+            return null;
+        }
+
+        $upper = strtoupper($jabatan);
+
+        if (str_contains($upper, 'GM')) {
+            return 'GM';
+        }
+
+        if (str_contains($upper, 'RM') || str_contains($upper, 'PM')) {
+            return 'RM';
+        }
+
+        if (str_contains($upper, 'SAM')) {
+            return 'SAM';
+        }
+
+        if (str_contains($upper, 'AM')) {
+            return 'AM';
+        }
+
+        if (str_contains($upper, 'MR') || str_contains($upper, 'SR')) {
+            return 'MR/SR';
+        }
+
+        return null;
     }
 
     protected function closeActiveMappingsByCode(string $idCoverage, string $today): \Illuminate\Support\Collection
