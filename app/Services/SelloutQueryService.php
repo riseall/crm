@@ -139,8 +139,12 @@ class SelloutQueryService
             })
             ->leftJoin('mst_outlets as mo', function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->on('so.id_cbg',    '=', 'mo.id_cbg')
-                    ->on('vp.pilar',     '=', 'mo.pilar');
+                    ->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from('mst_mappings as mx')
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                    });
             });
     }
 
@@ -157,8 +161,12 @@ class SelloutQueryService
             })
             ->leftJoin('mst_outlets as mo', function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->on('so.id_cbg', '=', 'mo.id_cbg')
-                    ->on('vp.pilar', '=', 'mo.pilar');
+                    ->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from('mst_mappings as mx')
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                    });
             });
     }
 
@@ -184,11 +192,30 @@ class SelloutQueryService
     private function normalizedPilarSql(string $column): string
     {
         return "CASE
-            WHEN {$column} IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
-            WHEN {$column} IN ('OGB', 'GENERIK') THEN 'OGB'
-            WHEN {$column} = 'OTC' THEN 'OTC'
-            ELSE {$column}
+            WHEN UPPER(TRIM({$column})) IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
+            WHEN UPPER(TRIM({$column})) IN ('OGB', 'GENERIK') THEN 'OGB'
+            WHEN UPPER(TRIM({$column})) = 'OTC' THEN 'OTC'
+            ELSE UPPER(TRIM({$column}))
         END";
+    }
+
+    private function normalizePilarValue(?string $pilar): ?string
+    {
+        if ($pilar === null || $pilar === '') {
+            return null;
+        }
+
+        $pilar = strtoupper(trim($pilar));
+
+        switch ($pilar) {
+            case 'ETHICOM':
+            case 'ETHIPROM':
+                return 'ETHICAL';
+            case 'GENERIK':
+                return 'OGB';
+            default:
+                return $pilar;
+        }
     }
 
     public function selloutUnion(?array $dateRange = null): Builder
@@ -265,6 +292,7 @@ class SelloutQueryService
             $query->leftJoin('mst_mappings as mc', function ($join) use ($targetLevelNum) {
                 $join->on('mo.id_coverage', 'like', DB::raw("CONCAT(mc.id_coverage, '%')"))
                     ->where('mc.cov_level', $targetLevelNum)
+                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
                     ->where(function ($q) {
                         $q->whereNull('mc.valid_from')
                             ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
@@ -277,6 +305,7 @@ class SelloutQueryService
         } else {
             $query->leftJoin('mst_mappings as mc', function ($join) {
                 $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
                     ->where(function ($q) {
                         $q->whereNull('mc.valid_from')
                             ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
@@ -297,7 +326,9 @@ class SelloutQueryService
         }
 
         if ($request->filled('pilar')) {
-            $query->where('vp.pilar', $request->pilar);
+            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
+                $this->normalizePilarValue($request->pilar),
+            ]);
         }
 
         if ($request->filled('distributor')) {
@@ -338,6 +369,7 @@ class SelloutQueryService
 
         $query->leftJoin('mst_mappings as mc', function ($join) {
             $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
                 ->where(function ($q) {
                     $q->whereNull('mc.valid_from')
                         ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
@@ -353,7 +385,9 @@ class SelloutQueryService
         }
 
         if ($request->filled('pilar')) {
-            $query->where('vp.pilar', $request->pilar);
+            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
+                $this->normalizePilarValue($request->pilar),
+            ]);
         }
 
         if ($request->filled('distributor')) {
@@ -467,6 +501,7 @@ class SelloutQueryService
     // -------------------------------------------------------
     public function cacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
     {
+        /** @var \App\Models\User */
         $user = Auth::user();
         $userKey = $user
             ? ($user->id . '|' . $user->nik . '|' . $user->getRoleNames()->sort()->implode(','))
