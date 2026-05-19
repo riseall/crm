@@ -5,9 +5,7 @@ use App\Http\Controllers\MappingController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
-use App\Http\Requests\DashboardFilterRequest;
 use App\Notifications\CoverageNeedsReplacementNotification;
-use App\Services\SelloutQueryService;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -107,89 +105,4 @@ Route::middleware('auth')->group(function () {
 
         return back()->with('status', 'Notifikasi coverage sudah ditandai dibaca.');
     })->name('notifications.coverage.read');
-});
-
-
-// Route::get('/debug-sellout', function (Request $request, SelloutQueryService $service) {
-//     $results = $this->service->baseQuery(new \App\Http\Requests\DashboardFilterRequest([
-//         'bulan' => 5,
-//         'tahun' => 2026
-//     ]))
-//         ->selectRaw('
-//         so.dist as distributor,
-//         SUM(so.netto) as total_netto,
-//         COUNT(DISTINCT so.id_outlet) as total_outlet,
-//         COUNT(so.id) as total_transaksi
-//     ')
-//         ->groupBy('so.dist')
-//         ->get();
-
-//     // Jika ingin melihat hasilnya langsung
-//     dd($results->toArray());
-// });
-
-Route::get('/debug-sellout', function (SelloutQueryService $service) {
-    // 1. Buat Mock Request untuk bulan Mei 2026
-    $mockRequest = new \App\Http\Requests\DashboardFilterRequest([
-        'bulan' => 1,
-        'tahun' => 2026
-    ]);
-
-    // 2. Ambil Base Query
-    // baseQuery sudah mencakup Union 3 tabel dan applyStandardJoins
-    $query = $service->baseQuery($mockRequest);
-
-    // 3. Agregasi per Distributor
-    $dataPerDist = (clone $query)
-        ->selectRaw('
-            so.dist,
-            SUM(so.netto) as total_netto,
-            COUNT(*) as total_baris_transaksi,
-            COUNT(DISTINCT so.id_outlet) as total_outlet
-        ')
-        ->groupBy('so.dist')
-        ->orderBy('total_netto', 'desc')
-        ->get();
-
-    // 4. Hitung Total Keseluruhan (Grand Total)
-    $grandTotal = [
-        'netto' => $dataPerDist->sum('total_netto'),
-        'baris' => $dataPerDist->sum('total_baris_transaksi'),
-        'outlet' => $query->distinct('so.id_outlet')->count('so.id_outlet')
-    ];
-
-    // 5. Dump untuk pengecekan
-    dd([
-        'periode' => $mockRequest->bulan  . '/' . '2026',
-        'grand_total' => $grandTotal,
-        'data_per_distributor' => $dataPerDist->toArray(),
-        'sql_debug' => [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings()
-        ]
-    ]);
-});
-
-
-Route::get('/debug-unmapped-pilar', function () {
-    // Kita ambil data mentah dari tabel transaksi (so) 
-    // yang tidak punya pasangan di tabel pilar/produk (vp)
-    $data = DB::table('selling_out_aam as so') // Ganti 'sellouts' dengan nama tabel transaksi kamu
-        ->leftJoin('v_pt_mstr_dist as vp', 'so.material', '=', 'vp.pt_dist') // Ganti dengan key join kamu
-        ->whereNull('vp.pilar')
-        ->orWhere('vp.pilar', '')
-        ->select(
-            'so.material',
-            // 'so.nama_produk',
-            'so.nilai_netto',
-            'vp.pilar as status_pilar'
-        )
-        ->limit(100)
-        ->get();
-
-    dd([
-        'jumlah_item_bermasalah' => $data->count(),
-        'sampel_data' => $data,
-        'query_log' => DB::getQueryLog() // Pastikan DB::enableQueryLog() jika ingin intip SQL-nya
-    ]);
 });
