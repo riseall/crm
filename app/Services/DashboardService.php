@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Http\Requests\DashboardFilterRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Yajra\DataTables\DataTables;
 
 class DashboardService
 {
@@ -42,11 +41,16 @@ class DashboardService
                     COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.id END) as total_transaksi,
                     SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
                 ", [
-                    $currentStart, $currentEnd,
-                    $currentStart, $currentEnd,
-                    $currentStart, $currentEnd,
-                    $currentStart, $currentEnd,
-                    $prevStart, $prevEnd,
+                    $currentStart,
+                    $currentEnd,
+                    $currentStart,
+                    $currentEnd,
+                    $currentStart,
+                    $currentEnd,
+                    $currentStart,
+                    $currentEnd,
+                    $prevStart,
+                    $prevEnd,
                 ])
                 ->first();
 
@@ -142,7 +146,6 @@ class DashboardService
             $this->sellout->cacheKey('chart_pilar', $request),
             $this->sellout->cacheTtl(),
             function () use ($request) {
-                // Gunakan baseQuery yang sama persis dengan Card
                 $results = $this->sellout->baseChartQuery($request)
                     // GUNAKAN vp.pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
                     ->selectRaw('COALESCE(vp.pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
@@ -170,7 +173,9 @@ class DashboardService
                     ->selectRaw("
                     CASE 
                         WHEN mc.cov_divisi = 'Reguler' THEN 'Reguler' 
-                        WHEN mc.cov_divisi IS NULL THEN 'UNMAPPED'
+                        WHEN mo.id_coverage IS NULL THEN 'Belum Mapping'
+                        WHEN mc.id_coverage IS NULL THEN 'Mapping Tidak Aktif di Periode'
+                        WHEN mc.cov_divisi IS NULL OR mc.cov_divisi = '' THEN 'Divisi Kosong'
                         ELSE 'CMA' 
                     END as divisi_name, 
                     SUM(so.netto) as total_netto
@@ -332,87 +337,6 @@ class DashboardService
             'recordsTotal'    => $total,
             'recordsFiltered' => $filtered,
             'data'            => $records,
-        ];
-    }
-
-    // -------------------------------------------------------
-    // TABEL: History Outlet (DataTables server-side)
-    // -------------------------------------------------------
-    public function getTableOutlet(DashboardFilterRequest $request): array
-    {
-        $draw  = (int) $request->get('draw', 1);
-        $start = (int) $request->get('start', 0);
-        $length = (int) $request->get('length', 10);
-        $search = $request->get('search')['value'] ?? '';
-
-        $base = $this->sellout->baseQueryByYear($request)
-            ->selectRaw('
-      so.id_outlet,
-      mo.id_coverage,
-      vcd.nama_outlet,
-      mc.cov_nik,      -- Penting: Masuk Select
-      ma.name,        -- Penting: Masuk Select
-      mc.cov_level,
-      mc.cov_pilar as pilar,
-      mc.valid_from,
-      mc.valid_to,
-      SUM(so.netto) as total_netto,
-      COUNT(DISTINCT so.id) as total_transaksi
-    ')
-            ->groupBy(
-                'so.id_outlet',
-                'mo.id_coverage',
-                'vcd.nama_outlet',
-                'mc.cov_nik',
-                'ma.name',
-                'mc.cov_level',
-                'mc.cov_pilar',
-                'mc.valid_from',
-                'mc.valid_to'
-            );
-
-        if ($request->filled('coverage_id')) {
-            $base->where('mo.id_coverage', $request->coverage_id);
-        }
-
-        $total = $this->sellout->countGrouped(clone $base);
-
-        if ($search) {
-            $base->where(function ($q) use ($search) {
-                $q->where('vcd.nama_outlet', 'like', "%$search%")
-                    ->orWhere('so.id_outlet', 'like', "%$search%")
-                    ->orWhere('ma.name', 'like', "%$search%");
-            });
-
-            $filtered = $this->sellout->countGrouped(clone $base);
-        } else {
-            $filtered = $total;
-        }
-        $records = $base->orderByDesc('total_netto')->offset($start)->limit($length)->get();
-
-        $records->transform(function ($row) {
-            $now = now();
-            // Cek status berdasarkan valid_to terhadap tgl sekarang
-            $row->is_expired = false;
-            if ($row->valid_to && \Carbon\Carbon::parse($row->valid_to)->lt($now)) {
-                $row->is_expired = true;
-            }
-
-            $row->level_name = $this->sellout->numToLevel($row->cov_level);
-
-            // Label jika data mapping tidak ditemukan di periode tersebut
-            if (empty($row->cov_nik) || $row->cov_nik == '-') {
-                $row->name = "BELUM TERCOVERAGE (Periode Ini)";
-            }
-
-            return $row;
-        });
-
-        return [
-            'draw'      => $draw,
-            'recordsTotal'  => $total,
-            'recordsFiltered' => $filtered,
-            'data'      => $records,
         ];
     }
 }

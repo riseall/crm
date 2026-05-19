@@ -24,11 +24,6 @@ class OutletController extends Controller
         $this->coverageAccess = $coverageAccess;
     }
 
-    // public function __construct()
-    // {
-    //     $this->middleware('permission:mapping-list|mapping-create|mapping-edit|mapping-delete');
-    // }
-
     public function index()
     {
         // $user = auth()->user();
@@ -141,7 +136,7 @@ class OutletController extends Controller
             })
             ->addColumn('status', function ($row) {
                 if (empty($row->id_coverage)) {
-                    return '<span class="label label-inline label-danger">Unmapped</span>';
+                    return '<span class="badge badge-warning text-white">Unmapped</span>';
                 }
 
                 $needsReplacement = (bool) $row->needs_replacement
@@ -150,8 +145,8 @@ class OutletController extends Controller
                     || !empty($row->valid_to);
 
                 return $needsReplacement
-                    ? '<span class="label label-inline label-warning">Butuh Pengganti</span>'
-                    : '<span class="label label-inline label-success">OK</span>';
+                    ? '<span class="badge badge-info">Butuh Pengganti</span>'
+                    : '<span class="badge badge-success">OK</span>';
             })
             ->filterColumn('status', function ($query, $keyword) {
                 $keyword = strtolower($keyword);
@@ -285,7 +280,7 @@ class OutletController extends Controller
             })
             ->editColumn('user_name', function ($row) {
                 if (empty($row->cov_nik) || $row->cov_nik === '-') {
-                    return '<span class="badge badge-light-danger">BELUM TERMAPPING</span>';
+                    return '<span class="font-size-sm">Unmapped</span>';
                 }
 
                 return $row->user_name ?: '-';
