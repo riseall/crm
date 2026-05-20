@@ -9,6 +9,7 @@ class MPart extends Model
 {
     use HasFactory;
 
+    protected $connection = 'db_dwh';
     protected $table = 'v_pt_mstr_dist';
 
     public $incrementing = false;

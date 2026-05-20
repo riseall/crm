@@ -10,7 +10,8 @@ class Outlet extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'mst_outlets';
+    protected $connection = 'db_dwh';
+    protected $table = 'crm_mst_outlets';
     protected $primaryKey = 'id';
 
     protected $fillable = [

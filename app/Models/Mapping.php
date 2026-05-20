@@ -10,7 +10,8 @@ class Mapping extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'mst_mappings';
+    protected $connection = 'db_dwh';
+    protected $table = 'crm_mst_mappings';
 
     protected $fillable = [
         'id_coverage',
@@ -99,7 +100,7 @@ class Mapping extends Model
             }
 
             $samePilar = $existing
-                ->filter(fn ($row) => self::normalizePilar($row->cov_pilar) === $pilar)
+                ->filter(fn($row) => self::normalizePilar($row->cov_pilar) === $pilar)
                 ->count();
             if ($samePilar >= 1) {
                 return ['valid' => false, 'message' => "NIK ini sudah memiliki coverage pilar {$pilar} yang aktif."];

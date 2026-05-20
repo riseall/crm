@@ -21,7 +21,7 @@ class CreateOutletsTable extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('id_coverage')->references('id_coverage')->on('mst_mappings');
+            $table->foreign('id_coverage')->references('id_coverage')->on('crm_mst_mappings');
             $table->unique(['id_outlet', 'id_coverage']);
         });
     }

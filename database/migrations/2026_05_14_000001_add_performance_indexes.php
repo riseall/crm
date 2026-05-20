@@ -16,60 +16,60 @@ return new class extends Migration
         // ----------------------------------------------------------
         // selling_out_kftd
         // ----------------------------------------------------------
-        Schema::table('selling_out_kftd', function (Blueprint $table) {
-            // Filter tanggal di selloutUnion
-            if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_posting_date')) {
-                $table->index('posting_date', 'idx_kftd_posting_date');
-            }
-            // Filter principle
-            if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_principle')) {
-                $table->index('principle', 'idx_kftd_principle');
-            }
-            // Composite: paling sering difilter bersamaan
-            if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_principle_date')) {
-                $table->index(['principle', 'posting_date'], 'idx_kftd_principle_date');
-            }
-        });
+        // Schema::table('selling_out_kftd', function (Blueprint $table) {
+        //     // Filter tanggal di selloutUnion
+        //     if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_posting_date')) {
+        //         $table->index('posting_date', 'idx_kftd_posting_date');
+        //     }
+        //     // Filter principle
+        //     if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_principle')) {
+        //         $table->index('principle', 'idx_kftd_principle');
+        //     }
+        //     // Composite: paling sering difilter bersamaan
+        //     if (!$this->hasIndex('selling_out_kftd', 'idx_kftd_principle_date')) {
+        //         $table->index(['principle', 'posting_date'], 'idx_kftd_principle_date');
+        //     }
+        // });
 
         // ----------------------------------------------------------
         // selling_out_aam
-        // ----------------------------------------------------------
-        Schema::table('selling_out_aam', function (Blueprint $table) {
-            if (!$this->hasIndex('selling_out_aam', 'idx_aam_posting_date')) {
-                $table->index('posting_date', 'idx_aam_posting_date');
-            }
-        });
+        // // ----------------------------------------------------------
+        // Schema::table('selling_out_aam', function (Blueprint $table) {
+        //     if (!$this->hasIndex('selling_out_aam', 'idx_aam_posting_date')) {
+        //         $table->index('posting_date', 'idx_aam_posting_date');
+        //     }
+        // });
 
         // ----------------------------------------------------------
         // selling_out_metd
         // ----------------------------------------------------------
-        Schema::table('selling_out_metd', function (Blueprint $table) {
-            if (!$this->hasIndex('selling_out_metd', 'idx_metd_tgl_faktur')) {
-                $table->index('tgl_faktur', 'idx_metd_tgl_faktur');
-            }
-        });
+        // Schema::table('selling_out_metd', function (Blueprint $table) {
+        //     if (!$this->hasIndex('selling_out_metd', 'idx_metd_tgl_faktur')) {
+        //         $table->index('tgl_faktur', 'idx_metd_tgl_faktur');
+        //     }
+        // });
 
         // ----------------------------------------------------------
-        // mst_mappings
+        // crm_mst_mappings
         // ----------------------------------------------------------
-        Schema::table('mst_mappings', function (Blueprint $table) {
+        Schema::table('crm_mst_mappings', function (Blueprint $table) {
             // Filter periode aktif di baseQuery & outletHistoryQuery
-            if (!$this->hasIndex('mst_mappings', 'idx_mapping_valid_from')) {
+            if (!$this->hasIndex('crm_mst_mappings', 'idx_mapping_valid_from')) {
                 $table->index('valid_from', 'idx_mapping_valid_from');
             }
-            if (!$this->hasIndex('mst_mappings', 'idx_mapping_valid_to')) {
+            if (!$this->hasIndex('crm_mst_mappings', 'idx_mapping_valid_to')) {
                 $table->index('valid_to', 'idx_mapping_valid_to');
             }
             // Filter level di baseQuery
-            if (!$this->hasIndex('mst_mappings', 'idx_mapping_cov_level')) {
+            if (!$this->hasIndex('crm_mst_mappings', 'idx_mapping_cov_level')) {
                 $table->index('cov_level', 'idx_mapping_cov_level');
             }
             // JOIN ke mst_outlets
-            if (!$this->hasIndex('mst_mappings', 'idx_mapping_id_coverage')) {
+            if (!$this->hasIndex('crm_mst_mappings', 'idx_mapping_id_coverage')) {
                 $table->index('id_coverage', 'idx_mapping_id_coverage');
             }
             // Filter is_active di OutletController->data()
-            if (!$this->hasIndex('mst_mappings', 'idx_mapping_is_active')) {
+            if (!$this->hasIndex('crm_mst_mappings', 'idx_mapping_is_active')) {
                 $table->index('is_active', 'idx_mapping_is_active');
             }
         });
@@ -79,9 +79,9 @@ return new class extends Migration
         // ----------------------------------------------------------
         Schema::table('mst_outlets', function (Blueprint $table) {
             // JOIN dari sellout via id_outlet + id_cbg
-            if (!$this->hasIndex('mst_outlets', 'idx_outlet_id_outlet_cbg')) {
-                $table->index(['id_outlet', 'id_cbg'], 'idx_outlet_id_outlet_cbg');
-            }
+            // if (!$this->hasIndex('mst_outlets', 'idx_outlet_id_outlet_cbg')) {
+            //     $table->index(['id_outlet', 'id_cbg'], 'idx_outlet_id_outlet_cbg');
+            // }
             // needs_replacement untuk filter di OutletController
             if (!$this->hasIndex('mst_outlets', 'idx_outlet_needs_replacement')) {
                 $table->index('needs_replacement', 'idx_outlet_needs_replacement');
@@ -105,7 +105,7 @@ return new class extends Migration
             $table->dropIndexIfExists('idx_metd_tgl_faktur');
         });
 
-        Schema::table('mst_mappings', function (Blueprint $table) {
+        Schema::table('crm_mst_mappings', function (Blueprint $table) {
             $table->dropIndexIfExists('idx_mapping_valid_from');
             $table->dropIndexIfExists('idx_mapping_valid_to');
             $table->dropIndexIfExists('idx_mapping_cov_level');
