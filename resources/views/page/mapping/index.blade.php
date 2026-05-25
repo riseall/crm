@@ -111,7 +111,10 @@
                         className: 'text-center text-nowrap',
                         width: '125px'
                     },
-                ]
+                ],
+                order: [
+                    [1, 'asc']
+                ],
             });
 
             var resizeTimer;

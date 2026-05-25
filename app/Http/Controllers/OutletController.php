@@ -24,13 +24,24 @@ class OutletController extends Controller
         $this->coverageAccess = $coverageAccess;
     }
 
+    private function dwhTable(string $table): string
+    {
+        return DB::connection('db_dwh')->getDatabaseName() . '.' . $table;
+    }
+
+    private function authTable(string $table): string
+    {
+        return DB::connection('mysql')->getDatabaseName() . '.' . $table;
+    }
+
     public function index()
     {
         // $user = auth()->user();
-        $totalData = MCustDist::query()->leftJoin('mst_outlets', 'mst_cust_dist.id_outlet', '=', 'mst_outlets.id_outlet')->count();
-        $totalTercoverage = MCustDist::query()->leftJoin('mst_outlets', 'mst_cust_dist.id_outlet', '=', 'mst_outlets.id_outlet')->whereNotNull('mst_outlets.id_coverage')->count();
-        $totalBelumCoverage = MCustDist::query()->leftJoin('mst_outlets', 'mst_cust_dist.id_outlet', '=', 'mst_outlets.id_outlet')->whereNull('mst_outlets.id_coverage')->count();
-        $totalButuhPengganti = MCustDist::query()->leftJoin('mst_outlets', 'mst_cust_dist.id_outlet', '=', 'mst_outlets.id_outlet')->where('mst_outlets.needs_replacement', 1)->count();
+        $outletsTable = DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets');
+        $totalData = MCustDist::query()->leftJoin($outletsTable, 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->count();
+        $totalTercoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->whereNotNull('crm_mst_outlets.id_coverage')->count();
+        $totalBelumCoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->whereNull('crm_mst_outlets.id_coverage')->count();
+        $totalButuhPengganti = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->where('crm_mst_outlets.needs_replacement', 1)->count();
         // $newData = Outlet::where('created_at', '>=', now()->subDays(7))->count();
         // $updatedToday = Outlet::whereDate('updated_at', today())->count();
         $coverage = Mapping::active()
@@ -56,13 +67,7 @@ class OutletController extends Controller
             ->mapWithKeys(fn($m) => [$m => date('F', mktime(0, 0, 0, $m, 1))])
             ->toArray();
 
-        $coverageList = Mapping::active()
-            ->with('user:nik,name')
-            ->orderBy('id_coverage')
-            ->get(['id', 'id_coverage', 'cov_desc', 'cov_nik', 'cov_level', 'cov_pilar']);
-        $coverageList = $this->coverageAccess->filterCoverageCollection($coverageList, $user);
-
-        return view('page.outlet.history', compact('years', 'months', 'coverageList') + [
+        return view('page.outlet.history', compact('years', 'months') + [
             'currentMonth' => (int) $now->month,
             'currentYear' => (int) $now->year,
         ]);
@@ -70,40 +75,41 @@ class OutletController extends Controller
 
     public function data(Request $request)
     {
-        $latestMappings = DB::table('mst_mappings')
+        $latestMappings = DB::connection('db_dwh')
+            ->table('crm_mst_mappings')
             ->selectRaw('MAX(id) as id, id_coverage')
             ->whereNull('deleted_at')
             ->groupBy('id_coverage');
 
         $query = MCustDist::where('dist', '!=', 'Nusindo')
-            ->leftJoin('mst_outlets', 'mst_cust_dist.id_outlet', '=', 'mst_outlets.id_outlet')
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')
             ->leftJoinSub($latestMappings, 'latest_mappings', function ($join) {
-                $join->on('mst_outlets.id_coverage', '=', 'latest_mappings.id_coverage');
+                $join->on('crm_mst_outlets.id_coverage', '=', 'latest_mappings.id_coverage');
             })
-            ->leftJoin('mst_mappings', function ($join) {
-                $join->on('latest_mappings.id', '=', 'mst_mappings.id');
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as crm_mst_mappings'), function ($join) {
+                $join->on('latest_mappings.id', '=', 'crm_mst_mappings.id');
             })
-            ->leftJoin('users', 'mst_mappings.cov_nik', '=', 'users.nik')
+            ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
             ->select([
-                'mst_outlets.id',
+                'crm_mst_outlets.id',
                 'mst_cust_dist.id_outlet',
-                'mst_outlets.id_coverage',
-                'mst_outlets.needs_replacement',
+                'crm_mst_outlets.id_coverage',
+                'crm_mst_outlets.needs_replacement',
                 'mst_cust_dist.dist',
                 'mst_cust_dist.nama_outlet',
                 'mst_cust_dist.id_cbg_dist',
                 // 'mst_cust_dist.nama_cabang',
                 // 'mst_cust_dist.kota',
                 'mst_cust_dist.segment',
-                'mst_mappings.cov_pilar as pilar',
-                'mst_mappings.cov_nik',
-                'mst_mappings.id as mapping_id',
-                'mst_mappings.valid_to',
-                DB::raw('COALESCE(mst_mappings.is_active, 0) as mapping_is_active'),
+                'crm_mst_mappings.cov_pilar as pilar',
+                'crm_mst_mappings.cov_nik',
+                'crm_mst_mappings.id as mapping_id',
+                'crm_mst_mappings.valid_to',
+                DB::raw('COALESCE(crm_mst_mappings.is_active, 0) as mapping_is_active'),
                 'users.name as user_name',
             ]);
 
-        $this->coverageAccess->applyScope($query, 'mst_outlets.id_coverage');
+        $this->coverageAccess->applyScope($query, 'crm_mst_outlets.id_coverage');
 
         return DataTables::of($query)
             ->addIndexColumn()
@@ -153,37 +159,37 @@ class OutletController extends Controller
 
                 if (str_contains('unmapped', $keyword) || str_contains('belum', $keyword)) {
                     $query->where(function ($q) {
-                        $q->whereNull('mst_outlets.id_coverage')
-                            ->orWhere('mst_outlets.id_coverage', '');
+                        $q->whereNull('crm_mst_outlets.id_coverage')
+                            ->orWhere('crm_mst_outlets.id_coverage', '');
                     });
                     return;
                 }
 
                 if (str_contains('butuh pengganti', $keyword) || str_contains('pengganti', $keyword)) {
                     $query->where(function ($q) {
-                        $q->whereNotNull('mst_outlets.id_coverage')
-                            ->where('mst_outlets.id_coverage', '!=', '')
+                        $q->whereNotNull('crm_mst_outlets.id_coverage')
+                            ->where('crm_mst_outlets.id_coverage', '!=', '')
                             ->where(function ($qq) {
-                                $qq->where('mst_outlets.needs_replacement', true)
-                                    ->orWhereNull('mst_mappings.id')
-                                    ->orWhere('mst_mappings.is_active', false)
-                                    ->orWhereNotNull('mst_mappings.valid_to');
+                                $qq->where('crm_mst_outlets.needs_replacement', true)
+                                    ->orWhereNull('crm_mst_mappings.id')
+                                    ->orWhere('crm_mst_mappings.is_active', false)
+                                    ->orWhereNotNull('crm_mst_mappings.valid_to');
                             });
                     });
                     return;
                 }
 
                 if (str_contains('ok', $keyword)) {
-                    $query->whereNotNull('mst_outlets.id_coverage')
-                        ->where('mst_outlets.id_coverage', '!=', '')
-                        ->where('mst_outlets.needs_replacement', false)
-                        ->whereNotNull('mst_mappings.id')
-                        ->where('mst_mappings.is_active', true)
-                        ->whereNull('mst_mappings.valid_to');
+                    $query->whereNotNull('crm_mst_outlets.id_coverage')
+                        ->where('crm_mst_outlets.id_coverage', '!=', '')
+                        ->where('crm_mst_outlets.needs_replacement', false)
+                        ->whereNotNull('crm_mst_mappings.id')
+                        ->where('crm_mst_mappings.is_active', true)
+                        ->whereNull('crm_mst_mappings.valid_to');
                 }
             })
             ->orderColumn('status', function ($query, $order) {
-                $query->orderByRaw("(CASE WHEN mst_outlets.id_coverage IS NULL OR mst_outlets.id_coverage = '' THEN 0 WHEN mst_outlets.needs_replacement = 1 OR mst_mappings.id IS NULL OR COALESCE(mst_mappings.is_active, 0) = 0 OR mst_mappings.valid_to IS NOT NULL THEN 1 ELSE 2 END) {$order}");
+                $query->orderByRaw("(CASE WHEN crm_mst_outlets.id_coverage IS NULL OR crm_mst_outlets.id_coverage = '' THEN 0 WHEN crm_mst_outlets.needs_replacement = 1 OR crm_mst_mappings.id IS NULL OR COALESCE(crm_mst_mappings.is_active, 0) = 0 OR crm_mst_mappings.valid_to IS NOT NULL THEN 1 ELSE 2 END) {$order}");
             })
             ->addColumn('action', function ($row) {
                 if (empty($row->id)) {
@@ -207,7 +213,40 @@ class OutletController extends Controller
 
     public function historyData(DashboardFilterRequest $request)
     {
-        $base = $this->sellout->outletHistoryQuery($request);
+        $base = $this->sellout->outletHistoryQuery($request)
+            ->selectRaw('
+                so.dist,
+                so.id_outlet,
+                so.outlet_name,
+                so.coverage_id,
+                so.coverage_desc,
+                so.coverage_nik,
+                so.user_name,
+                so.coverage_level,
+                so.coverage_pilar,
+                so.product_pilar,
+                so.coverage_valid_from,
+                so.coverage_valid_to,
+                MIN(so.tgl_faktur) as bulan_date,
+                COUNT(so.source_id) as total_transaksi,
+                SUM(so.netto) as total_netto
+            ')
+            ->groupBy(
+                'so.dist',
+                'so.id_outlet',
+                'so.outlet_name',
+                'so.coverage_id',
+                'so.coverage_desc',
+                'so.coverage_nik',
+                'so.user_name',
+                'so.coverage_level',
+                'so.coverage_pilar',
+                'so.product_pilar',
+                'so.coverage_valid_from',
+                'so.coverage_valid_to',
+                DB::raw('YEAR(so.tgl_faktur)'),
+                DB::raw('MONTH(so.tgl_faktur)')
+            );
 
         $datatable = DataTables::of($base)
             ->filter(function ($query) use ($request) {
@@ -222,64 +261,80 @@ class OutletController extends Controller
 
                     $q->where('so.dist', 'like', $like)
                         ->orWhere('so.id_outlet', 'like', $like)
-                        ->orWhere('vcd.nama_outlet', 'like', $like)
-                        ->orWhere('mo.id_coverage', 'like', $like)
-                        ->orWhere('mc.cov_desc', 'like', $like)
-                        ->orWhere('mc.cov_nik', 'like', $like)
-                        ->orWhere('ma.name', 'like', $like)
-                        ->orWhere('vp.pilar', 'like', $like)
-                        ->orWhere('mc.cov_pilar', 'like', $like)
-                        ->orWhere('mc.valid_from', 'like', $like)
-                        ->orWhere('mc.valid_to', 'like', $like)
+                        ->orWhere('so.outlet_name', 'like', $like)
+                        ->orWhere('so.coverage_id', 'like', $like)
+                        ->orWhere('so.coverage_desc', 'like', $like)
+                        ->orWhere('so.coverage_nik', 'like', $like)
+                        ->orWhere('so.user_name', 'like', $like)
+                        ->orWhere('so.product_pilar', 'like', $like)
+                        ->orWhere('so.coverage_pilar', 'like', $like)
+                        ->orWhere('so.coverage_valid_from', 'like', $like)
+                        ->orWhere('so.coverage_valid_to', 'like', $like)
                         ->orWhereRaw("DATE_FORMAT(so.tgl_faktur, '%M %Y') like ?", [$like])
-                        ->orWhereRaw("DATE_FORMAT(mc.valid_from, '%Y-%m-%d') like ?", [$like])
-                        ->orWhereRaw("DATE_FORMAT(mc.valid_to, '%Y-%m-%d') like ?", [$like])
-                        ->orWhereRaw("(CASE WHEN mo.id_coverage IS NULL OR mc.cov_nik IS NULL OR mc.cov_nik = '' THEN 'Unmapped' WHEN mc.valid_to IS NULL OR mc.valid_to >= CURDATE() THEN 'Aktif' ELSE 'Non-aktif' END) like ?", [$like])
-                        ->orWhereRaw("(CASE mc.cov_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
+                        ->orWhereRaw("DATE_FORMAT(so.coverage_valid_from, '%Y-%m-%d') like ?", [$like])
+                        ->orWhereRaw("DATE_FORMAT(so.coverage_valid_to, '%Y-%m-%d') like ?", [$like])
+                        ->orWhereRaw("(CASE WHEN so.coverage_id IS NULL OR so.coverage_nik IS NULL OR so.coverage_nik = '' THEN 'Unmapped' WHEN so.coverage_valid_to IS NULL OR so.coverage_valid_to >= CURDATE() THEN 'Aktif' ELSE 'Non-aktif' END) like ?", [$like])
+                        ->orWhereRaw("(CASE so.coverage_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
                 });
             }, true)
             ->orderColumn('dist', 'so.dist $1')
             ->orderColumn('id_outlet', 'so.id_outlet $1')
-            ->orderColumn('nama_outlet', 'vcd.nama_outlet $1')
-            ->orderColumn('id_coverage', 'mo.id_coverage $1')
-            ->orderColumn('cov_desc', 'mc.cov_desc $1')
-            ->orderColumn('cov_nik', 'mc.cov_nik $1')
-            ->orderColumn('user_name', 'ma.name $1')
-            ->orderColumn('level_name', 'mc.cov_level $1')
-            ->orderColumn('pilar', 'COALESCE(mc.cov_pilar, vp.pilar) $1')
-            ->orderColumn('valid_from', 'mc.valid_from $1')
-            ->orderColumn('valid_to', 'mc.valid_to $1')
+            ->orderColumn('outlet_name', 'so.outlet_name $1')
+            ->orderColumn('coverage_id', 'so.coverage_id $1')
+            ->orderColumn('coverage_desc', 'so.coverage_desc $1')
+            ->orderColumn('coverage_nik', 'so.coverage_nik $1')
+            ->orderColumn('user_name', 'so.user_name $1')
+            ->orderColumn('coverage_level', 'so.coverage_level $1')
+            ->orderColumn('product_pilar', 'so.product_pilar $1')
+            ->orderColumn('bulan', 'MIN(so.tgl_faktur) $1')
             ->orderColumn('status_label', function ($query, $order) {
-                $query->orderByRaw("(CASE WHEN mo.id_coverage IS NULL OR mc.cov_nik IS NULL OR mc.cov_nik = '' THEN 0 WHEN mc.valid_to IS NULL OR mc.valid_to >= CURDATE() THEN 2 ELSE 1 END) {$order}");
+                $query->orderByRaw("(CASE WHEN so.coverage_id IS NULL OR so.coverage_nik IS NULL OR so.coverage_nik = '' THEN 0 WHEN so.coverage_valid_to IS NULL OR so.coverage_valid_to >= CURDATE() THEN 2 ELSE 1 END) {$order}");
             })
-            ->orderColumn('total_transaksi', 'COUNT(so.id) $1')
+            ->orderColumn('total_transaksi', 'COUNT(so.source_id) $1')
             ->orderColumn('total_netto', 'SUM(so.netto) $1')
-            ->editColumn('valid_to', function ($row) {
-                return $row->valid_to ?: null;
+            ->addColumn('bulan', function ($row) {
+                $months = [
+                    1 => 'Januari',
+                    2 => 'Februari',
+                    3 => 'Maret',
+                    4 => 'April',
+                    5 => 'Mei',
+                    6 => 'Juni',
+                    7 => 'Juli',
+                    8 => 'Agustus',
+                    9 => 'September',
+                    10 => 'Oktober',
+                    11 => 'November',
+                    12 => 'Desember',
+                ];
+
+                $date = \Carbon\Carbon::parse($row->bulan_date);
+
+                return ($months[(int) $date->month] ?? $date->format('F')) . ' ' . $date->year;
             })
-            ->editColumn('level_name', function ($row) {
-                return $this->sellout->numToLevel($row->cov_level);
+            ->editColumn('coverage_level', function ($row) {
+                return $this->sellout->numToLevel($row->coverage_level);
             })
             ->editColumn('status_label', function ($row) {
-                if (empty($row->id_coverage) || empty($row->cov_nik) || $row->cov_nik === '-') {
+                if (empty($row->coverage_id) || empty($row->coverage_nik) || $row->coverage_nik === '-') {
                     return 'Unmapped';
                 }
 
-                $isExpired = $row->valid_to && \Carbon\Carbon::parse($row->valid_to)->lt(now());
+                $isExpired = $row->coverage_valid_to && \Carbon\Carbon::parse($row->coverage_valid_to)->lt(now());
 
                 return $isExpired ? 'Non-aktif' : 'Aktif';
             })
             ->addColumn('status_class', function ($row) {
-                if (empty($row->id_coverage) || empty($row->cov_nik) || $row->cov_nik === '-') {
+                if (empty($row->coverage_id) || empty($row->coverage_nik) || $row->coverage_nik === '-') {
                     return 'badge-warning text-white';
                 }
 
-                $isExpired = $row->valid_to && \Carbon\Carbon::parse($row->valid_to)->lt(now());
+                $isExpired = $row->coverage_valid_to && \Carbon\Carbon::parse($row->coverage_valid_to)->lt(now());
 
                 return $isExpired ? 'badge-danger' : 'badge-success';
             })
             ->editColumn('user_name', function ($row) {
-                if (empty($row->cov_nik) || $row->cov_nik === '-') {
+                if (empty($row->coverage_nik) || $row->coverage_nik === '-') {
                     return '<span class="font-size-sm">Unmapped</span>';
                 }
 
@@ -308,11 +363,46 @@ class OutletController extends Controller
         return response()->json(['results' => $outlets]);
     }
 
+    public function getCoverage(Request $request)
+    {
+        $search = trim((string) $request->get('q', ''));
+
+        $query = DB::connection('db_dwh')
+            ->table('crm_mst_mappings')
+            ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
+            ->where('crm_mst_mappings.is_active', true)
+            ->where('crm_mst_mappings.cov_level', 5)
+            ->whereNull('crm_mst_mappings.deleted_at');
+
+        $this->coverageAccess->applyScope($query, 'crm_mst_mappings.id_coverage');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $like = '%' . $search . '%';
+
+                $q->where('crm_mst_mappings.id_coverage', 'like', $like)
+                    ->orWhere('crm_mst_mappings.cov_nik', 'like', $like)
+                    ->orWhere('crm_mst_mappings.cov_desc', 'like', $like)
+                    ->orWhere('users.name', 'like', $like);
+            });
+        }
+
+        $coverage = $query
+            ->orderBy('crm_mst_mappings.id_coverage')
+            ->limit(30)
+            ->get([
+                DB::raw('crm_mst_mappings.id_coverage as id'),
+                DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
+            ]);
+
+        return response()->json(['results' => $coverage]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'id_outlet'   => 'required|string',
-            'id_coverage' => 'required|string|exists:mst_mappings,id_coverage',
+            'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
         // Cek duplikat
@@ -359,7 +449,7 @@ class OutletController extends Controller
     {
         $request->validate([
             'id_outlet'   => 'required|string',
-            'id_coverage' => 'required|string|exists:mst_mappings,id_coverage',
+            'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
         $mapping = Outlet::findOrFail($id);
@@ -376,13 +466,13 @@ class OutletController extends Controller
     public function bulkUpdateCoverage(Request $request)
     {
         $request->validate([
-            'old_coverage_id' => 'required|string|exists:mst_mappings,id_coverage',
-            'new_coverage_id' => 'required|string|exists:mst_mappings,id_coverage|different:old_coverage_id',
+            'old_coverage_id' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
+            'new_coverage_id' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage|different:old_coverage_id',
             'mapping_ids'     => 'required|array|min:1',
             'mapping_ids.*'   => 'required|integer',
         ]);
 
-        DB::beginTransaction();
+        DB::connection('db_dwh')->beginTransaction();
         try {
             $updatedCount = Outlet::where('id_coverage', $request->old_coverage_id)
                 ->whereIn('id', $request->mapping_ids)
@@ -391,7 +481,7 @@ class OutletController extends Controller
                     'needs_replacement' => false,
                 ]);
 
-            DB::commit();
+            DB::connection('db_dwh')->commit();
 
             if ($updatedCount === 0) {
                 return response()->json([
@@ -405,7 +495,7 @@ class OutletController extends Controller
                 'message' => $updatedCount . ' outlet berhasil dipindahkan ke coverage baru.'
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
+            DB::connection('db_dwh')->rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }

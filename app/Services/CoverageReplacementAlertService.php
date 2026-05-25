@@ -85,13 +85,14 @@ class CoverageReplacementAlertService
 
     public function pendingAlerts(): Collection
     {
-        $latestRows = DB::table('mst_mappings')
+        $latestRows = DB::connection('db_dwh')
+            ->table('crm_mst_mappings')
             ->selectRaw('MAX(id) as id')
             ->groupBy('id_coverage');
 
         return Mapping::query()
             ->joinSub($latestRows, 'latest_mappings', function ($join) {
-                $join->on('mst_mappings.id', '=', 'latest_mappings.id');
+                $join->on('crm_mst_mappings.id', '=', 'latest_mappings.id');
             })
             ->where(function ($query) {
                 $query->where('is_active', false)

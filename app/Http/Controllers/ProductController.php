@@ -16,6 +16,16 @@ class ProductController extends Controller
     //     $this->middleware('permission:pm-list|pm-create|pm-edit|pm-delete');
     // }
 
+    private function dwhTable(string $table): string
+    {
+        return DB::connection('db_dwh')->getDatabaseName() . '.' . $table;
+    }
+
+    private function authTable(string $table): string
+    {
+        return DB::connection('mysql')->getDatabaseName() . '.' . $table;
+    }
+
     public function index()
     {
         $totalData = Product::count();
@@ -36,12 +46,12 @@ class ProductController extends Controller
 
         $query = Product::query()
             ->leftJoinSub($partQuery, 'parts', function ($join) {
-                $join->on('mst_products.pt_ph', '=', 'parts.pt_ph');
+                $join->on('crm_mst_products.pt_ph', '=', 'parts.pt_ph');
             })
             ->select([
-                'mst_products.id',
-                'mst_products.pt_ph as c_ph',
-                'mst_products.id_coverage',
+                'crm_mst_products.id',
+                'crm_mst_products.pt_ph as c_ph',
+                'crm_mst_products.id_coverage',
                 DB::raw("COALESCE(parts.pt_desc, '-') as p_desc"),
             ]);
 
@@ -66,24 +76,24 @@ class ProductController extends Controller
     public function dataDistPM()
     {
         $query = MPart::where('dist', '!=', 'Nusindo')
-            ->leftJoin('mst_products', function ($join) {
-                $join->on('v_pt_mstr_dist.pt_ph', '=', 'mst_products.pt_ph')
-                    ->whereNull('mst_products.deleted_at');
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_products') . ' as crm_mst_products'), function ($join) {
+                $join->on('v_pt_mstr_dist.pt_ph', '=', 'crm_mst_products.pt_ph')
+                    ->whereNull('crm_mst_products.deleted_at');
             })
-            ->leftJoin('mst_mappings', function ($join) {
-                $join->on('mst_products.id_coverage', '=', 'mst_mappings.id_coverage')
-                    ->whereNull('mst_mappings.deleted_at')
-                    ->where('mst_mappings.is_active', true);
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as crm_mst_mappings'), function ($join) {
+                $join->on('crm_mst_products.id_coverage', '=', 'crm_mst_mappings.id_coverage')
+                    ->whereNull('crm_mst_mappings.deleted_at')
+                    ->where('crm_mst_mappings.is_active', true);
             })
-            ->leftJoin('users', 'mst_mappings.cov_nik', '=', 'users.nik')
+            ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
             ->select([
                 'v_pt_mstr_dist.pt_dist as c_dist',
                 'v_pt_mstr_dist.pt_ph as c_ph',
                 'v_pt_mstr_dist.pt_desc as p_desc',
                 'v_pt_mstr_dist.dist',
                 'v_pt_mstr_dist.pilar_sub as pilar',
-                'mst_mappings.id_coverage as cov',
-                DB::raw("COALESCE(mst_mappings.cov_nik, '-') as cov_pm"),
+                'crm_mst_mappings.id_coverage as cov',
+                DB::raw("COALESCE(crm_mst_mappings.cov_nik, '-') as cov_pm"),
                 DB::raw("COALESCE(users.name, '-') as nama_pm"),
             ]);
 
@@ -112,7 +122,7 @@ class ProductController extends Controller
     {
         $request->validate([
             'pt_ph'       => 'required|string',
-            'id_coverage' => 'required|string|exists:mst_mappings,id_coverage',
+            'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
         // Cek duplikat
@@ -142,7 +152,7 @@ class ProductController extends Controller
     {
         $request->validate([
             'pt_ph'       => 'required|string',
-            'id_coverage' => 'required|string|exists:mst_mappings,id_coverage',
+            'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
         Product::findOrFail($id)->update([

@@ -102,18 +102,18 @@
                     },
                     {
                         data: 'pilar',
-                        name: 'mst_mappings.cov_pilar',
+                        name: 'crm_mst_mappings.cov_pilar',
                         defaultContent: '-',
                         className: 'text-center'
                     },
                     {
                         data: 'id_coverage',
-                        name: 'mst_outlets.id_coverage',
+                        name: 'crm_mst_outlets.id_coverage',
                         className: 'text-center'
                     },
                     {
                         data: 'cov_nik',
-                        name: 'mst_mappings.cov_nik',
+                        name: 'crm_mst_mappings.cov_nik',
                         defaultContent: '-',
                         className: 'text-center'
                     },

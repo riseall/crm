@@ -20,11 +20,31 @@ class MappingController extends Controller
     //     $this->middleware('permission:coverage-delete', ['only' => ['destroy']]);
     // }
 
+    private function authTable(string $table): string
+    {
+        return DB::connection('mysql')->getDatabaseName() . '.' . $table;
+    }
+
+    private function validToIsExpired($validTo): bool
+    {
+        return !empty($validTo) && Carbon::parse($validTo)->lt(Carbon::today());
+    }
+
+    private function coverageIsEffectivelyActive($coverage): bool
+    {
+        return (bool) $coverage->is_active && !$this->validToIsExpired($coverage->valid_to);
+    }
+
     public function index()
     {
         $totalData = Mapping::count();
         $newData = Mapping::where('created_at', '>=', now()->subDays(7))->count();
-        $activeData = Mapping::where('is_active', true)->count();
+        $activeData = Mapping::where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('valid_to')
+                    ->orWhereDate('valid_to', '>=', Carbon::today());
+            })
+            ->count();
         $updatedToday = Mapping::whereDate('updated_at', today())->count();
         $needsReplacement = app(CoverageReplacementAlertService::class)->pendingAlerts()->count();
 
@@ -40,44 +60,40 @@ class MappingController extends Controller
     public function getData(Request $request)
     {
         $query = Mapping::query()
-            ->select('mst_mappings.*')
-            ->with('user');
+            ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
+            ->select('crm_mst_mappings.*', 'users.name as user_name');
 
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('user_name', function ($row) {
-                return $row->user->name ?? '-';
+                return $row->user_name ?? '-';
             })
             ->filterColumn('cov_nik', function ($query, $keyword) {
                 $query->where(function ($q) use ($keyword) {
-                    $q->where('cov_nik', 'like', "%{$keyword}%")
-                        ->orWhereHas('user', function ($userQuery) use ($keyword) {
-                            $userQuery->where('name', 'like', "%{$keyword}%");
-                        });
+                    $q->where('crm_mst_mappings.cov_nik', 'like', "%{$keyword}%")
+                        ->orWhere('users.name', 'like', "%{$keyword}%");
                 });
             })
             ->filterColumn('user_name', function ($query, $keyword) {
-                $query->whereHas('user', function ($userQuery) use ($keyword) {
-                    $userQuery->where('name', 'like', "%{$keyword}%");
-                });
+                $query->where('users.name', 'like', "%{$keyword}%");
             })
             ->orderColumn('user_name', function ($query, $order) {
-                $query->orderBy('cov_nik', $order);
+                $query->orderBy('users.name', $order);
             })
             ->addColumn('status', function ($row) {
-                $badge = $row->is_active
+                $badge = $this->coverageIsEffectivelyActive($row)
                     ? '<span class="label label-inline label-success">Aktif</span>'
                     : '<span class="label label-inline label-danger">Nonaktif</span>';
                 return $badge;
             })
             ->orderColumn('status', function ($query, $order) {
-                $query->orderBy('is_active', $order);
+                $query->orderByRaw("(CASE WHEN crm_mst_mappings.is_active = 1 AND (crm_mst_mappings.valid_to IS NULL OR crm_mst_mappings.valid_to >= CURDATE()) THEN 1 ELSE 0 END) {$order}");
             })
             ->addColumn('action', function ($row) {
                 $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id . '">
                             <i class="fas fa-edit"></i>
                          </button>';
-                $toggle = $row->is_active
+                $toggle = $this->coverageIsEffectivelyActive($row)
                     ? '<button class="btn btn-sm btn-outline-primary btn-icon mr-2 btn-toggle" data-id="' . $row->id . '" title="Nonaktifkan">
                             <i class="fas fa-toggle-on"></i>
                        </button>'
@@ -193,23 +209,28 @@ class MappingController extends Controller
             return response()->json(['success' => false, 'message' => 'PIC yang dipilih berstatus nonaktif di HRMS.'], 422);
         }
 
-        DB::beginTransaction();
+        DB::connection('db_dwh')->beginTransaction();
         try {
             $today = Carbon::today()->toDateString();
+            $willBeActive = !$this->validToIsExpired($request->valid_to);
             $alertService = app(CoverageReplacementAlertService::class);
             $closedCoverages = collect();
 
-            $closedCoverages = $this->closeActiveMappingsByCode($request->id_coverage, $today);
+            if ($willBeActive) {
+                $closedCoverages = $this->closeActiveMappingsByCode($request->id_coverage, $today);
+            }
 
             // Validasi Single/Combo setelah coverage lama ditutup
             $validation = Mapping::validateCoverage(
                 $request->cov_nik,
                 $request->cov_pilar,
-                $request->tanggung_jwb_pilar
+                $request->tanggung_jwb_pilar,
+                null,
+                $willBeActive
             );
 
             if (!$validation['valid']) {
-                DB::rollBack();
+                DB::connection('db_dwh')->rollBack();
                 return response()->json(['success' => false, 'message' => $validation['message']], 422);
             }
 
@@ -225,10 +246,10 @@ class MappingController extends Controller
                 'tanggung_jwb_pilar' => $request->tanggung_jwb_pilar,
                 'valid_from'         => $request->valid_from,
                 'valid_to'           => $request->valid_to,
-                'is_active'          => true,
+                'is_active'          => $willBeActive,
             ]);
 
-            DB::commit();
+            DB::connection('db_dwh')->commit();
 
             foreach ($closedCoverages as $item) {
                 if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
@@ -239,7 +260,7 @@ class MappingController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Coverage berhasil ditambahkan.']);
         } catch (\Exception $e) {
-            DB::rollBack();
+            DB::connection('db_dwh')->rollBack();
             return response()->json(['success' => false, 'message' => 'Gagal menyimpan: ' . $e->getMessage()], 500);
         }
     }
@@ -280,20 +301,22 @@ class MappingController extends Controller
             return response()->json(['success' => false, 'message' => 'PIC yang dipilih berstatus nonaktif di HRMS.'], 422);
         }
 
+        $willBeActive = (bool) $coverage->is_active && !$this->validToIsExpired($request->valid_to);
+
         // Validasi Single/Combo (exclude diri sendiri)
         $validation = Mapping::validateCoverage(
             $request->cov_nik,
             $request->cov_pilar,
             $request->tanggung_jwb_pilar,
             $id,
-            (bool) $coverage->is_active
+            $willBeActive
         );
 
         if (!$validation['valid']) {
             return response()->json(['success' => false, 'message' => $validation['message']], 422);
         }
 
-        DB::beginTransaction();
+        DB::connection('db_dwh')->beginTransaction();
         try {
             $coverage->update([
                 'cov_desc'           => $request->cov_desc,
@@ -306,16 +329,17 @@ class MappingController extends Controller
                 'tanggung_jwb_pilar' => $request->tanggung_jwb_pilar,
                 'valid_from'         => $request->valid_from,
                 'valid_to'           => $request->valid_to,
+                'is_active'          => $willBeActive,
             ]);
 
-            DB::commit();
+            DB::connection('db_dwh')->commit();
 
             app(CoverageReplacementAlertService::class)->syncReplacementFlag($coverage);
             $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
 
             return response()->json(['success' => true, 'message' => 'Coverage berhasil diupdate.']);
         } catch (\Exception $e) {
-            DB::rollBack();
+            DB::connection('db_dwh')->rollBack();
             return response()->json(['success' => false, 'message' => 'Gagal update: ' . $e->getMessage()], 500);
         }
     }
@@ -328,9 +352,9 @@ class MappingController extends Controller
         $today = Carbon::today()->toDateString();
         $alertService = app(CoverageReplacementAlertService::class);
 
-        DB::beginTransaction();
+        DB::connection('db_dwh')->beginTransaction();
         try {
-            $newStatus = !$coverage->is_active;
+            $newStatus = !$this->coverageIsEffectivelyActive($coverage);
             $closedCoverages = collect();
 
             // Jika dinonaktifkan
@@ -353,7 +377,7 @@ class MappingController extends Controller
                 );
 
                 if (!$validation['valid']) {
-                    DB::rollBack();
+                    DB::connection('db_dwh')->rollBack();
                     return response()->json(['success' => false, 'message' => $validation['message']], 422);
                 }
 
@@ -362,7 +386,7 @@ class MappingController extends Controller
                 $coverage->save();
             }
 
-            DB::commit();
+            DB::connection('db_dwh')->commit();
             foreach ($closedCoverages as $item) {
                 if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
                     $alertService->notify($item['coverage']);
@@ -377,7 +401,7 @@ class MappingController extends Controller
                 'is_active' => $newStatus,
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
+            DB::connection('db_dwh')->rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }

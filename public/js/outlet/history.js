@@ -14,8 +14,41 @@ $(document).ready(function () {
         return;
     }
 
-    $bulan.val(page.defaultMonth || $bulan.val());
+    var defaultMonth = page.defaultMonth
+        ? String(page.defaultMonth)
+        : $bulan.val();
+    $bulan.val(Array.isArray(defaultMonth) ? defaultMonth : [defaultMonth]);
     $tahun.val(page.defaultYear || $tahun.val());
+
+    if ($.fn.select2) {
+        $bulan.select2({
+            placeholder: "Pilih bulan...",
+            closeOnSelect: false,
+            width: "100%",
+        });
+
+        $coverage.select2({
+            placeholder: "Cari Coverage, NIK, atau Nama...",
+            allowClear: true,
+            ajax: {
+                url: routes.coverage,
+                dataType: "json",
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results,
+                    };
+                },
+            },
+            minimumInputLength: 2,
+            width: "100%",
+        });
+    }
 
     var table = $("#tblHistoryOutlet").DataTable({
         processing: true,
@@ -23,7 +56,7 @@ $(document).ready(function () {
         autoWidth: false,
         responsive: false,
         scrollX: true,
-        searchDelay: 400,
+        searchDelay: 250,
         ajax: {
             url: routes.data,
             data: function (d) {
@@ -41,21 +74,31 @@ $(document).ready(function () {
                 searchable: false,
                 className: "text-center",
             },
+            {
+                data: "bulan",
+                name: "bulan",
+                searchable: false,
+                className: "text-center",
+            },
             { data: "dist", name: "so.dist", searchable: false },
             { data: "id_outlet", name: "so.id_outlet", searchable: false },
-            { data: "nama_outlet", name: "vcd.nama_outlet", searchable: false },
-            { data: "cov_nik", name: "mc.cov_nik", searchable: false },
+            { data: "outlet_name", name: "so.outlet_name", searchable: false },
+            {
+                data: "coverage_nik",
+                name: "so.coverage_nik",
+                searchable: false,
+            },
             {
                 data: "user_name",
-                name: "ma.name",
+                name: "so.user_name",
                 searchable: false,
                 render: function (data) {
                     return data || "-";
                 },
             },
             {
-                data: "level_name",
-                name: "mc.cov_level",
+                data: "coverage_level",
+                name: "so.coverage_level",
                 searchable: false,
                 render: function (v) {
                     return (
@@ -65,31 +108,26 @@ $(document).ready(function () {
                     );
                 },
             },
-            { data: "pilar", name: "vp.pilar", searchable: false },
-            { data: "valid_from", name: "mc.valid_from", searchable: false },
             {
-                data: "valid_to",
-                name: "mc.valid_to",
+                data: "product_pilar",
+                name: "so.product_pilar",
                 searchable: false,
-                render: function (v) {
-                    return v || "Sekarang";
-                },
             },
-            {
-                data: "status_label",
-                name: "status_label",
-                searchable: false,
-                render: function (v, t, r) {
-                    return (
-                        '<span class="badge ' +
-                        (r.status_class || "badge-secondary") +
-                        '">' +
-                        (v || "Aktif") +
-                        "</span>"
-                    );
-                },
-                className: "text-center",
-            },
+            // {
+            //     data: "status_label",
+            //     name: "status_label",
+            //     searchable: false,
+            //     render: function (v, t, r) {
+            //         return (
+            //             '<span class="badge ' +
+            //             (r.status_class || "badge-secondary") +
+            //             '">' +
+            //             (v || "Aktif") +
+            //             "</span>"
+            //         );
+            //     },
+            //     className: "text-center",
+            // },
             {
                 data: "total_transaksi",
                 name: "total_transaksi",
@@ -111,7 +149,7 @@ $(document).ready(function () {
                 },
             },
         ],
-        order: [[12, "desc"]],
+        order: [[10, "desc"]],
     });
 
     $("#btnApplyHistoryFilter").on("click", function () {
