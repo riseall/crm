@@ -145,7 +145,7 @@
                     </a>
                 </li>
                 <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('dashboard.index') }}" class="menu-link">
+                    <a href="{{ route('selling-in.index') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
                             <!--begin::Svg Icon | path:C:\wamp64\www\keenthemes\themes\metronic\theme\html\demo1\dist/../src/media/svg/icons\Shopping\Chart-bar2.svg--><svg
                                 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"

@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SellingInController;
 use App\Http\Controllers\UserController;
 use App\Notifications\CoverageNeedsReplacementNotification;
 use Illuminate\Support\Facades\Route;
@@ -80,12 +81,25 @@ Route::middleware('auth')->group(function () {
         Route::get('/history/data', [OutletController::class, 'historyData'])->name('history.data');
         Route::get('/data', [OutletController::class, 'data'])->name('data');
         Route::get('/outlet', [OutletController::class, 'getOutlet'])->name('outlet');
+        Route::get('/coverage', [OutletController::class, 'getCoverage'])->name('coverage');
         Route::get('/outlet-by-coverage/{coverageId}', [OutletController::class, 'getOutletByCoverage'])->name('outlet.by.coverage');
         Route::post('/', [OutletController::class, 'store'])->name('store');
         Route::get('/{id}', [OutletController::class, 'show'])->name('show');
         Route::put('/{id}', [OutletController::class, 'update'])->name('update');
         Route::post('/bulk-update', [OutletController::class, 'bulkUpdateCoverage'])->name('bulk.update');
         Route::delete('/{id}', [OutletController::class, 'destroy'])->name('destroy');
+    });
+
+    // Selling In
+    Route::prefix('selling-in')->name('selling-in.')->group(function () {
+        Route::get('/', [SellingInController::class, 'index'])->name('index');
+        Route::post('summary',      [SellingInController::class, 'getSummaryCards'])->name('summary');
+        Route::post('chart/hari',   [SellingInController::class, 'getChartPerHari'])->name('chart.hari');
+        Route::post('chart/bulan',  [SellingInController::class, 'getChartPerBulan'])->name('chart.bulan');
+        Route::post('chart/pilar',  [SellingInController::class, 'getChartPerPilar'])->name('chart.pilar');
+        Route::post('top-pm',       [SellingInController::class, 'getTopPm'])->name('top-pm');
+        Route::post('top-produk',   [SellingInController::class, 'getTopProduk'])->name('top-produk');
+        Route::post('table',        [SellingInController::class, 'getTableDetail'])->name('table');
     });
 
     Route::post('/notifications/coverage/read', function () {
