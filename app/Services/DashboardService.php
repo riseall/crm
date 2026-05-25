@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Http\Requests\DashboardFilterRequest;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -37,8 +36,8 @@ class DashboardService
                 ->selectRaw("
                     SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as total_netto,
                     COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.id_outlet END) as total_outlet,
-                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN mc.cov_nik END) as total_anggota,
-                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.id END) as total_transaksi,
+                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.coverage_nik END) as total_anggota,
+                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.source_id END) as total_transaksi,
                     SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
                 ", [
                     $currentStart,
@@ -147,8 +146,8 @@ class DashboardService
             $this->sellout->cacheTtl(),
             function () use ($request) {
                 $results = $this->sellout->baseChartQuery($request)
-                    // GUNAKAN vp.pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
-                    ->selectRaw('COALESCE(vp.pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
+                    // GUNAKAN product_pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
+                    ->selectRaw('COALESCE(so.product_pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
                     ->groupBy('pilar_name')
                     ->get();
 
@@ -169,24 +168,31 @@ class DashboardService
             $this->sellout->cacheKey('chart_divisi', $request),
             $this->sellout->cacheTtl(),
             function () use ($request) {
-                $results = $this->sellout->baseChartQuery($request)
-                    ->selectRaw("
-                    CASE 
-                        WHEN mc.cov_divisi = 'Reguler' THEN 'Reguler' 
-                        WHEN mo.id_coverage IS NULL THEN 'Belum Mapping'
-                        WHEN mc.id_coverage IS NULL THEN 'Mapping Tidak Aktif di Periode'
-                        WHEN mc.cov_divisi IS NULL OR mc.cov_divisi = '' THEN 'Divisi Kosong'
-                        ELSE 'CMA' 
-                    END as divisi_name, 
-                    SUM(so.netto) as total_netto
-                ")
-                    ->groupBy('divisi_name')
-                    ->orderBy('total_netto', 'desc')
-                    ->get();
+                $results = $this->sellout->drilldownAggregateQuery(
+                    $request,
+                    $this->sellout->levelToNum('GM')
+                )->get();
+
+                $totals = $results->groupBy(function ($row) {
+                    if ((int) $row->is_unmapped === 1 || $row->coverage_id === 'UNMAPPED') {
+                        return 'Belum Mapping';
+                    }
+
+                    if ($row->coverage_divisi === 'Reguler') {
+                        return 'Reguler';
+                    }
+
+                    if ($row->coverage_divisi === null || $row->coverage_divisi === '') {
+                        return 'Divisi Kosong';
+                    }
+
+                    return 'CMA';
+                })->map(fn($rows) => $rows->sum(fn($row) => (float) $row->total_netto))
+                    ->sortDesc();
 
                 return [
-                    'labels' => $results->pluck('divisi_name')->values()->toArray(),
-                    'data'   => $results->pluck('total_netto')->map(fn($v) => (float)$v)->values()->toArray(),
+                    'labels' => $totals->keys()->values()->toArray(),
+                    'data'   => $totals->values()->toArray(),
                 ];
             }
         );
@@ -202,16 +208,16 @@ class DashboardService
             $this->sellout->cacheTtl(),
             function () use ($request) {
                 $results = (clone $this->sellout->baseChartQuery($request))
-                    ->selectRaw('mc.id_coverage, mc.cov_desc, mc.cov_level, SUM(so.netto) as total_netto')
-                    ->groupBy('mc.id_coverage', 'mc.cov_desc', 'mc.cov_level')
+                    ->selectRaw('so.coverage_id, so.coverage_desc, so.coverage_level, SUM(so.netto) as total_netto')
+                    ->groupBy('so.coverage_id', 'so.coverage_desc', 'so.coverage_level')
                     ->orderByDesc('total_netto')
                     ->limit(10)
                     ->get();
 
                 return [
-                    'labels' => $results->map(fn($r) => $r->cov_desc ?: $r->id_coverage)->values(),
+                    'labels' => $results->map(fn($r) => $r->coverage_desc ?: $r->coverage_id)->values(),
                     'data'   => $results->pluck('total_netto')->map(fn($v) => (float)$v)->values(),
-                    'levels' => $results->pluck('cov_level')->map(fn($v) => $this->sellout->numToLevel($v))->values(),
+                    'levels' => $results->pluck('coverage_level')->map(fn($v) => $this->sellout->numToLevel($v))->values(),
                 ];
             }
         );
@@ -222,6 +228,11 @@ class DashboardService
     // -------------------------------------------------------
     public function getDrillDown(DashboardFilterRequest $request): array
     {
+        $draw   = (int) $request->get('draw', 0);
+        $start  = max((int) $request->get('start', 0), 0);
+        $length = (int) $request->get('length', 10);
+        $search = $request->get('search')['value'] ?? '';
+
         $accessConfig = $this->coverageAccess->dashboardAccessConfig(auth()->user());
         $allowedLevels = $accessConfig['drilldown_levels'] ?? [];
         $levelName  = $request->get('level', 'GM');
@@ -231,60 +242,81 @@ class DashboardService
         $parentId   = $request->get('coverage_id');
         $levelNum   = $this->sellout->levelToNum($levelName);
 
-        $query = $this->sellout->baseQuery($request, true);
-
-        // --- LOGIC FILTER HIERARKI ---
-        if ($parentId && $parentId !== 'UNMAPPED') {
-            // Jika sedang drill-down, ambil bawahan berdasarkan prefix ID (misal: 2.1%)
-            $query->where('mc.id_coverage', 'like', $parentId . '%')
-                ->where('mc.id_coverage', '!=', $parentId)
-                ->where('mc.cov_level', $levelNum);
-        } else {
-            // Jika di level ROOT (GM), tampilkan GM DAN data yang NULL (UNMAPPED)
-            $query->where(function ($q) use ($levelNum) {
-                $q->where('mc.cov_level', $levelNum)
-                    ->orWhereNull('mc.id_coverage');
-            });
-        }
-
-        $results = $query->selectRaw("
-            COALESCE(mc.id_coverage, 'UNMAPPED') as id_coverage,
-            COALESCE(mc.cov_desc, 'Data Belum Termapping') as cov_desc,
-            COALESCE(mc.cov_level, ?) as cov_level,
-            COALESCE(mc.cov_pilar, 'N/A') as cov_pilar,
-            COALESCE(mc.cov_nik, '-') as cov_nik,
-            COALESCE(ma.name, 'N/A') as name,
-            SUM(so.netto) as total_netto,
-            COUNT(DISTINCT so.id_outlet) as total_outlet,
-            COUNT(DISTINCT so.id) as total_transaksi,
-            (CASE WHEN mc.id_coverage IS NULL THEN 1 ELSE 0 END) as is_unmapped
-        ", [$levelNum])
-            ->groupBy([
-                'mc.id_coverage',
-                'mc.cov_desc',
-                'mc.cov_level',
-                'mc.cov_pilar',
-                'mc.cov_nik',
-                'ma.name',
-                DB::raw("(CASE WHEN mc.id_coverage IS NULL THEN 1 ELSE 0 END)")
-            ])
-            ->orderByDesc('total_netto')
-            ->get();
-
         $nextLevel = $this->sellout->nextLevel($levelName);
-
-        $results->transform(function ($row) {
-            $row->cov_level_name = $this->sellout->numToLevel($row->cov_level);
-            $row->is_unmapped = (int)$row->is_unmapped;
-            return $row;
+        $cacheKey = $this->sellout->cacheKey('drilldown_rows', $request, $levelName . '|' . ($parentId ?? ''));
+        $rows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request, $levelNum, $parentId) {
+            return $this->sellout->drilldownAggregateQuery($request, $levelNum, $parentId)
+                ->get()
+                ->map(function ($row) {
+                    $row->coverage_level_name = $this->sellout->numToLevel($row->coverage_level);
+                    $row->is_unmapped = (int)$row->is_unmapped;
+                    return $row;
+                });
         });
+
+        if ($draw > 0) {
+            $recordsTotal = $rows->count();
+            $filteredRows = $rows;
+
+            if ($search !== '') {
+                $needle = mb_strtolower($search);
+                $filteredRows = $rows->filter(function ($row) use ($needle) {
+                    return str_contains(mb_strtolower((string) $row->coverage_id), $needle)
+                        || str_contains(mb_strtolower((string) $row->coverage_desc), $needle)
+                        || str_contains(mb_strtolower((string) $row->coverage_nik), $needle)
+                        || str_contains(mb_strtolower((string) $row->user_name), $needle)
+                        || str_contains(mb_strtolower((string) $row->coverage_pilar), $needle);
+                });
+            }
+
+            $recordsFiltered = $filteredRows->count();
+            $orderColumns = [
+                1 => 'coverage_id',
+                2 => 'coverage_desc',
+                3 => 'coverage_nik',
+                4 => 'user_name',
+                5 => 'coverage_pilar',
+                6 => 'total_outlet',
+                7 => 'total_transaksi',
+                8 => 'total_netto',
+            ];
+            $order = $request->get('order')[0] ?? null;
+            $orderColumn = $orderColumns[(int) ($order['column'] ?? 8)] ?? 'total_netto';
+            $orderDir = strtolower($order['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+            $numericOrderColumns = ['total_outlet', 'total_transaksi', 'total_netto'];
+            $sortValue = function ($row) use ($orderColumn, $numericOrderColumns) {
+                $value = $row->{$orderColumn} ?? null;
+
+                return in_array($orderColumn, $numericOrderColumns, true)
+                    ? (float) $value
+                    : mb_strtolower((string) $value);
+            };
+            $sortedRows = $orderDir === 'asc'
+                ? $filteredRows->sortBy($sortValue)
+                : $filteredRows->sortByDesc($sortValue);
+            $results = $length > 0
+                ? $sortedRows->slice($start, $length)->values()
+                : $sortedRows->values();
+
+            return [
+                'draw'            => $draw,
+                'recordsTotal'    => $recordsTotal,
+                'recordsFiltered' => $recordsFiltered,
+                'data'            => $results,
+                'level'           => $levelName,
+                'level_num'       => $levelNum,
+                'next_level'      => $nextLevel,
+                'parent_id'       => $parentId,
+            ];
+        }
 
         return [
             'level'      => $levelName,
             'level_num'  => $levelNum,
             'next_level' => $nextLevel,
             'parent_id'  => $parentId,
-            'data'       => $results,
+            'data'       => $rows,
         ];
     }
 
@@ -300,26 +332,26 @@ class DashboardService
 
         $base = (clone $this->sellout->baseQuery($request))
             ->selectRaw('
-                mc.cov_nik as nik,
-                ma.name,
-                mc.cov_level  as level,
-                mc.cov_pilar  as pilar,
-                mc.cov_divisi as divisi,
-                mc.id_coverage,
-                mc.cov_desc,
-                SUM(so.netto)                as total_netto,
+                so.coverage_nik as nik,
+                so.user_name as name,
+                so.coverage_level as level,
+                so.coverage_pilar as pilar,
+                so.coverage_divisi as divisi,
+                so.coverage_id,
+                so.coverage_desc,
+                SUM(so.netto) as total_netto,
                 COUNT(DISTINCT so.id_outlet) as total_outlet,
-                COUNT(DISTINCT so.id)        as total_transaksi
+                COUNT(DISTINCT so.source_id) as total_transaksi
             ')
-            ->groupBy('mc.cov_nik', 'ma.name', 'mc.cov_level', 'mc.cov_pilar', 'mc.cov_divisi', 'mc.id_coverage', 'mc.cov_desc');
+            ->groupBy('so.coverage_nik', 'so.user_name', 'so.coverage_level', 'so.coverage_pilar', 'so.coverage_divisi', 'so.coverage_id', 'so.coverage_desc');
 
         $total = $this->sellout->countGrouped(clone $base);
 
         if ($search) {
             $base->where(function ($q) use ($search) {
-                $q->where('ma.name',         'like', "%$search%")
-                    ->orWhere('mc.cov_nik',    'like', "%$search%")
-                    ->orWhere('mc.id_coverage', 'like', "%$search%");
+                $q->where('so.user_name',      'like', "%$search%")
+                    ->orWhere('so.coverage_nik',   'like', "%$search%")
+                    ->orWhere('so.coverage_id',    'like', "%$search%");
             });
         }
 

@@ -21,6 +21,12 @@ class Kernel extends ConsoleKernel
             ->dailyAt('01:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/hrms-sync.log'));
+
+        $schedule->command('sellout:refresh-summary')
+            ->timezone('Asia/Jakarta')
+            ->dailyAt('02:30')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/sellout-summary-refresh.log'));
     }
 
     /**

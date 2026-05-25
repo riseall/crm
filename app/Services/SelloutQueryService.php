@@ -10,8 +10,21 @@ use Illuminate\Support\Facades\DB;
 
 class SelloutQueryService
 {
+    private const CONN_DWH = 'db_dwh';
+    private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v2';
+    private const CACHE_VERSION = 'v10';
+    private const SUMMARY_TABLE = 'crm_sellout_summary';
+
+    private function dwhDatabaseName(): string
+    {
+        return DB::connection(self::CONN_DWH)->getDatabaseName();
+    }
+
+    private function authDatabaseName(): string
+    {
+        return DB::connection(self::CONN_AUTH)->getDatabaseName();
+    }
 
     private CoverageAccessService $coverageAccess;
 
@@ -23,170 +36,29 @@ class SelloutQueryService
         'MR'  => '5',
     ];
 
-    /** Urutan hierarki (nama) */
     public const LEVEL_ORDER = ['GM', 'RM', 'SAM', 'AM', 'MR'];
-
-    /**
-     * Flag agar tmp_sellout hanya dibuat sekali per instance (= per HTTP request).
-     * Pastikan service ini di-bind sebagai ->bind() bukan ->singleton() di AppServiceProvider.
-     */
-    private bool $tempTableCreated = false;
-    private ?string $currentRange = null;
 
     public function __construct(CoverageAccessService $coverageAccess)
     {
         $this->coverageAccess = $coverageAccess;
     }
 
-    // -------------------------------------------------------
-    // TEMP TABLE — materialize union 3 distributor sekali saja
-    // -------------------------------------------------------
-    private function ensureSelloutTempTable(array $dateRange): void
+    private function dwhTable(string $table): string
     {
-        [$start, $end] = $this->normalizeDateRange($dateRange);
-        $rangeKey = $start . '_' . $end;
-
-        if ($this->tempTableCreated && $this->currentRange === $rangeKey) {
-            return;
-        }
-
-        $this->currentRange = $rangeKey;
-        DB::statement('DROP TEMPORARY TABLE IF EXISTS tmp_sellout');
-
-        DB::statement("
-            CREATE TEMPORARY TABLE tmp_sellout (
-                id           BIGINT,
-                tgl_faktur   DATETIME,
-                no_faktur    VARCHAR(100) COLLATE utf8mb4_unicode_ci,
-                id_outlet    VARCHAR(50)  COLLATE utf8mb4_unicode_ci,
-                id_cbg       VARCHAR(50)  COLLATE utf8mb4_unicode_ci,
-                code_product VARCHAR(50)  COLLATE utf8mb4_unicode_ci,
-                netto        DECIMAL(20,4),
-                dist         VARCHAR(10)  COLLATE utf8mb4_unicode_ci,
-                KEY idx_outlet  (id_outlet),
-                KEY idx_product (code_product),
-                KEY idx_cbg     (id_cbg),
-                KEY idx_dist    (dist),
-                KEY idx_tgl     (tgl_faktur)
-            ) ENGINE=InnoDB
-        ");
-
-        // KFTD
-        DB::statement("
-            INSERT INTO tmp_sellout
-            SELECT
-                id_selling_out,
-                posting_date,
-                CONVERT(billing_no    USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(ship_to_party USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(sales_office  USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(material      USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                ((total_penjualan + total_discount) - (dis_zd02_amount + dis_zd04_amount)),
-                'KFTD' COLLATE utf8mb4_unicode_ci
-            FROM selling_out_kftd
-            WHERE principle = '7000000344'
-              AND posting_date BETWEEN ? AND ?
-        ", [$start, $end]);
-
-        // AAM
-        DB::statement("
-            INSERT INTO tmp_sellout
-            SELECT
-                id,
-                posting_date,
-                CONVERT(billing_no    USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(ship_to_party USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(sales_office  USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(material      USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                nilai_netto,
-                'AAM' COLLATE utf8mb4_unicode_ci
-            FROM selling_out_aam
-            WHERE posting_date BETWEEN ? AND ?
-        ", [$start, $end]);
-
-        // METD
-        DB::statement("
-            INSERT INTO tmp_sellout
-            SELECT
-                id,
-                tgl_faktur,
-                CONVERT(no_faktur     USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(id_outlet     USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(kode_cbg_ph   USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                CONVERT(kode_brg_metd USING utf8mb4) COLLATE utf8mb4_unicode_ci,
-                netto,
-                'METD' COLLATE utf8mb4_unicode_ci
-            FROM selling_out_metd
-            WHERE tgl_faktur BETWEEN ? AND ?
-        ", [$start, $end]);
-
-        $this->tempTableCreated = true;
+        return $this->dwhDatabaseName() . '.' . $table;
     }
 
-    // -------------------------------------------------------
-    // STANDARD JOINS (tidak berubah, tetap pakai alias 'so')
-    // -------------------------------------------------------
-    private function applyStandardJoins($query)
+    private function authTable(string $table): string
     {
-        return $query
-            ->leftJoin('v_pt_mstr_dist as vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
-            ->leftJoin('mst_cust_dist as vcd', function ($join) {
-                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
-            })
-            ->leftJoin('mst_outlets as mo', function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from('mst_mappings as mx')
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
-                    });
-            });
+        return $this->authDatabaseName() . '.' . $table;
     }
 
-    /**
-     * Join minimal untuk chart.
-     * Tidak ikut join users / mst_cust_dist karena chart hanya butuh agregasi.
-     */
-    private function applyChartJoins($query)
+    private function productMasterQuery(): Builder
     {
-        return $query
-            ->leftJoin('v_pt_mstr_dist as vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
-            ->leftJoin('mst_outlets as mo', function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from('mst_mappings as mx')
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
-                    });
-            });
-    }
-
-    private function normalizeDateRange(array $dateRange): array
-    {
-        return [
-            Carbon::parse($dateRange[0])->startOfDay()->toDateTimeString(),
-            Carbon::parse($dateRange[1])->endOfDay()->toDateTimeString(),
-        ];
-    }
-
-    private function applySourceDateRange(Builder $query, string $column, ?array $dateRange): Builder
-    {
-        if (!$dateRange) {
-            return $query;
-        }
-
-        [$start, $end] = $this->normalizeDateRange($dateRange);
-
-        return $query->whereBetween($column, [$start, $end]);
+        return DB::connection(self::CONN_DWH)
+            ->table('v_pt_mstr_dist')
+            ->selectRaw('pt_dist, dist, MIN(pilar) as pilar')
+            ->groupBy('pt_dist', 'dist');
     }
 
     private function normalizedPilarSql(string $column): string
@@ -218,59 +90,329 @@ class SelloutQueryService
         }
     }
 
-    public function selloutUnion(?array $dateRange = null): Builder
+    // -------------------------------------------------------
+    // STANDARD JOINS - Query langsung dari summary table
+    // -------------------------------------------------------
+    private function applyStandardJoins($query, bool $isHierarchical = false)
     {
-        if ($dateRange) {
-            $this->ensureSelloutTempTable($dateRange);
-            return DB::table('tmp_sellout');
-        }
+        return $query
+            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
+                $join->on('so.code_product', '=', 'vp.pt_dist')
+                    ->on('so.dist', '=', 'vp.dist');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('mst_cust_dist') . ' as vcd'), function ($join) {
+                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
+                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) use ($isHierarchical) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')
+                    ->whereNull('mo.deleted_at');
 
-        // Fallback: union biasa tanpa filter tanggal
-        $col = "CONVERT(%s USING utf8mb4) COLLATE utf8mb4_unicode_ci";
-
-        $kftd = DB::table('selling_out_kftd')
-            ->select([
-                'id_selling_out as id',
-                'posting_date as tgl_faktur',
-                DB::raw(sprintf("$col as no_faktur",    'billing_no')),
-                DB::raw(sprintf("$col as id_outlet",    'ship_to_party')),
-                DB::raw(sprintf("$col as id_cbg",       'sales_office')),
-                DB::raw(sprintf("$col as code_product", 'material')),
-                DB::raw("((total_penjualan + total_discount) - (dis_zd02_amount + dis_zd04_amount)) AS netto"),
-                DB::raw("'KFTD' COLLATE utf8mb4_unicode_ci as dist"),
-            ])
-            ->whereRaw("principle = '7000000344'");
-
-        $aam = DB::table('selling_out_aam')
-            ->select([
-                'id',
-                'posting_date as tgl_faktur',
-                DB::raw(sprintf("$col as no_faktur",    'billing_no')),
-                DB::raw(sprintf("$col as id_outlet",    'ship_to_party')),
-                DB::raw(sprintf("$col as id_cbg",       'sales_office')),
-                DB::raw(sprintf("$col as code_product", 'material')),
-                'nilai_netto as netto',
-                DB::raw("'AAM' COLLATE utf8mb4_unicode_ci as dist"),
-            ]);
-
-        $metd = DB::table('selling_out_metd')
-            ->select([
-                'id',
-                'tgl_faktur',
-                DB::raw(sprintf("$col as no_faktur",    'no_faktur')),
-                DB::raw(sprintf("$col as id_outlet",    'id_outlet')),
-                DB::raw(sprintf("$col as id_cbg",       'kode_cbg_ph')),
-                DB::raw(sprintf("$col as code_product", 'kode_brg_metd')),
-                'netto',
-                DB::raw("'METD' COLLATE utf8mb4_unicode_ci as dist"),
-            ]);
-
-        return $kftd->unionAll($aam)->unionAll($metd);
+                if (!$isHierarchical) {
+                    $join->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereNull('mx.deleted_at')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                    });
+                }
+            });
     }
 
-    // -------------------------------------------------------
-    // BASE QUERY
-    // -------------------------------------------------------
+    /**
+     * Join minimal untuk chart - tanpa users join
+     */
+    private function applyChartJoins($query, bool $isHierarchical = false)
+    {
+        return $query
+            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
+                $join->on('so.code_product', '=', 'vp.pt_dist')
+                    ->on('so.dist', '=', 'vp.dist');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) use ($isHierarchical) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')
+                    ->whereNull('mo.deleted_at');
+
+                if (!$isHierarchical) {
+                    $join->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereNull('mx.deleted_at')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                    });
+                }
+            });
+    }
+
+    private function normalizeDateRange(array $dateRange): array
+    {
+        return [
+            Carbon::parse($dateRange[0])->startOfDay()->toDateTimeString(),
+            Carbon::parse($dateRange[1])->endOfDay()->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * Refresh summary untuk tanggal range tertentu
+     * Query langsung dari source table (KFTD, AAM, METD) di DWH
+     */
+    public function refreshSummaryRange(string $from, string $to): void
+    {
+        [$start, $end] = $this->normalizeDateRange([$from, $to]);
+
+        $this->insertKftdSummary($start, $end);
+        $this->insertAamSummary($start, $end);
+        $this->insertMetdSummary($start, $end);
+    }
+
+    /**
+     * Insert atau update data KFTD ke summary table di DWH
+     */
+    private function insertKftdSummary(string $start, string $end): void
+    {
+        DB::connection(self::CONN_DWH)->statement(
+            "INSERT INTO " . self::SUMMARY_TABLE . " (
+                source_table,
+                source_id,
+                tgl_faktur,
+                dist,
+                id_outlet,
+                id_cbg,
+                code_product,
+                netto,
+                created_at,
+                updated_at
+            )
+            SELECT
+                'KFTD' as source_table,
+                k.id_selling_out,
+                k.posting_date,
+                'KFTD' as dist,
+                k.ship_to_party,
+                k.sales_office,
+                k.material,
+                ((k.total_penjualan + k.total_discount) - (k.dis_zd02_amount + k.dis_zd04_amount)) as netto,
+                NOW(),
+                NOW()
+            FROM selling_out_kftd AS k
+            WHERE k.principle = '7000000344'
+                AND k.posting_date BETWEEN ? AND ?
+            ON DUPLICATE KEY UPDATE 
+                tgl_faktur = VALUES(tgl_faktur),
+                netto = VALUES(netto),
+                updated_at = NOW()",
+            [$start, $end]
+        );
+    }
+
+    /**
+     * Insert atau update data AAM ke summary table di DWH
+     */
+    private function insertAamSummary(string $start, string $end): void
+    {
+        DB::connection(self::CONN_DWH)->statement(
+            "INSERT INTO " . self::SUMMARY_TABLE . " (
+                source_table,
+                source_id,
+                tgl_faktur,
+                dist,
+                id_outlet,
+                id_cbg,
+                code_product,
+                netto,
+                created_at,
+                updated_at
+            )
+            SELECT
+                'AAM' as source_table,
+                a.id,
+                a.posting_date,
+                'AAM' as dist,
+                a.ship_to_party,
+                a.sales_office,
+                a.material,
+                a.nilai_netto,
+                NOW(),
+                NOW()
+            FROM selling_out_aam AS a
+            WHERE a.posting_date BETWEEN ? AND ?
+            ON DUPLICATE KEY UPDATE 
+                tgl_faktur = VALUES(tgl_faktur),
+                netto = VALUES(netto),
+                updated_at = NOW()",
+            [$start, $end]
+        );
+    }
+
+    /**
+     * Insert atau update data METD ke summary table di DWH
+     */
+    private function insertMetdSummary(string $start, string $end): void
+    {
+        DB::connection(self::CONN_DWH)->statement(
+            "INSERT INTO " . self::SUMMARY_TABLE . " (
+                source_table,
+                source_id,
+                tgl_faktur,
+                dist,
+                id_outlet,
+                id_cbg,
+                code_product,
+                netto,
+                created_at,
+                updated_at
+            )
+            SELECT
+                'METD' as source_table,
+                m.id,
+                m.tgl_faktur,
+                'METD' as dist,
+                m.id_outlet,
+                m.kode_cbg_ph,
+                m.kode_brg_metd,
+                m.netto,
+                NOW(),
+                NOW()
+            FROM selling_out_metd AS m
+            WHERE m.tgl_faktur BETWEEN ? AND ?
+            ON DUPLICATE KEY UPDATE 
+                tgl_faktur = VALUES(tgl_faktur),
+                netto = VALUES(netto),
+                updated_at = NOW()",
+            [$start, $end]
+        );
+    }
+
+    private function mappingJoinCallback(bool $isHierarchical, ?string $targetLevelNum = null): \Closure
+    {
+        return function ($join) use ($isHierarchical, $targetLevelNum) {
+            if ($isHierarchical) {
+                $join->on(DB::raw('mo.id_coverage'), 'like', DB::raw("CONCAT(mc.id_coverage, '%')"));
+            } else {
+                $join->on('mo.id_coverage', '=', 'mc.id_coverage');
+            }
+
+            if ($targetLevelNum !== null) {
+                $join->where('mc.cov_level', $targetLevelNum);
+            }
+
+            $join->whereNull('mc.deleted_at');
+
+            if (!$isHierarchical) {
+                $join->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'));
+            }
+
+            $join->where(function ($q) {
+                    $q->whereNull('mc.valid_from')
+                        ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('mc.valid_to')
+                        ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+                });
+        };
+    }
+
+    private function enrichedSummaryQuery(
+        DashboardFilterRequest $request,
+        bool $isHierarchical,
+        array $dateRange,
+        bool $includeUser = true,
+        bool $includeOutletName = true,
+        bool $forChart = false
+    ): Builder {
+        [$start, $end] = $this->normalizeDateRange($dateRange);
+
+        $query = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so');
+
+        $query = $forChart
+            ? $this->applyChartJoins($query, $isHierarchical)
+            : $this->applyStandardJoins($query, $isHierarchical);
+
+        $targetLevelNum = $isHierarchical
+            ? $this->levelToNum($request->get('level', 'GM'))
+            : null;
+
+        $query->leftJoin(
+            DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
+            $this->mappingJoinCallback($isHierarchical, $targetLevelNum)
+        );
+
+        if ($includeUser) {
+            $query->leftJoin(
+                DB::raw($this->authTable('users') . ' as ma'),
+                'mc.cov_nik',
+                '=',
+                'ma.nik'
+            );
+        }
+
+        $query->whereBetween('so.tgl_faktur', [$start, $end]);
+        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+
+        if (!$isHierarchical && $request->filled('level')) {
+            $query->where('mc.cov_level', $this->levelToNum($request->get('level')));
+        }
+
+        if ($request->filled('pilar')) {
+            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
+                $this->normalizePilarValue($request->get('pilar')),
+            ]);
+        }
+
+        if ($request->filled('distributor')) {
+            $query->where('so.dist', $request->get('distributor'));
+        }
+
+        $selects = [
+            'so.id',
+            DB::raw('MAX(so.source_table) as source_table'),
+            DB::raw('MAX(so.source_id) as source_id'),
+            DB::raw('MAX(so.tgl_faktur) as tgl_faktur'),
+            DB::raw('MAX(so.dist) as dist'),
+            DB::raw('MAX(so.id_outlet) as id_outlet'),
+            DB::raw('MAX(so.id_cbg) as id_cbg'),
+            DB::raw('MAX(so.code_product) as code_product'),
+            DB::raw('MAX(so.netto) as netto'),
+            DB::raw('MAX(vp.pilar) as product_pilar'),
+            DB::raw('MAX(mc.id_coverage) as coverage_id'),
+            DB::raw('MAX(mc.cov_desc) as coverage_desc'),
+            DB::raw('MAX(mc.cov_nik) as coverage_nik'),
+            DB::raw('MAX(mc.cov_level) as coverage_level'),
+            DB::raw('MAX(mc.cov_pilar) as coverage_pilar'),
+            DB::raw('MAX(mc.cov_divisi) as coverage_divisi'),
+            DB::raw('MAX(mc.valid_from) as coverage_valid_from'),
+            DB::raw('MAX(mc.valid_to) as coverage_valid_to'),
+        ];
+
+        if ($includeOutletName) {
+            $selects[] = DB::raw("MAX(COALESCE(vcd.nama_outlet, so.id_outlet)) as outlet_name");
+        } else {
+            $selects[] = DB::raw('MAX(so.id_outlet) as outlet_name');
+        }
+
+        $selects[] = $includeUser
+            ? DB::raw('MAX(ma.name) as user_name')
+            : DB::raw('NULL as user_name');
+
+        return $query->select($selects)
+            ->groupBy('so.id');
+    }
+
+    private function wrapAsSellout(Builder $query): Builder
+    {
+        return DB::connection(self::CONN_DWH)
+            ->query()
+            ->fromSub($query, 'so');
+    }
+
+    /**
+     * Base Query untuk dashboard
+     * Query dari crm_sellout_summary (DWH) + join ke master tables (DWH) + cross-DB join ke users (MySQL)
+     */
     public function baseQuery(
         DashboardFilterRequest $request,
         bool $isHierarchical = false,
@@ -278,69 +420,120 @@ class SelloutQueryService
     ): Builder {
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
 
-        // Pastikan temp table sudah ada sebelum query dijalankan
-        $this->ensureSelloutTempTable($range);
+        return $this->wrapAsSellout(
+            $this->enrichedSummaryQuery($request, $isHierarchical, $range)
+        );
+    }
 
-        // FROM tmp_sellout langsung (bukan subquery union lagi)
-        $query = DB::table('tmp_sellout as so');
-        $query = $this->applyStandardJoins($query);
-        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+    public function drilldownAggregateQuery(
+        DashboardFilterRequest $request,
+        string $levelNum,
+        ?string $parentId = null
+    ): Builder {
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+        $levelDepth = max((int) $levelNum, 1);
+        $coverageSql = 'COALESCE(mo.id_coverage, mo_any.id_coverage)';
+        $parentCoverageSql = "NULLIF(SUBSTRING_INDEX({$coverageSql}, '.', {$levelDepth}), '')";
 
-        // 1. Join ke Mapping dengan filter tanggal di ON clause
-        if ($isHierarchical) {
-            $targetLevelNum = $this->levelToNum($request->get('level', 'GM'));
-            $query->leftJoin('mst_mappings as mc', function ($join) use ($targetLevelNum) {
-                $join->on('mo.id_coverage', 'like', DB::raw("CONCAT(mc.id_coverage, '%')"))
-                    ->where('mc.cov_level', $targetLevelNum)
-                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_from')
-                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                    })
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_to')
-                            ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+        $mappingSub = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->selectRaw("
+                id_coverage,
+                cov_level,
+                MAX(cov_desc) as cov_desc,
+                MAX(cov_pilar) as cov_pilar,
+                MAX(cov_nik) as cov_nik,
+                MAX(cov_divisi) as cov_divisi
+            ")
+            ->where('cov_level', $levelNum)
+            ->whereNull('deleted_at')
+            ->groupBy('id_coverage', 'cov_level');
+
+        $outletAnySub = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_outlets')
+            ->selectRaw('id_outlet, MAX(id_coverage) as id_coverage')
+            ->whereNull('deleted_at')
+            ->whereNotNull('id_coverage')
+            ->where('id_coverage', '<>', '')
+            ->groupBy('id_outlet');
+
+        $query = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
+                $join->on('so.code_product', '=', 'vp.pt_dist')
+                    ->on('so.dist', '=', 'vp.dist');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')
+                    ->whereNull('mo.deleted_at')
+                    ->whereExists(function ($exists) {
+                        $exists->select(DB::raw(1))
+                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
+                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                            ->whereNull('mx.deleted_at')
+                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
                     });
-            });
-        } else {
-            $query->leftJoin('mst_mappings as mc', function ($join) {
-                $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_from')
-                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                    })
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_to')
-                            ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                    });
-            });
+            })
+            ->leftJoinSub($outletAnySub, 'mo_any', function ($join) {
+                $join->on('so.id_outlet', '=', 'mo_any.id_outlet');
+            })
+            ->leftJoinSub($mappingSub, 'mc', function ($join) use ($parentCoverageSql) {
+                $join->on('mc.id_coverage', '=', DB::raw($parentCoverageSql));
+            })
+            ->leftJoin(DB::raw($this->authTable('users') . ' as ma'), 'mc.cov_nik', '=', 'ma.nik')
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        $user = Auth::user();
+        if (!$this->coverageAccess->isGlobalAccessUser($user)) {
+            $roots = $this->coverageAccess->rootCoverages($user);
+
+            if (empty($roots)) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where(function ($q) use ($coverageSql, $roots) {
+                    foreach ($roots as $root) {
+                        $q->orWhereRaw($coverageSql . ' LIKE ?', [$root . '%']);
+                    }
+                });
+            }
         }
 
-        // 2. Join User
-        $query->leftJoin('users as ma', 'mc.cov_nik', '=', 'ma.nik');
-
-        // 3. Filter request
-        if (!$isHierarchical && $request->filled('level')) {
-            $query->where('mc.cov_level', $this->levelToNum($request->level));
+        if ($parentId && $parentId !== 'UNMAPPED') {
+            $query->whereRaw($parentCoverageSql . ' LIKE ?', [$parentId . '.%']);
         }
 
         if ($request->filled('pilar')) {
             $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
-                $this->normalizePilarValue($request->pilar),
+                $this->normalizePilarValue($request->get('pilar')),
             ]);
         }
 
         if ($request->filled('distributor')) {
-            $query->where('so.dist', $request->distributor);
+            $query->where('so.dist', $request->get('distributor'));
         }
 
-        return $query;
+        return $query->selectRaw("
+                COALESCE(mc.id_coverage, 'UNMAPPED') as coverage_id,
+                COALESCE(MAX(mc.cov_desc), 'Data Belum Termapping') as coverage_desc,
+                COALESCE(MAX(mc.cov_level), ?) as coverage_level,
+                COALESCE(MAX(mc.cov_pilar), 'N/A') as coverage_pilar,
+                MAX(mc.cov_divisi) as coverage_divisi,
+                COALESCE(MAX(mc.cov_nik), '-') as coverage_nik,
+                COALESCE(MAX(ma.name), 'N/A') as user_name,
+                SUM(so.netto) as total_netto,
+                COUNT(DISTINCT so.id_outlet) as total_outlet,
+                COUNT(DISTINCT CONCAT(so.source_table, '|', so.source_id)) as total_transaksi,
+                (CASE WHEN mc.id_coverage IS NULL THEN 1 ELSE 0 END) as is_unmapped
+            ", [$levelNum])
+            ->groupBy([
+                'mc.id_coverage',
+                DB::raw("(CASE WHEN mc.id_coverage IS NULL THEN 1 ELSE 0 END)"),
+            ]);
     }
 
-    // -------------------------------------------------------
-    // BASE QUERY BY YEAR — chart trend 12 bulan
-    // -------------------------------------------------------
+    /**
+     * Base Query untuk trend per tahun (12 bulan)
+     */
     public function baseQueryByYear(DashboardFilterRequest $request): Builder
     {
         $year = (int) $request->tahun();
@@ -352,51 +545,24 @@ class SelloutQueryService
         return $this->baseQuery($request, false, $yearRange);
     }
 
-    // -------------------------------------------------------
-    // LIGHTWEIGHT BASE QUERY UNTUK CHART
-    // -------------------------------------------------------
+    /**
+     * Lightweight Base Query untuk chart aggregation
+     * Tanpa join ke users, hanya fokus pada data transaksi
+     */
     public function baseChartQuery(
         DashboardFilterRequest $request,
         ?array $dateRange = null
     ): Builder {
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
 
-        $this->ensureSelloutTempTable($range);
-
-        $query = DB::table('tmp_sellout as so');
-        $query = $this->applyChartJoins($query);
-        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
-
-        $query->leftJoin('mst_mappings as mc', function ($join) {
-            $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
-                ->where(function ($q) {
-                    $q->whereNull('mc.valid_from')
-                        ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                })
-                ->where(function ($q) {
-                    $q->whereNull('mc.valid_to')
-                        ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                });
-        });
-
-        if ($request->filled('level')) {
-            $query->where('mc.cov_level', $this->levelToNum($request->level));
-        }
-
-        if ($request->filled('pilar')) {
-            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
-                $this->normalizePilarValue($request->pilar),
-            ]);
-        }
-
-        if ($request->filled('distributor')) {
-            $query->where('so.dist', $request->distributor);
-        }
-
-        return $query;
+        return $this->wrapAsSellout(
+            $this->enrichedSummaryQuery($request, false, $range, false, false, true)
+        );
     }
 
+    /**
+     * Base Chart Query per tahun
+     */
     public function baseChartQueryByYear(DashboardFilterRequest $request): Builder
     {
         $year = (int) $request->tahun();
@@ -408,97 +574,46 @@ class SelloutQueryService
         return $this->baseChartQuery($request, $yearRange);
     }
 
-    // -------------------------------------------------------
-    // OUTLET HISTORY QUERY
-    // -------------------------------------------------------
+    /**
+     * Query untuk outlet history - menampilkan perkembangan transaksi per outlet per bulan
+     */
     public function outletHistoryQuery(DashboardFilterRequest $request)
     {
-        $this->ensureSelloutTempTable([$request->startDate(), $request->endDate()]);
+        $months = $request->bulanList();
 
-        $query = DB::table('tmp_sellout as so')
-            // Gunakan LEFT JOIN ke master outlet agar yang belum termapping tidak hilang
-            ->leftJoin('mst_cust_dist as vcd', function ($join) {
-                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
-            })
-            ->leftJoin('v_pt_mstr_dist as vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
-            ->leftJoin('mst_outlets as mo', function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from('mst_mappings as mx')
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
-                    });
-            })
-            ->leftJoin('mst_mappings as mc', function ($join) {
-                $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                    ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'))
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_from')
-                            ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                    })
-                    ->where(function ($q) {
-                        $q->whereNull('mc.valid_to')
-                            ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                    });
-            })
-            ->leftJoin('users as ma', 'mc.cov_nik', '=', 'ma.nik')
-            ->when($request->get('coverage_id'), fn($q, $c) => $q->where('mo.id_coverage', $c))
-            ->when($request->get('level'), fn($q, $l) => $q->where('mc.cov_level', $this->levelToNum($l)))
-            ->select([
-                'so.dist',
-                'so.id_outlet',
-                'vcd.nama_outlet',
-                'mo.id_coverage',
-                'mc.cov_desc',
-                'mc.cov_nik',
-                'ma.name as user_name',
-                'mc.cov_level',
-                DB::raw('COALESCE(mc.cov_pilar, vp.pilar) as pilar'),
-                DB::raw("CONCAT(MONTHNAME(so.tgl_faktur), ' ', YEAR(so.tgl_faktur)) as period"),
-                DB::raw('COUNT(so.id) as total_transaksi'),
-                DB::raw('SUM(so.netto) as total_netto'),
-                'mc.valid_from',
-                'mc.valid_to'
-            ])
-            ->groupBy(
-                'so.dist',
-                'so.id_outlet',
-                'vcd.nama_outlet',
-                'mo.id_coverage',
-                'mc.cov_desc',
-                'mc.cov_nik',
-                'ma.name',
-                'mc.cov_level',
-                'mc.cov_pilar',
-                'vp.pilar',
-                DB::raw("CONCAT(MONTHNAME(so.tgl_faktur), ' ', YEAR(so.tgl_faktur))"),
-                'mc.valid_from',
-                'mc.valid_to'
-            );
+        if (count($months) > 1) {
+            $year = (int) $request->tahun();
+            $query = $this->baseQuery($request, false, [
+                Carbon::create($year, 1, 1)->startOfMonth()->toDateString(),
+                Carbon::create($year, 12, 1)->endOfMonth()->toDateString(),
+            ]);
 
-        $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+            $query->whereIn(DB::raw('MONTH(so.tgl_faktur)'), $months);
+        } else {
+            $query = $this->baseQuery($request);
+        }
+
+        if ($request->get('coverage_id')) {
+            $query->where('so.coverage_id', $request->get('coverage_id'));
+        }
 
         return $query;
     }
 
-    // -------------------------------------------------------
-    // Count helper untuk DataTables grouped result
-    // -------------------------------------------------------
+    /**
+     * Helper: Hitung grouped result set
+     */
     public function countGrouped(Builder $query): int
     {
-        return DB::query()
+        return DB::connection(self::CONN_DWH)
+            ->query()
             ->fromSub($query, 'agg')
             ->count();
     }
 
-    // -------------------------------------------------------
-    // Cache key generator
-    // -------------------------------------------------------
+    /**
+     * Generate cache key untuk dashboard queries
+     */
     public function cacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
     {
         /** @var \App\Models\User */
@@ -519,21 +634,28 @@ class SelloutQueryService
             $extra ?? '',
         ];
 
-        return "dashboard:{$prefix}:" . md5(implode('|', $params));
+        return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
     }
 
+    /**
+     * TTL untuk cache
+     */
     public function cacheTtl(): int
     {
         return self::CACHE_TTL;
     }
 
-    /** 'GM' → '1', 'RM' → '2', dst */
+    /**
+     * Convert level string ke number
+     */
     public function levelToNum(string $level): string
     {
         return self::LEVEL_MAP[$level] ?? $level;
     }
 
-    /** '1' → 'GM', '2' → 'RM', null → 'Unmapped' */
+    /**
+     * Convert level number ke string
+     */
     public function numToLevel(?string $num): string
     {
         if (is_null($num)) {
@@ -543,7 +665,9 @@ class SelloutQueryService
         return array_flip(self::LEVEL_MAP)[$num] ?? 'Unknown';
     }
 
-    /** Level berikutnya dalam hierarki. 'RM' → 'SAM', 'MR' → null */
+    /**
+     * Get next level dalam hierarchy
+     */
     public function nextLevel(string $level): ?string
     {
         $idx = array_search($level, self::LEVEL_ORDER);

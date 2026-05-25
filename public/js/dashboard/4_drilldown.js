@@ -8,6 +8,8 @@ Dashboard.Drilldown = (function ($, H) {
     var route = '';
     var drillStack = [];
     var defaultLevel = 'GM';
+    var drillTable = null;
+    var nextLevel = null;
 
     function init(drillRoute, options) {
         route = drillRoute;
@@ -34,70 +36,129 @@ Dashboard.Drilldown = (function ($, H) {
         $('#drillPath').html(html);
     }
 
+    function escapeHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
+
     function loadDrillDown() {
         var cur = drillStack[drillStack.length - 1];
-        var params = $.extend({}, H.getFilters(), {
-            level: cur.level,
-            coverage_id: cur.parentId,
-        });
 
-        $('#drilldownTable').html(H.loadingSpinner());
         renderBreadcrumb();
 
-        $.get(route, params).done(function (res) {
-            if (!res.data || !res.data.length) {
-                $('#drilldownTable').html('<div class="alert alert-info mb-0">Tidak ada data untuk level ini.</div>');
-                return;
-            }
+        if (drillTable) {
+            drillTable.destroy();
+            drillTable = null;
+        }
 
-            var html = '<div class="table-responsive">' +
-                '<table class="table table-hover table-sm align-middle mb-0">' +
+        $('#drilldownTable').html(
+            '<div class="table-responsive">' +
+                '<table id="tblDrilldown" class="table table-hover table-sm align-middle mb-0 w-100">' +
                 '<thead class="thead-light"><tr>' +
                 '<th>#</th><th>ID Coverage</th><th>Deskripsi</th>' +
                 '<th>NIK</th><th>Nama</th><th>Pilar</th>' +
                 '<th class="text-right">Outlet</th>' +
                 '<th class="text-right">Transaksi</th>' +
-                '<th class="text-right">Netto</th>';
-            if (res.next_level) html += '<th>Lihat Bawahan</th>';
-            html += '</tr></thead><tbody>';
+                '<th class="text-right">Netto</th>' +
+                '<th>Lihat Bawahan</th>' +
+                '</tr></thead><tbody></tbody></table></div>'
+        );
 
-            res.data.forEach(function (row, i) {
-                var levelName = row.cov_level_name || row.cov_level;
-                var isUnmapped = row.id_coverage === 'UNMAPPED' || row.is_unmapped == 1;
-                var rowClass = isUnmapped ? 'table-warning' : '';
-                var badgeClass = isUnmapped ? 'badge-danger' : 'badge-primary';
+        drillTable = $('#tblDrilldown').DataTable({
+            processing: true,
+            serverSide: true,
+            responsive: true,
+            autoWidth: false,
+            pageLength: 10,
+            ajax: {
+                url: route,
+                data: function (d) {
+                    return $.extend({}, d, H.getFilters(), {
+                        level: cur.level,
+                        coverage_id: cur.parentId,
+                    });
+                },
+                dataSrc: function (res) {
+                    nextLevel = res.next_level || null;
+                    return res.data || [];
+                },
+            },
+            columns: [
+                {
+                    data: null,
+                    render: function (d, t, r, m) {
+                        return m.row + m.settings._iDisplayStart + 1;
+                    },
+                    orderable: false,
+                },
+                {
+                    data: 'coverage_id',
+                    render: function (value, type, row) {
+                        var coverageId = value || 'UNMAPPED';
+                        var levelName = row.coverage_level_name || row.coverage_level || '-';
+                        var isUnmapped = coverageId === 'UNMAPPED' || row.is_unmapped == 1;
+                        var badgeClass = isUnmapped ? 'badge-danger' : 'badge-primary';
 
-                html += '<tr class="' + rowClass + '">' +
-                    '<td>' + (i + 1) + '</td>' +
-                    '<td><span class="badge ' + badgeClass + '">' + levelName + '</span> <code>' + row.id_coverage + '</code></td>' +
-                    '<td>' + (row.cov_desc || '-') + '</td>' +
-                    '<td>' + row.cov_nik + '</td>' +
-                    '<td>' + (row.name || '-') + '</td>' +
-                    '<td><span class="badge badge-light">' + row.cov_pilar + '</span></td>' +
-                    '<td class="text-right">' + H.formatInt(row.total_outlet) + '</td>' +
-                    '<td class="text-right">' + H.formatInt(row.total_transaksi) + '</td>' +
-                    '<td class="text-right"><strong>' + H.formatRupiah(row.total_netto) + '</strong></td>';
+                        return '<span class="badge ' + badgeClass + '">' + escapeHtml(levelName) + '</span> ' +
+                            '<code>' + escapeHtml(coverageId) + '</code>';
+                    },
+                },
+                { data: 'coverage_desc', defaultContent: '-' },
+                { data: 'coverage_nik', defaultContent: '-' },
+                { data: 'user_name', defaultContent: '-' },
+                {
+                    data: 'coverage_pilar',
+                    render: function (value) {
+                        return '<span class="badge badge-light">' + escapeHtml(value || 'N/A') + '</span>';
+                    },
+                },
+                {
+                    data: 'total_outlet',
+                    className: 'text-right',
+                    render: function (value) {
+                        return H.formatInt(value);
+                    },
+                },
+                {
+                    data: 'total_transaksi',
+                    className: 'text-right',
+                    render: function (value) {
+                        return H.formatInt(value);
+                    },
+                },
+                {
+                    data: 'total_netto',
+                    className: 'text-right',
+                    render: function (value) {
+                        return '<strong>' + H.formatRupiah(value) + '</strong>';
+                    },
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    render: function (value, type, row) {
+                        var coverageId = row.coverage_id || 'UNMAPPED';
+                        var coverageDesc = row.coverage_desc || '-';
+                        var drillLabel = coverageDesc !== '-' ? coverageDesc : coverageId;
+                        var isUnmapped = coverageId === 'UNMAPPED' || row.is_unmapped == 1;
 
-                if (res.next_level) {
-                    html += '<td>';
-                    if (!isUnmapped) {
-                        html += '<button class="btn btn-xs btn-light-primary btn-drill-next" ' +
-                            'data-next-level="' + res.next_level + '" ' +
-                            'data-parent-id="' + row.id_coverage + '" ' +
-                            'data-label="' + (row.cov_desc || row.id_coverage) + '">' +
-                            res.next_level + ' <i class="fas fa-chevron-right fa-xs"></i>' +
+                        if (!nextLevel || isUnmapped) {
+                            return '<span class="text-muted small">N/A</span>';
+                        }
+
+                        return '<button class="btn btn-xs btn-light-primary btn-drill-next" ' +
+                            'data-next-level="' + escapeHtml(nextLevel) + '" ' +
+                            'data-parent-id="' + escapeHtml(coverageId) + '" ' +
+                            'data-label="' + escapeHtml(drillLabel) + '">' +
+                            escapeHtml(nextLevel) + ' <i class="fas fa-chevron-right fa-xs"></i>' +
                             '</button>';
-                    } else {
-                        html += '<span class="text-muted small">N/A</span>';
-                    }
-                    html += '</td>';
-                }
-
-                html += '</tr>';
-            });
-
-            html += '</tbody></table></div>';
-            $('#drilldownTable').html(html);
+                    },
+                },
+            ],
+            rowCallback: function (row, data) {
+                $(row).toggleClass('table-warning', data.is_unmapped == 1);
+            },
+            order: [[8, 'desc']],
         });
     }
 

@@ -86,7 +86,8 @@
 
 @section('content')
     {{-- ===== FILTER BAR ===== --}}
-    @include('page.dashboard.partials.filter-bar')
+    <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
+        :show-distributor="true" />
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row mb-5">

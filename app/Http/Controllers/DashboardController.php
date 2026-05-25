@@ -80,9 +80,4 @@ class DashboardController extends Controller
     {
         return response()->json($this->service->getTableAnggota($request));
     }
-
-    public function getTableOutlet(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getTableOutlet($request));
-    }
 }

@@ -16,8 +16,19 @@ class DashboardFilterRequest extends FormRequest
         $bulan = $this->input('bulan');
         $tahun = $this->input('tahun');
 
+        if (is_array($bulan)) {
+            $bulan = collect($bulan)
+                ->filter(fn($value) => $value !== null && $value !== '')
+                ->map(fn($value) => (int) $value)
+                ->unique()
+                ->values()
+                ->all();
+        } else {
+            $bulan = $bulan === null || $bulan === '' ? null : (int) $bulan;
+        }
+
         $this->merge([
-            'bulan' => $bulan === null || $bulan === '' ? null : (int) $bulan,
+            'bulan' => $bulan === [] ? null : $bulan,
             'tahun' => $tahun === null || $tahun === '' ? null : (int) $tahun,
         ]);
     }
@@ -25,7 +36,16 @@ class DashboardFilterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'bulan'       => 'nullable|integer|min:1|max:12',
+            'bulan'       => ['nullable', function ($attribute, $value, $fail) {
+                $values = is_array($value) ? $value : [$value];
+
+                foreach ($values as $month) {
+                    if (!is_int($month) || $month < 1 || $month > 12) {
+                        $fail('Bulan harus bernilai 1 sampai 12.');
+                        return;
+                    }
+                }
+            }],
             'tahun'       => 'nullable|integer|min:2020|max:' . date('Y'),
             'level'       => 'nullable|in:GM,RM,SAM,AM,MR',
             'pilar'       => 'nullable|in:ETHICAL,OGB,GENERIK,OTC',
@@ -39,7 +59,29 @@ class DashboardFilterRequest extends FormRequest
     // -------------------------------------------------------
     public function bulan(): string
     {
-        return str_pad($this->get('bulan', date('m')), 2, '0', STR_PAD_LEFT);
+        $bulan = $this->get('bulan', date('m'));
+
+        if (is_array($bulan)) {
+            $bulan = $bulan[0] ?? date('m');
+        }
+
+        return str_pad($bulan, 2, '0', STR_PAD_LEFT);
+    }
+
+    public function bulanList(): array
+    {
+        $bulan = $this->get('bulan', date('m'));
+
+        if (!is_array($bulan)) {
+            $bulan = [$bulan];
+        }
+
+        return collect($bulan)
+            ->map(fn($value) => (int) $value)
+            ->filter(fn($value) => $value >= 1 && $value <= 12)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function tahun(): string
