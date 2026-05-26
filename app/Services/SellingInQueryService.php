@@ -80,25 +80,6 @@ class SellingInQueryService
         }
     }
 
-    private function productMasterTable(): string
-    {
-        return "(
-            SELECT
-                pt_ph COLLATE utf8mb4_0900_ai_ci as pt_ph,
-                MIN(pt_desc COLLATE utf8mb4_0900_ai_ci) as pt_desc,
-                MIN(CASE
-                    WHEN pilar_sub IS NULL OR TRIM(pilar_sub COLLATE utf8mb4_0900_ai_ci) = '' THEN 'EXPORT'
-                    WHEN UPPER(TRIM(pilar_sub COLLATE utf8mb4_0900_ai_ci)) IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
-                    WHEN UPPER(TRIM(pilar_sub COLLATE utf8mb4_0900_ai_ci)) IN ('OGB', 'GENERIK') THEN 'OGB'
-                    WHEN UPPER(TRIM(pilar_sub COLLATE utf8mb4_0900_ai_ci)) = 'OTC' THEN 'OTC'
-                    ELSE UPPER(TRIM(pilar_sub COLLATE utf8mb4_0900_ai_ci))
-                END) as pilar,
-                MIN(promotion_group COLLATE utf8mb4_0900_ai_ci) as promotion_group
-            FROM {$this->dwhTable('v_pt_mstr_dist')}
-            GROUP BY pt_ph COLLATE utf8mb4_0900_ai_ci
-        ) as vp";
-    }
-
     public function productCoverageTable(string $alias = 'mp'): string
     {
         return "(
@@ -130,6 +111,8 @@ class SellingInQueryService
             ->select([
                 'tr_eff_date',
                 'tr_part',
+                'tr_desc1',
+                'tr_desc2',
                 'tr_promo',
                 'tr_price',
                 'tr_qty',
@@ -143,6 +126,8 @@ class SellingInQueryService
             CREATE TEMPORARY TABLE tmp_selling_in (
                 tr_eff_date DATE,
                 tr_part     VARCHAR(50)    COLLATE utf8mb4_0900_ai_ci,
+                tr_desc1    VARCHAR(255)   COLLATE utf8mb4_0900_ai_ci,
+                tr_desc2    VARCHAR(255)   COLLATE utf8mb4_0900_ai_ci,
                 tr_promo    VARCHAR(20)    COLLATE utf8mb4_0900_ai_ci,
                 tr_price    DECIMAL(20,4),
                 tr_qty      DECIMAL(20,4),
@@ -196,9 +181,64 @@ class SellingInQueryService
     // -------------------------------------------------------
     // BASE QUERY
     //
-    // Semua query selling in dimulai dari sini.
-    // tmp_selling_in di-JOIN ke v_pt_mstr_dist (DWH) untuk
-    // mendapatkan: promotion_group dan pt_desc.
+    // Query transaksi langsung ke EIS untuk endpoint yang tidak butuh join.
+    // Nama produk tersedia di ph_tr_hist via tr_desc1 + tr_desc2.
+    // -------------------------------------------------------
+
+    public function baseTransactionQuery(
+        SellingInFilterRequest $request,
+        ?array $dateRange = null
+    ): Builder {
+        $range = $dateRange ?? [$request->startDate(), $request->endDate()];
+        [$start, $end] = $this->normalizeDateRange($range);
+
+        $source = DB::connection(self::CONN_EIS)
+            ->table('ph_tr_hist')
+            ->whereBetween('tr_eff_date', [$start, $end])
+            ->select([
+                'tr_eff_date',
+                'tr_part',
+                'tr_desc1',
+                'tr_desc2',
+                'tr_promo',
+                'tr_price',
+                'tr_qty',
+                DB::raw('(tr_price * (tr_qty * -1)) as netto'),
+            ]);
+
+        $query = DB::connection(self::CONN_EIS)
+            ->query()
+            ->fromSub($source, 'si');
+
+        if ($request->filled('pilar')) {
+            $query->whereRaw($this->promoPilarSql('si.tr_promo') . ' = ?', [
+                $this->normalizePilarValue($request->get('pilar')),
+            ]);
+        }
+
+        if ($request->filled('product')) {
+            $query->where('si.tr_part', $request->get('product'));
+        }
+
+        return $query;
+    }
+
+    public function baseTransactionQueryByYear(SellingInFilterRequest $request): Builder
+    {
+        $year = $request->tahun();
+        $yearRange = [
+            Carbon::create($year, 1, 1)->startOfYear()->toDateString(),
+            Carbon::create($year, 12, 31)->endOfYear()->toDateString(),
+        ];
+
+        return $this->baseTransactionQuery($request, $yearRange);
+    }
+
+    // -------------------------------------------------------
+    // TEMP BASE QUERY
+    //
+    // Dipakai sementara untuk endpoint yang masih perlu join lintas koneksi,
+    // seperti Top PM ke mapping coverage dan users.
     // -------------------------------------------------------
 
     public function baseQuery(
@@ -209,8 +249,7 @@ class SellingInQueryService
         $this->ensureTempTable($range);
 
         $query = DB::connection(self::CONN_AUTH)
-            ->table('tmp_selling_in as si')
-            ->leftJoin(DB::raw($this->productMasterTable()), 'si.tr_part', '=', 'vp.pt_ph');
+            ->table('tmp_selling_in as si');
 
         // Filter pilar
         if ($request->filled('pilar')) {
@@ -227,24 +266,10 @@ class SellingInQueryService
     }
 
     /**
-     * Base query untuk range 1 tahun penuh (untuk chart YTD).
-     */
-    public function baseQueryByYear(SellingInFilterRequest $request): Builder
-    {
-        $year = $request->tahun();
-        $yearRange = [
-            Carbon::create($year, 1, 1)->startOfYear()->toDateString(),
-            Carbon::create($year, 12, 31)->endOfYear()->toDateString(),
-        ];
-
-        return $this->baseQuery($request, $yearRange);
-    }
-
-    /**
      * Count helper untuk pagination DataTables.
      */
     public function countGrouped(Builder $query): int
     {
-        return DB::query()->fromSub($query, 'agg')->count();
+        return $query->getConnection()->query()->fromSub($query, 'agg')->count();
     }
 }
