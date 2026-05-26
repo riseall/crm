@@ -262,18 +262,9 @@ class OutletController extends Controller
                     $q->where('so.dist', 'like', $like)
                         ->orWhere('so.id_outlet', 'like', $like)
                         ->orWhere('so.outlet_name', 'like', $like)
-                        ->orWhere('so.coverage_id', 'like', $like)
-                        ->orWhere('so.coverage_desc', 'like', $like)
                         ->orWhere('so.coverage_nik', 'like', $like)
                         ->orWhere('so.user_name', 'like', $like)
                         ->orWhere('so.product_pilar', 'like', $like)
-                        ->orWhere('so.coverage_pilar', 'like', $like)
-                        ->orWhere('so.coverage_valid_from', 'like', $like)
-                        ->orWhere('so.coverage_valid_to', 'like', $like)
-                        ->orWhereRaw("DATE_FORMAT(so.tgl_faktur, '%M %Y') like ?", [$like])
-                        ->orWhereRaw("DATE_FORMAT(so.coverage_valid_from, '%Y-%m-%d') like ?", [$like])
-                        ->orWhereRaw("DATE_FORMAT(so.coverage_valid_to, '%Y-%m-%d') like ?", [$like])
-                        ->orWhereRaw("(CASE WHEN so.coverage_id IS NULL OR so.coverage_nik IS NULL OR so.coverage_nik = '' THEN 'Unmapped' WHEN so.coverage_valid_to IS NULL OR so.coverage_valid_to >= CURDATE() THEN 'Aktif' ELSE 'Non-aktif' END) like ?", [$like])
                         ->orWhereRaw("(CASE so.coverage_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
                 });
             }, true)
@@ -311,6 +302,9 @@ class OutletController extends Controller
                 $date = \Carbon\Carbon::parse($row->bulan_date);
 
                 return ($months[(int) $date->month] ?? $date->format('F')) . ' ' . $date->year;
+            })
+            ->editColumn('coverage_nik', function ($row) {
+                return empty($row->coverage_nik) || $row->coverage_nik === '-' ? 'Unmapped' : $row->coverage_nik;
             })
             ->editColumn('coverage_level', function ($row) {
                 return $this->sellout->numToLevel($row->coverage_level);

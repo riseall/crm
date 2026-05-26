@@ -321,7 +321,9 @@ class SelloutQueryService
         array $dateRange,
         bool $includeUser = true,
         bool $includeOutletName = true,
-        bool $forChart = false
+        bool $forChart = false,
+        ?array $months = null,
+        ?string $coverageId = null
     ): Builder {
         [$start, $end] = $this->normalizeDateRange($dateRange);
 
@@ -351,6 +353,24 @@ class SelloutQueryService
         }
 
         $query->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        if (!empty($months)) {
+            $year = (int) Carbon::parse($start)->year;
+
+            $query->where(function ($q) use ($months, $year) {
+                foreach ($months as $month) {
+                    $q->orWhereBetween('so.tgl_faktur', [
+                        Carbon::create($year, (int) $month, 1)->startOfMonth()->toDateTimeString(),
+                        Carbon::create($year, (int) $month, 1)->endOfMonth()->toDateTimeString(),
+                    ]);
+                }
+            });
+        }
+
+        if ($coverageId !== null && trim($coverageId) !== '') {
+            $query->where('mc.id_coverage', $coverageId);
+        }
+
         $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
         if (!$isHierarchical && $request->filled('level')) {
@@ -416,12 +436,14 @@ class SelloutQueryService
     public function baseQuery(
         DashboardFilterRequest $request,
         bool $isHierarchical = false,
-        ?array $dateRange = null
+        ?array $dateRange = null,
+        ?array $months = null,
+        ?string $coverageId = null
     ): Builder {
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
 
         return $this->wrapAsSellout(
-            $this->enrichedSummaryQuery($request, $isHierarchical, $range)
+            $this->enrichedSummaryQuery($request, $isHierarchical, $range, true, true, false, $months, $coverageId)
         );
     }
 
@@ -580,21 +602,16 @@ class SelloutQueryService
     public function outletHistoryQuery(DashboardFilterRequest $request)
     {
         $months = $request->bulanList();
+        $coverageId = $request->get('coverage_id');
 
         if (count($months) > 1) {
             $year = (int) $request->tahun();
             $query = $this->baseQuery($request, false, [
                 Carbon::create($year, 1, 1)->startOfMonth()->toDateString(),
                 Carbon::create($year, 12, 1)->endOfMonth()->toDateString(),
-            ]);
-
-            $query->whereIn(DB::raw('MONTH(so.tgl_faktur)'), $months);
+            ], $months, $coverageId);
         } else {
-            $query = $this->baseQuery($request);
-        }
-
-        if ($request->get('coverage_id')) {
-            $query->where('so.coverage_id', $request->get('coverage_id'));
+            $query = $this->baseQuery($request, false, null, null, $coverageId);
         }
 
         return $query;

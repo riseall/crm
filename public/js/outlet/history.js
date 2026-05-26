@@ -56,7 +56,7 @@ $(document).ready(function () {
         autoWidth: false,
         responsive: false,
         scrollX: true,
-        searchDelay: 250,
+        searchDelay: 700,
         ajax: {
             url: routes.data,
             data: function (d) {
@@ -87,6 +87,10 @@ $(document).ready(function () {
                 data: "coverage_nik",
                 name: "so.coverage_nik",
                 searchable: false,
+                className: "text-center",
+                render: function (data) {
+                    return data || "Unmapped";
+                },
             },
             {
                 data: "user_name",
@@ -100,6 +104,7 @@ $(document).ready(function () {
                 data: "coverage_level",
                 name: "so.coverage_level",
                 searchable: false,
+                className: "text-center",
                 render: function (v) {
                     return (
                         '<span class="badge badge-light-primary">' +
@@ -112,6 +117,7 @@ $(document).ready(function () {
                 data: "product_pilar",
                 name: "so.product_pilar",
                 searchable: false,
+                className: "text-center",
             },
             // {
             //     data: "status_label",
@@ -132,14 +138,12 @@ $(document).ready(function () {
                 data: "total_transaksi",
                 name: "total_transaksi",
                 searchable: false,
-                className: "text-right",
                 render: $.fn.dataTable.render.number(".", ",", 0),
             },
             {
                 data: "total_netto",
                 name: "total_netto",
                 searchable: false,
-                className: "text-right",
                 render: function (data) {
                     return (
                         "<strong>Rp " +

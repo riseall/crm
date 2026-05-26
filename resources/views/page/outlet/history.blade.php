@@ -7,7 +7,8 @@
         id-bulan="filter_bulan" id-tahun="filter_tahun" id-coverage="filter_coverage_id" id-apply="btnApplyHistoryFilter" />
 
     <x-datatable-card title="History Outlet"
-        subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet">
+        subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet"
+        table-class="table-separate table-head-custom table-checkable text-nowrap">
         <th>No</th>
         <th>Bulan</th>
         <th>Dist</th>
