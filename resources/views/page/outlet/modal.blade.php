@@ -149,6 +149,8 @@
 
             $(document).on('click', '.btn-delete', function() {
                 var id = $(this).data('id');
+                var url = $(this).data('url') || '{{ route('outlet.destroy', ':id') }}'.replace(':id', id);
+
                 Swal.fire({
                     title: 'Hapus Mapping?',
                     icon: 'warning',
@@ -156,9 +158,9 @@
                     confirmButtonText: 'Ya, hapus!',
                     cancelButtonText: 'Batal',
                 }).then(function(result) {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value) {
                         $.ajax({
-                            url: '{{ route('outlet.destroy', ':id') }}'.replace(':id', id),
+                            url: url,
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'

@@ -80,7 +80,8 @@
 
             $('#btnSimpan').on('click', function() {
                 var id = $('#pmId').val();
-                var url = id ? '{{ route('product.update', ':id') }}'.replace(':id', id) : '{{ route('product.store') }}';
+                var url = id ? '{{ route('product.update', ':id') }}'.replace(':id', id) :
+                    '{{ route('product.store') }}';
                 var method = id ? 'PUT' : 'POST';
 
                 $.ajax({
@@ -107,16 +108,19 @@
 
             $(document).on('click', '.btn-delete', function() {
                 var id = $(this).data('id');
+                var url = $(this).data('url') || '{{ route('product.destroy', ':id') }}'.replace(':id', id);
+
                 Swal.fire({
-                    title: 'Hapus PM?',
+                    title: 'Hapus Produk',
+                    text: 'Apakah Anda yakin ingin menghapus produk ini?',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Ya, hapus!',
                     cancelButtonText: 'Batal',
                 }).then(function(result) {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value) {
                         $.ajax({
-                            url: '{{ route('product.destroy', ':id') }}'.replace(':id', id),
+                            url: url,
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'
@@ -126,7 +130,8 @@
                                 reloadProductTables();
                             },
                             error: function(xhr) {
-                                var message = xhr.responseJSON && xhr.responseJSON.message ?
+                                var message = xhr.responseJSON && xhr.responseJSON
+                                    .message ?
                                     xhr.responseJSON.message :
                                     'Data gagal dihapus.';
                                 Swal.fire('Gagal', message, 'error');

@@ -291,6 +291,9 @@
             // Hapus
             $(document).on('click', '.btn-delete', function() {
                 var id = $(this).data('id');
+                var url = $(this).data('url') || '{{ route('mapping.destroy', ':id') }}'.replace(':id',
+                    id);
+
                 Swal.fire({
                     title: 'Hapus Coverage?',
                     text: 'Data tidak bisa dikembalikan!',
@@ -299,10 +302,9 @@
                     confirmButtonText: 'Ya, hapus!',
                     cancelButtonText: 'Batal',
                 }).then(function(result) {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value) {
                         $.ajax({
-                            url: '{{ route('mapping.destroy', ':id') }}'.replace(':id',
-                                id),
+                            url: url,
                             type: 'DELETE',
                             data: {
                                 _token: '{{ csrf_token() }}'

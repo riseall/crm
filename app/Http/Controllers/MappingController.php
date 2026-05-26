@@ -7,6 +7,7 @@ use App\Models\Outlet;
 use App\Services\CoverageReplacementAlertService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 
@@ -60,6 +61,7 @@ class MappingController extends Controller
     public function getData(Request $request)
     {
         $query = Mapping::query()
+            ->whereNull('crm_mst_mappings.deleted_at')
             ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
             ->select('crm_mst_mappings.*', 'users.name as user_name');
 
@@ -100,7 +102,7 @@ class MappingController extends Controller
                     : '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-toggle" data-id="' . $row->id . '" title="Aktifkan">
                             <i class="fas fa-toggle-off"></i>
                        </button>';
-                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-delete" data-id="' . $row->id . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon mr-2 btn-delete" data-id="' . $row->id . '" data-url="' . route('mapping.destroy', $row->id) . '">
                                <i class="fas fa-trash"></i>
                            </button>';
                 return '<div class="d-flex flex-nowrap justify-content-center align-items-center action-buttons">'
@@ -408,7 +410,13 @@ class MappingController extends Controller
 
     public function destroy($id)
     {
-        $coverage = Mapping::findOrFail($id);
+        $coverage = Mapping::withTrashed()->findOrFail($id);
+
+        if ($coverage->trashed()) {
+            throw ValidationException::withMessages([
+                'id' => 'Coverage ini sudah dihapus.',
+            ]);
+        }
 
         // Hanya blok jika record aktif masih dipakai outlet
         $mappingCount = 0;

@@ -7,6 +7,7 @@ use App\Models\MPart;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProductController extends Controller
@@ -45,6 +46,7 @@ class ProductController extends Controller
             ->groupBy('pt_ph');
 
         $query = Product::query()
+            ->whereNull('crm_mst_products.deleted_at')
             ->leftJoinSub($partQuery, 'parts', function ($join) {
                 $join->on('crm_mst_products.pt_ph', '=', 'parts.pt_ph');
             })
@@ -61,7 +63,7 @@ class ProductController extends Controller
                 $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id . '">
                             <i class="fas fa-edit"></i>
                          </button>';
-                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon btn-delete" data-id="' . $row->id . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon btn-delete" data-id="' . $row->id . '" data-url="' . route('product.destroy', $row->id) . '">
                                <i class="fas fa-trash"></i>
                            </button>';
 
@@ -125,13 +127,22 @@ class ProductController extends Controller
             'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
-        // Cek duplikat
-        $exists = Product::where('pt_ph', $request->pt_ph)
+        $product = Product::withTrashed()
+            ->where('pt_ph', $request->pt_ph)
             ->where('id_coverage', $request->id_coverage)
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($product && ! $product->trashed()) {
             return response()->json(['success' => false, 'message' => 'Produk ini sudah di-assign ke coverage tersebut.'], 422);
+        }
+
+        if ($product && $product->trashed()) {
+            $product->restore();
+            $product->update([
+                'needs_replacement' => false,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'PM berhasil ditambahkan kembali.']);
         }
 
         Product::create([
@@ -166,7 +177,16 @@ class ProductController extends Controller
 
     public function destroy($id)
     {
-        Product::findOrFail($id)->delete();
+        $product = Product::withTrashed()->findOrFail($id);
+
+        if ($product->trashed()) {
+            throw ValidationException::withMessages([
+                'id' => 'PM ini sudah dihapus.',
+            ]);
+        }
+
+        $product->delete();
+
         return response()->json(['success' => true, 'message' => 'PM berhasil dihapus.']);
     }
 }

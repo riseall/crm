@@ -11,6 +11,7 @@ use App\Services\SelloutQueryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
 class OutletController extends Controller
@@ -38,10 +39,15 @@ class OutletController extends Controller
     {
         // $user = auth()->user();
         $outletsTable = DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets');
-        $totalData = MCustDist::query()->leftJoin($outletsTable, 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->count();
-        $totalTercoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->whereNotNull('crm_mst_outlets.id_coverage')->count();
-        $totalBelumCoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->whereNull('crm_mst_outlets.id_coverage')->count();
-        $totalButuhPengganti = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')->where('crm_mst_outlets.needs_replacement', 1)->count();
+        $joinActiveOutlets = function ($join) {
+            $join->on('mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')
+                ->whereNull('crm_mst_outlets.deleted_at');
+        };
+
+        $totalData = MCustDist::query()->leftJoin($outletsTable, $joinActiveOutlets)->count();
+        $totalTercoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->whereNotNull('crm_mst_outlets.id_coverage')->count();
+        $totalBelumCoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->whereNull('crm_mst_outlets.id_coverage')->count();
+        $totalButuhPengganti = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->where('crm_mst_outlets.needs_replacement', 1)->count();
         // $newData = Outlet::where('created_at', '>=', now()->subDays(7))->count();
         // $updatedToday = Outlet::whereDate('updated_at', today())->count();
         $coverage = Mapping::active()
@@ -82,7 +88,10 @@ class OutletController extends Controller
             ->groupBy('id_coverage');
 
         $query = MCustDist::where('dist', '!=', 'Nusindo')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), 'mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), function ($join) {
+                $join->on('mst_cust_dist.id_outlet', '=', 'crm_mst_outlets.id_outlet')
+                    ->whereNull('crm_mst_outlets.deleted_at');
+            })
             ->leftJoinSub($latestMappings, 'latest_mappings', function ($join) {
                 $join->on('crm_mst_outlets.id_coverage', '=', 'latest_mappings.id_coverage');
             })
@@ -199,7 +208,7 @@ class OutletController extends Controller
                 $edit = '<button class="btn btn-sm btn-outline-warning btn-icon mr-2 btn-edit" data-id="' . $row->id . '">
                             <i class="fas fa-edit"></i>
                          </button>';
-                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon btn-delete" data-id="' . $row->id . '">
+                $delete = '<button class="btn btn-sm btn-outline-danger btn-icon btn-delete" data-id="' . $row->id . '" data-url="' . route('outlet.destroy', $row->id) . '">
                                <i class="fas fa-trash"></i>
                            </button>';
 
@@ -399,13 +408,22 @@ class OutletController extends Controller
             'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
         ]);
 
-        // Cek duplikat
-        $exists = Outlet::where('id_outlet', $request->id_outlet)
+        $mapping = Outlet::withTrashed()
+            ->where('id_outlet', $request->id_outlet)
             ->where('id_coverage', $request->id_coverage)
-            ->exists();
+            ->first();
 
-        if ($exists) {
+        if ($mapping && ! $mapping->trashed()) {
             return response()->json(['success' => false, 'message' => 'Outlet ini sudah di-mapping ke coverage tersebut.'], 422);
+        }
+
+        if ($mapping && $mapping->trashed()) {
+            $mapping->restore();
+            $mapping->update([
+                'needs_replacement' => false,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Mapping berhasil ditambahkan kembali.']);
         }
 
         Outlet::create([
@@ -511,7 +529,16 @@ class OutletController extends Controller
 
     public function destroy($id)
     {
-        Outlet::findOrFail($id)->delete();
+        $mapping = Outlet::withTrashed()->findOrFail($id);
+
+        if ($mapping->trashed()) {
+            throw ValidationException::withMessages([
+                'id' => 'Mapping ini sudah dihapus.',
+            ]);
+        }
+
+        $mapping->delete();
+
         return response()->json(['success' => true, 'message' => 'Mapping berhasil dihapus.']);
     }
 }
