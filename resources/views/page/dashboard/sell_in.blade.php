@@ -3,7 +3,14 @@
 @section('content')
     <x-filter-bar :months="$months" :years="$years" :pilars="$pilars" title="Monitoring Selling In"
         subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line" id-bulan="filterBulan"
-        id-tahun="filterTahun" id-pilar="filterPilar" id-apply="btnApply" />
+        id-tahun="filterTahun" id-pilar="filterPilar" id-apply="btnApply">
+        <div class="col mb-4">
+            <label class="small text-muted mb-1">Produk</label>
+            <select id="filterProduct" class="form-control select2-product" style="width: 100%;">
+                <option value="">Semua produk</option>
+            </select>
+        </div>
+    </x-filter-bar>
 
 
     {{-- ===================== KPI CARDS ===================== --}}
@@ -24,9 +31,9 @@
                 <h3 class="card-label">Tren Selling In</h3>
             </div>
             <div class="card-toolbar">
-                <div class="btn-group btn-group-sm" id="chartModeToggle">
-                    <button class="btn btn-outline-secondary active" data-mode="hari">Harian</button>
-                    <button class="btn btn-outline-secondary" data-mode="bulan">Bulanan (YTD)</button>
+                <div class="btn-group" id="chartModeToggle">
+                    <button class="btn btn-sm btn-outline-primary active  font-size-xs" data-mode="hari">Per Hari</button>
+                    <button class="btn btn-sm btn-outline-primary  font-size-xs" data-mode="bulan">Per Bulan</button>
                 </div>
             </div>
         </div>
@@ -44,11 +51,11 @@
                         <h3 class="card-label">by PM</h3>
                     </div>
                 </div>
-                <div class="card-body p-3">
+                <div class="card-body p-3 si-chart-card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <span class="text-muted small" id="topPmPeriod"></span>
                     </div>
-                    <div id="chartTopPm" style="height:260px"></div>
+                    <div id="chartTopPm" class="si-chart-fill"></div>
                 </div>
             </div>
         </div>
@@ -59,7 +66,7 @@
                         <h3 class="card-label">by Pilar</h3>
                     </div>
                 </div>
-                <div class="card-body p-3">
+                <div class="card-body p-3 si-chart-card-body">
                     <div class="">
                         <div id="chartPilar" class="mb-3"></div>
                         <div id="legendPilar" class="row no-gutters" style="gap: 8px 0;"></div>
@@ -74,8 +81,8 @@
                         <h3 class="card-label">by Produk</h3>
                     </div>
                 </div>
-                <div class="card-body p-3">
-                    <div id="chartTopProduk" style="height:260px"></div>
+                <div class="card-body p-3 si-chart-card-body">
+                    <div id="chartTopProduk" class="si-funnel-wrap"></div>
                 </div>
             </div>
         </div>
@@ -122,6 +129,15 @@
             height: 220px;
         }
 
+        .si-chart-card-body {
+            height: 520px;
+            overflow: hidden;
+        }
+
+        .si-chart-fill {
+            height: 430px;
+        }
+
         .si-pilar-legend-item {
             padding: 6px 8px;
             border: 1px solid #E0E7FF;
@@ -147,35 +163,40 @@
         }
 
         .si-funnel {
-            display: grid;
-            gap: 6px;
-            min-height: 260px;
-            align-content: center;
+            padding: 0;
+            height: 430px;
+            overflow: hidden;
+        }
+
+        .si-funnel-wrap,
+        .si-funnel-wrap .si-funnel {
+            overflow: visible;
         }
 
         .si-funnel-stage {
             position: relative;
-            min-height: 36px;
+            min-height: 38px;
+            margin-bottom: 7px;
             margin-right: auto;
             margin-left: auto;
-            overflow: hidden;
+            overflow: visible;
             border-radius: 4px;
             color: #fff;
-            clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+            clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
             box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.16);
         }
 
         .si-funnel-stage:last-child {
-            clip-path: polygon(0 0, 100% 0, 58% 100%, 42% 100%);
+            clip-path: polygon(0 0, 100% 0, 68% 100%, 32% 100%);
         }
 
         .si-funnel-content {
             display: grid;
             height: 100%;
-            min-height: 36px;
+            min-height: 38px;
             align-content: center;
             justify-items: center;
-            padding: 5px 18px;
+            padding: 4px 26px;
             text-align: center;
             text-shadow: 0 1px 2px rgba(15, 23, 42, 0.22);
         }
@@ -185,9 +206,11 @@
             overflow: hidden;
             font-size: 10px;
             font-weight: 700;
-            line-height: 1.15;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            line-height: 1.2;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            word-break: break-word;
         }
 
         .si-funnel-value {
@@ -198,6 +221,16 @@
         }
 
         @media (max-width: 575.98px) {
+            .si-chart-card-body {
+                height: auto;
+                min-height: 360px;
+            }
+
+            .si-chart-fill,
+            .si-funnel {
+                height: 360px;
+            }
+
             .si-pilar-chart {
                 height: 200px;
             }
@@ -205,6 +238,11 @@
             .si-funnel-title,
             .si-funnel-value {
                 font-size: 9px;
+            }
+
+            .si-funnel-content {
+                padding-right: 18px;
+                padding-left: 18px;
             }
         }
     </style>
@@ -274,6 +312,7 @@
                 bulan: document.getElementById('filterBulan').value,
                 tahun: document.getElementById('filterTahun').value,
                 pilar: document.getElementById('filterPilar').value,
+                product: document.getElementById('filterProduct').value,
             };
         }
 
@@ -565,7 +604,7 @@
                 return;
             }
 
-            const height = Math.max(260, data.length * 34);
+            const height = 430;
             const labels = data.map(pm => pm.name || pm.nik || '-');
             const colors = data.map((pm, index) => PILAR_COLORS[pm.pilar] ?? COVERAGE_COLORS[index] ?? CHART_COLORS
                 .fallback);
@@ -592,7 +631,7 @@
                         horizontal: true,
                         distributed: true,
                         borderRadius: 6,
-                        barHeight: '62%',
+                        barHeight: '58%',
                     },
                 },
                 dataLabels: {
@@ -689,26 +728,26 @@
                 return;
             }
 
-            const max = Math.max(...data.map(p => Number(p.total_netto || 0))) || 1;
-            const colors = data.map((p, index) => PILAR_COLORS[p.pilar] ?? COVERAGE_COLORS[index] ?? CHART_COLORS
+            const topData = data.slice(0, 10);
+            const max = Math.max(...topData.map(p => Number(p.total_netto || 0))) || 1;
+            const colors = topData.map((p, index) => PILAR_COLORS[p.pilar] ?? COVERAGE_COLORS[index] ?? CHART_COLORS
                 .fallback);
             el.innerHTML = `
                 <div class="si-funnel">
-                    ${data.map((p, i) => {
+                    ${topData.map((p, i) => {
                         const value = Number(p.total_netto || 0);
-                        const width = Math.max(42, Math.round((value / max) * 100));
+                        const width = Math.max(58, Math.round((value / max) * 100));
                         const name = p.nama || p.kode_produk || '-';
-                        const shortName = name.length > 24 ? `${name.slice(0, 24)}...` : name;
                         const pilar = p.pilar || '-';
 
                         return `
-                                        <div class="si-funnel-stage" style="width:${width}%;background:${colors[i]}" title="${name} | ${formatRupiah(value)} | ${pilar}">
-                                            <div class="si-funnel-content">
-                                                <div class="si-funnel-title">${shortName}</div>
-                                                <div class="si-funnel-value">${formatRupiahCompact(value)} · ${p.pct || 0}%</div>
-                                            </div>
-                                        </div>
-                                    `;
+                                                                    <div class="si-funnel-stage" style="width:${width}%;background:${colors[i]}" title="${name} | ${formatRupiah(value)} | ${pilar}">
+                                                                        <div class="si-funnel-content">
+                                                                            <div class="si-funnel-title">${name}</div>
+                                                                            <div class="si-funnel-value">${formatRupiahCompact(value)} · ${p.pct || 0}%</div>
+                                                                        </div>
+                                                                    </div>
+                                                                `;
                     }).join('')}
                 </div>
             `;
@@ -808,6 +847,22 @@
         // -------------------------------------------------------
 
         document.getElementById('btnApply').addEventListener('click', loadAll);
+
+        $('#filterProduct').select2({
+            placeholder: 'Semua produk',
+            allowClear: true,
+            width: '100%',
+            ajax: {
+                url: '{{ route('product.produk') }}',
+                dataType: 'json',
+                delay: 250,
+                data: params => ({
+                    q: params.term || ''
+                }),
+                processResults: data => data,
+                cache: true,
+            },
+        });
 
         document.getElementById('chartModeToggle').addEventListener('click', e => {
             const btn = e.target.closest('button[data-mode]');

@@ -17,7 +17,8 @@ class SellingInFilterRequest extends FormRequest
         return [
             'bulan'       => ['nullable', 'integer', 'between:1,12'],
             'tahun'       => ['nullable', 'integer', 'min:2000'],
-            'pilar'       => ['nullable', 'string', 'in:ETHICAL,OGB,OTC,EXPORT'],
+            'pilar'       => ['nullable', 'string', 'in:ETHICAL,GENERIK,OTC,EXPORT'],
+            'product'     => ['nullable', 'string', 'max:50'],
             'distributor' => ['nullable', 'string', 'in:KFTD,AAM,METD'],
             'search'       => ['nullable'],
             'search.value' => ['nullable', 'string', 'max:100'],

@@ -188,6 +188,7 @@ class SellingInQueryService
             $request->bulan(),
             $request->tahun(),
             $request->get('pilar', ''),
+            $request->get('product', ''),
             $extra ?? '',
         ]));
     }
@@ -216,6 +217,10 @@ class SellingInQueryService
             $query->whereRaw($this->promoPilarSql('si.tr_promo') . ' = ?', [
                 $this->normalizePilarValue($request->get('pilar')),
             ]);
+        }
+
+        if ($request->filled('product')) {
+            $query->where('si.tr_part', $request->get('product'));
         }
 
         return $query;
