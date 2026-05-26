@@ -197,7 +197,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const menuItems = document.querySelectorAll('.menu-item');
-        const menuLinks = document.querySelectorAll('.menu-item > .menu-link[href]');
+        const menuLinks = document.querySelectorAll('.menu-item > .menu-link[href]:not(.menu-toggle)');
         const currentUrl = window.location.origin + window.location.pathname;
 
         function resetActiveMenu() {
