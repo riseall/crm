@@ -173,6 +173,7 @@
     <!--begin::Global Theme Bundle(used by all pages)-->
     <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
+    <script src="{{ asset('js/global-loading.js') }}?v={{ filemtime(public_path('js/global-loading.js')) }}"></script>
     <!--end::Global Theme Bundle-->
     <script>
         (function($) {

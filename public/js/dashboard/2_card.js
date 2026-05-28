@@ -12,7 +12,7 @@ Dashboard.Cards = (function ($, H) {
     }
 
     function load() {
-        $.get(route, H.getFilters(), function (res) {
+        return $.get(route, H.getFilters(), function (res) {
             $('#card_netto').text(H.formatRupiah(res.total_netto));
             $('#card_outlet').text(H.formatInt(res.total_outlet));
             $('#card_anggota').text(H.formatInt(res.total_anggota));

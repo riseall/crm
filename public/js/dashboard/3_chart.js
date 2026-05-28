@@ -137,10 +137,10 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartTrend() {
-        if (!chartTrend) return;
+        if (!chartTrend) return Promise.resolve();
 
         var routeKey = chartMode === "hari" ? "chartHari" : "chartBulan";
-        H.apiGet(routeKey, H.getFilters()).done(function (res) {
+        return H.apiGet(routeKey, H.getFilters()).then(function (res) {
             var title =
                 res.mode === "hari"
                     ? "Netto per Hari - " + res.month
@@ -148,11 +148,12 @@ Dashboard.Charts = (function ($, H) {
             $("#chartTrendTitle").text(title);
 
             var showLabel = res.mode === "hari" || res.data.length <= 15;
-            chartTrend.updateOptions({
+            return Promise.resolve(chartTrend.updateOptions({
                 xaxis: { categories: res.labels },
                 dataLabels: { enabled: showLabel },
+            })).then(function () {
+                return chartTrend.updateSeries([{ name: "Netto", data: res.data }]);
             });
-            chartTrend.updateSeries([{ name: "Netto", data: res.data }]);
         });
     }
 
@@ -219,11 +220,12 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartDivisi() {
-        if (!chartDivisi) return;
+        if (!chartDivisi) return Promise.resolve();
 
-        H.apiGet("chartDivisi", H.getFilters()).done(function (res) {
-            chartDivisi.updateOptions({ labels: res.labels });
-            chartDivisi.updateSeries(res.data);
+        return H.apiGet("chartDivisi", H.getFilters()).then(function (res) {
+            return Promise.resolve(chartDivisi.updateOptions({ labels: res.labels })).then(function () {
+                return chartDivisi.updateSeries(res.data);
+            });
         });
     }
 
@@ -305,11 +307,12 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartPilar() {
-        if (!chartPilar) return;
+        if (!chartPilar) return Promise.resolve();
 
-        H.apiGet("chartPilar", H.getFilters()).done(function (res) {
-            chartPilar.updateOptions({ xaxis: { categories: res.labels } });
-            chartPilar.updateSeries([{ name: "Netto", data: res.data }]);
+        return H.apiGet("chartPilar", H.getFilters()).then(function (res) {
+            return Promise.resolve(chartPilar.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
+                return chartPilar.updateSeries([{ name: "Netto", data: res.data }]);
+            });
         });
     }
 
@@ -367,19 +370,22 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartCoverage() {
-        if (!chartCoverage) return;
+        if (!chartCoverage) return Promise.resolve();
 
-        H.apiGet("chartCoverage", H.getFilters()).done(function (res) {
-            chartCoverage.updateOptions({ xaxis: { categories: res.labels } });
-            chartCoverage.updateSeries([{ name: "Netto", data: res.data }]);
+        return H.apiGet("chartCoverage", H.getFilters()).then(function (res) {
+            return Promise.resolve(chartCoverage.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
+                return chartCoverage.updateSeries([{ name: "Netto", data: res.data }]);
+            });
         });
     }
 
     function loadAll() {
-        loadChartTrend();
-        loadChartDivisi();
-        loadChartPilar();
-        loadChartCoverage();
+        return Promise.all([
+            loadChartTrend(),
+            loadChartDivisi(),
+            loadChartPilar(),
+            loadChartCoverage(),
+        ]);
     }
 
     return {

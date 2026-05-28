@@ -26,6 +26,12 @@
 
 <body id="kt_body"
     class="header-fixed header-mobile-fixed subheader-enabled subheader-fixed aside-enabled aside-fixed aside-minimize-hoverable page-loading">
+    <div class="page-loader page-loader-logo">
+        <h1 style="font-size:7rem">CRM</h1>
+        <h4>Customer Relationship Management</h4>
+        <div class="spinner spinner-primary"></div>
+    </div>
+
     <!--begin::Main-->
     <div class="d-flex flex-column flex-root">
         <!--begin::Login-->
@@ -97,6 +103,7 @@
     <!--begin::Global Theme Bundle(used by all pages)-->
     <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
+    <script src="{{ asset('js/global-loading.js') }}?v={{ filemtime(public_path('js/global-loading.js')) }}"></script>
     <!--end::Global Theme Bundle-->
     <!--begin::Page Scripts(used by this page)-->
     <script src="{{ asset('js/login-general.js') }}"></script>

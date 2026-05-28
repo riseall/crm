@@ -741,13 +741,13 @@
                         const pilar = p.pilar || '-';
 
                         return `
-                                                                    <div class="si-funnel-stage" style="width:${width}%;background:${colors[i]}" title="${name} | ${formatRupiah(value)} | ${pilar}">
-                                                                        <div class="si-funnel-content">
-                                                                            <div class="si-funnel-title">${name}</div>
-                                                                            <div class="si-funnel-value">${formatRupiahCompact(value)} · ${p.pct || 0}%</div>
-                                                                        </div>
-                                                                    </div>
-                                                                `;
+                                                                            <div class="si-funnel-stage" style="width:${width}%;background:${colors[i]}" title="${name} | ${formatRupiah(value)} | ${pilar}">
+                                                                                <div class="si-funnel-content">
+                                                                                    <div class="si-funnel-title">${name}</div>
+                                                                                    <div class="si-funnel-value">${formatRupiahCompact(value)} · ${p.pct || 0}%</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        `;
                     }).join('')}
                 </div>
             `;
@@ -871,7 +871,10 @@
             document.querySelectorAll('#chartModeToggle button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             chartMode = btn.dataset.mode;
-            loadChartTrend(getFilters());
+            const job = loadChartTrend(getFilters());
+            if (window.CrmLoading && typeof window.CrmLoading.track === 'function') {
+                window.CrmLoading.track(job);
+            }
         });
 
         // -------------------------------------------------------

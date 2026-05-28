@@ -24,8 +24,19 @@ $(document).ready(function () {
     });
 
     function loadAll() {
-        Dashboard.Cards.load();
-        Dashboard.Charts.loadAll();
+        var chartAndCardJob = Promise.all([
+            Dashboard.Cards.load(),
+            Dashboard.Charts.loadAll(),
+        ].map(function (job) {
+            return Promise.resolve(job).catch(function (error) {
+                console.error(error);
+            });
+        }));
+
+        if (window.CrmLoading && typeof window.CrmLoading.track === 'function') {
+            window.CrmLoading.track(chartAndCardJob);
+        }
+
         Dashboard.Drilldown.reset(defaultDrilldownLevel);
 
         if (!initialLoad) {
