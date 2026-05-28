@@ -326,8 +326,16 @@ class OutletController extends Controller
             ->table('crm_mst_mappings')
             ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
             ->where('crm_mst_mappings.is_active', true)
-            ->where('crm_mst_mappings.cov_level', 5)
             ->whereNull('crm_mst_mappings.deleted_at');
+
+        if (!$request->boolean('all_levels')) {
+            $query->where('crm_mst_mappings.cov_level', 5);
+        }
+
+        $excludePrefix = trim((string) $request->get('exclude_prefix', ''));
+        if ($excludePrefix !== '') {
+            $query->where('crm_mst_mappings.id_coverage', 'not like', $excludePrefix . '%');
+        }
 
         $this->coverageAccess->applyScope($query, 'crm_mst_mappings.id_coverage');
 
@@ -348,7 +356,7 @@ class OutletController extends Controller
             ->get([
                 DB::raw('crm_mst_mappings.id_coverage as id'),
                 DB::raw('crm_mst_mappings.cov_nik as cov_nik'),
-                DB::raw("CONCAT(crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
+                DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
             ]);
 
         return response()->json(['results' => $coverage]);

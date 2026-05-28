@@ -6,17 +6,7 @@
     </div>
     <div class="form-group">
         <label>Coverage <span class="text-danger">*</span></label>
-        <select id="id_coverage" class="form-control selectpicker" style="width:100%">
-            <option value="">-- Pilih Coverage --</option>
-            @foreach ($coverage as $cov)
-                <option value="{{ $cov->id_coverage }}">
-                    {{ $cov->id_coverage }} - {{ $cov->cov_nik }}
-                    @if ($cov->user)
-                        - {{ $cov->user->name }}
-                    @endif
-                </option>
-            @endforeach
-        </select>
+        <select id="id_coverage" class="form-control select2-coverage-modal" style="width:100%"></select>
     </div>
 </x-modal>
 
@@ -24,17 +14,7 @@
     submitBtnText="Pindahkan">
     <div class="form-group">
         <label>Coverage Lama <span class="text-danger">*</span></label>
-        <select id="old_coverage_id" class="form-control selectpicker" style="width:100%">
-            <option value="">-- Pilih Coverage Lama --</option>
-            @foreach ($allCoverage as $cov)
-                <option value="{{ $cov->id_coverage }}">
-                    {{ $cov->id_coverage }} - {{ $cov->cov_nik }}
-                    @if ($cov->user)
-                        - {{ $cov->user->name }}
-                    @endif
-                </option>
-            @endforeach
-        </select>
+        <select id="old_coverage_id" class="form-control select2-coverage-modal" style="width:100%"></select>
     </div>
     <div class="form-group">
         <label>Pilih Outlet yang Dipindah <span class="text-danger">*</span></label>
@@ -44,17 +24,7 @@
     </div>
     <div class="form-group">
         <label>Coverage Baru <span class="text-danger">*</span></label>
-        <select id="new_coverage_id" class="form-control selectpicker" style="width:100%">
-            <option value="">-- Pilih Coverage Baru --</option>
-            @foreach ($coverage as $cov)
-                <option value="{{ $cov->id_coverage }}">
-                    {{ $cov->id_coverage }} - {{ $cov->cov_nik }}
-                    @if ($cov->user)
-                        - {{ $cov->user->name }}
-                    @endif
-                </option>
-            @endforeach
-        </select>
+        <select id="new_coverage_id" class="form-control select2-coverage-modal" style="width:100%"></select>
     </div>
 </x-modal>
 
@@ -67,12 +37,6 @@
             var $coverage = $('#id_coverage');
             var $oldCoverage = $('#old_coverage_id');
             var $newCoverage = $('#new_coverage_id');
-
-            if ($.fn.selectpicker) {
-                $coverage.selectpicker('render');
-                $oldCoverage.selectpicker('render');
-                $newCoverage.selectpicker('render');
-            }
 
             $outlet.select2({
                 dropdownParent: $mappingModal,
@@ -94,6 +58,10 @@
                 placeholder: 'Cari ID Outlet atau Nama...',
                 minimumInputLength: 2,
             });
+
+            initCoverageSelect($coverage, $mappingModal, 'Cari Coverage, NIK, atau Nama...');
+            initCoverageSelect($oldCoverage, $bulkModal, 'Cari Coverage Lama...');
+            initCoverageSelect($newCoverage, $bulkModal, 'Cari Coverage Baru...');
 
             $(document).on('click', '#btnTambah', function(e) {
                 e.preventDefault();
@@ -117,7 +85,7 @@
                     var option = new Option(outletText, data.id_outlet, true, true);
 
                     $outlet.append(option).trigger('change');
-                    setSelectpickerValue($coverage, data.id_coverage);
+                    setSelect2Value($coverage, data.id_coverage, coverageText(data.coverage, data.id_coverage));
                     $mappingModal.modal('show');
                 });
             });
@@ -273,26 +241,67 @@
                 $('#mappingId').val('');
                 $outlet.val(null).trigger('change');
                 $outlet.find('option').remove();
-                setSelectpickerValue($coverage, '');
+                setSelect2Value($coverage, '');
                 $('#modalMappingLabel').text('Tambah Mapping');
             }
 
             function resetBulkModal() {
-                setSelectpickerValue($oldCoverage, '');
-                setSelectpickerValue($newCoverage, '');
+                setSelect2Value($oldCoverage, '');
+                setSelect2Value($newCoverage, '');
                 $('#outletList').html(
                     '<small class="text-muted">Pilih coverage lama terlebih dahulu.</small>');
             }
 
-            function setSelectpickerValue($select, value) {
-                var selectedValue = value || '';
+            function initCoverageSelect($select, dropdownParent, placeholder) {
+                $select.select2({
+                    dropdownParent: dropdownParent,
+                    placeholder: placeholder,
+                    allowClear: true,
+                    ajax: {
+                        url: '{{ route('outlet.coverage') }}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            return {
+                                q: params.term,
+                                all_levels: 1,
+                                exclude_prefix: '3',
+                            };
+                        },
+                        processResults: function(data) {
+                            return {
+                                results: data.results
+                            };
+                        },
+                    },
+                    minimumInputLength: 2,
+                    width: '100%',
+                });
+            }
 
-                if ($.fn.selectpicker) {
-                    $select.selectpicker('val', selectedValue);
-                    $select.selectpicker('refresh');
-                } else {
-                    $select.val(selectedValue).trigger('change');
+            function setSelect2Value($select, value, text) {
+                $select.find('option').remove();
+
+                if (!value) {
+                    $select.val(null).trigger('change');
+                    return;
                 }
+
+                $select.append(new Option(text || value, value, true, true)).trigger('change');
+            }
+
+            function coverageText(coverage, fallback) {
+                if (!coverage) {
+                    return fallback || '';
+                }
+
+                var parts = [coverage.id_coverage, coverage.cov_nik];
+
+                if (coverage.user && coverage.user.name) {
+                    parts.push(coverage.user.name);
+                }
+
+                return parts.filter(Boolean).join(' - ');
             }
 
             function reloadMappingTable() {

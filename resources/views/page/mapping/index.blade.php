@@ -397,9 +397,9 @@
                 //     setSelectValue($('#cov_level'), data.level_desc);
                 // }
 
-                if (data.tanggal_masuk && !$('#valid_from').val()) {
-                    $('#valid_from').val(data.tanggal_masuk);
-                }
+                // if (data.tanggal_masuk && !$('#valid_from').val()) {
+                //     $('#valid_from').val(data.tanggal_masuk);
+                // }
 
                 $('#valid_to').val(data.tanggal_keluar || '');
 
