@@ -9,6 +9,7 @@ $(document).ready(function () {
     var $bulan = $("#filter_bulan");
     var $tahun = $("#filter_tahun");
     var $coverage = $("#filter_coverage_id");
+    var $outlet = $("#filter_outlet_id");
     var selectedCoverageNik = "";
 
     if (!$("#tblHistoryOutlet").length) {
@@ -53,6 +54,28 @@ $(document).ready(function () {
         }).on("select2:clear select2:unselect", function () {
             selectedCoverageNik = "";
         });
+
+        $outlet.select2({
+            placeholder: "Cari kode atau nama outlet...",
+            allowClear: true,
+            ajax: {
+                url: routes.outlet,
+                dataType: "json",
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term,
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.results,
+                    };
+                },
+            },
+            minimumInputLength: 2,
+            width: "100%",
+        });
     }
 
     var table = $("#tblHistoryOutlet").DataTable({
@@ -70,6 +93,7 @@ $(document).ready(function () {
                     tahun: $tahun.val(),
                     coverage_id: $coverage.val(),
                     coverage_nik: selectedCoverageNik,
+                    outlet_id: $outlet.val(),
                 });
             },
         },

@@ -52,6 +52,7 @@ class DashboardFilterRequest extends FormRequest
             'distributor' => 'nullable|in:KFTD,AAM,METD',
             'coverage_id' => 'nullable|string',
             'coverage_nik' => 'nullable|string',
+            'outlet_id' => 'nullable|string',
         ];
     }
 

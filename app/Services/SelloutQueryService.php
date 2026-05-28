@@ -536,6 +536,10 @@ class SelloutQueryService
             $query->where('mc.cov_nik', $request->get('coverage_nik'));
         }
 
+        if ($request->filled('outlet_id')) {
+            $query->where('so.id_outlet', $request->get('outlet_id'));
+        }
+
         $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
         if (!$isHierarchical && $request->filled('level')) {

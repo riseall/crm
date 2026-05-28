@@ -12,6 +12,7 @@
     'showPilar' => true,
     'showDistributor' => false,
     'showCoverage' => false,
+    'showOutlet' => false,
     'bulanMultiple' => false,
     'btnText' => 'Terapkan',
     'btnIcon' => 'fa-filter',
@@ -20,6 +21,7 @@
     'idPilar' => 'filter_pilar',
     'idDistributor' => 'filter_distributor',
     'idCoverage' => 'filter_coverage_id',
+    'idOutlet' => 'filter_outlet_id',
     'idApply' => 'btnApplyFilter',
 ])
 
@@ -109,6 +111,15 @@
                             <select id="{{ $idCoverage }}" class="form-control select2-coverage"
                                 style="width: 100%;">
                                 <option value="">Semua Coverage</option>
+                            </select>
+                        </div>
+                    @endif
+
+                    @if ($showOutlet)
+                        <div class="col mb-4">
+                            <label class="small text-muted mb-1">Outlet</label>
+                            <select id="{{ $idOutlet }}" class="form-control select2-outlet" style="width: 100%;">
+                                <option value="">Semua Outlet</option>
                             </select>
                         </div>
                     @endif

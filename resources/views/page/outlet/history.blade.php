@@ -1,10 +1,11 @@
 @extends('layouts.app', ['title' => 'History Outlet'])
 
 @section('content')
-    <x-filter-bar :months="$months" :years="$years" :show-pilar="false" :show-coverage="true" :bulan-multiple="true"
+    <x-filter-bar :months="$months" :years="$years" :show-pilar="false" :show-coverage="true" :show-outlet="true" :bulan-multiple="true"
         :selected-month="$currentMonth" :selected-year="$currentYear" title="History Outlet"
         subtitle="Riwayat outlet berdasarkan bulan, tahun, dan coverage" icon="fa-store" btn-text="Tampilkan"
-        id-bulan="filter_bulan" id-tahun="filter_tahun" id-coverage="filter_coverage_id" id-apply="btnApplyHistoryFilter" />
+        id-bulan="filter_bulan" id-tahun="filter_tahun" id-coverage="filter_coverage_id" id-outlet="filter_outlet_id"
+        id-apply="btnApplyHistoryFilter" />
 
     <x-datatable-card title="History Outlet"
         subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet"
@@ -35,6 +36,7 @@
                 index: "{{ route('outlet.history') }}",
                 data: "{{ route('outlet.history.data') }}",
                 coverage: "{{ route('outlet.coverage') }}",
+                outlet: "{{ route('outlet.outlet') }}",
             }
         };
     </script>
