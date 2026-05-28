@@ -9,6 +9,7 @@ $(document).ready(function () {
     var $bulan = $("#filter_bulan");
     var $tahun = $("#filter_tahun");
     var $coverage = $("#filter_coverage_id");
+    var selectedCoverageNik = "";
 
     if (!$("#tblHistoryOutlet").length) {
         return;
@@ -47,6 +48,10 @@ $(document).ready(function () {
             },
             minimumInputLength: 2,
             width: "100%",
+        }).on("select2:select", function (e) {
+            selectedCoverageNik = (e.params.data && e.params.data.cov_nik) || "";
+        }).on("select2:clear select2:unselect", function () {
+            selectedCoverageNik = "";
         });
     }
 
@@ -64,6 +69,7 @@ $(document).ready(function () {
                     bulan: $bulan.val(),
                     tahun: $tahun.val(),
                     coverage_id: $coverage.val(),
+                    coverage_nik: selectedCoverageNik,
                 });
             },
         },

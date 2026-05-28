@@ -51,6 +51,7 @@ class DashboardFilterRequest extends FormRequest
             'pilar'       => 'nullable|in:ETHICAL,OGB,GENERIK,OTC',
             'distributor' => 'nullable|in:KFTD,AAM,METD',
             'coverage_id' => 'nullable|string',
+            'coverage_nik' => 'nullable|string',
         ];
     }
 

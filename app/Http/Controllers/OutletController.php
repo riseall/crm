@@ -222,68 +222,20 @@ class OutletController extends Controller
 
     public function historyData(DashboardFilterRequest $request)
     {
-        $base = $this->sellout->outletHistoryQuery($request)
-            ->selectRaw('
-                so.dist,
-                so.id_outlet,
-                so.outlet_name,
-                so.coverage_id,
-                so.coverage_desc,
-                so.coverage_nik,
-                so.user_name,
-                so.coverage_level,
-                so.coverage_pilar,
-                so.product_pilar,
-                so.coverage_valid_from,
-                so.coverage_valid_to,
-                MIN(so.tgl_faktur) as bulan_date,
-                COUNT(so.source_id) as total_transaksi,
-                SUM(so.netto) as total_netto
-            ')
-            ->groupBy(
-                'so.dist',
-                'so.id_outlet',
-                'so.outlet_name',
-                'so.coverage_id',
-                'so.coverage_desc',
-                'so.coverage_nik',
-                'so.user_name',
-                'so.coverage_level',
-                'so.coverage_pilar',
-                'so.product_pilar',
-                'so.coverage_valid_from',
-                'so.coverage_valid_to',
-                DB::raw('YEAR(so.tgl_faktur)'),
-                DB::raw('MONTH(so.tgl_faktur)')
-            );
+        $search = trim((string) data_get($request->input('search'), 'value', ''));
+        $base = $this->sellout->outletHistoryAggregateQuery($request, $search);
+        $outletNameOrderSql = $search !== '' ? 'so.outlet_name' : 'COALESCE(vcd.outlet_name, so.id_outlet)';
+        $userNameOrderSql = $search !== '' ? 'so.user_name' : 'ma.name';
 
         $datatable = DataTables::of($base)
-            ->filter(function ($query) use ($request) {
-                $search = trim((string) data_get($request->input('search'), 'value', ''));
-
-                if ($search === '') {
-                    return;
-                }
-
-                $query->where(function ($q) use ($search) {
-                    $like = '%' . $search . '%';
-
-                    $q->where('so.dist', 'like', $like)
-                        ->orWhere('so.id_outlet', 'like', $like)
-                        ->orWhere('so.outlet_name', 'like', $like)
-                        ->orWhere('so.coverage_nik', 'like', $like)
-                        ->orWhere('so.user_name', 'like', $like)
-                        ->orWhere('so.product_pilar', 'like', $like)
-                        ->orWhereRaw("(CASE so.coverage_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
-                });
-            }, true)
+            ->skipTotalRecords()
             ->orderColumn('dist', 'so.dist $1')
             ->orderColumn('id_outlet', 'so.id_outlet $1')
-            ->orderColumn('outlet_name', 'so.outlet_name $1')
+            ->orderColumn('outlet_name', $outletNameOrderSql . ' $1')
             ->orderColumn('coverage_id', 'so.coverage_id $1')
             ->orderColumn('coverage_desc', 'so.coverage_desc $1')
             ->orderColumn('coverage_nik', 'so.coverage_nik $1')
-            ->orderColumn('user_name', 'so.user_name $1')
+            ->orderColumn('user_name', $userNameOrderSql . ' $1')
             ->orderColumn('coverage_level', 'so.coverage_level $1')
             ->orderColumn('product_pilar', 'so.product_pilar $1')
             ->orderColumn('bulan', 'MIN(so.tgl_faktur) $1')
@@ -395,6 +347,7 @@ class OutletController extends Controller
             ->limit(30)
             ->get([
                 DB::raw('crm_mst_mappings.id_coverage as id'),
+                DB::raw('crm_mst_mappings.cov_nik as cov_nik'),
                 DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
             ]);
 

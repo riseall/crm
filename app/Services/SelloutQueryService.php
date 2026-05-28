@@ -61,6 +61,14 @@ class SelloutQueryService
             ->groupBy('pt_dist', 'dist');
     }
 
+    private function customerOutletNameQuery(): Builder
+    {
+        return DB::connection(self::CONN_DWH)
+            ->table('mst_cust_dist')
+            ->selectRaw('id_outlet, id_cbg_dist, MAX(nama_outlet) as outlet_name')
+            ->groupBy('id_outlet', 'id_cbg_dist');
+    }
+
     private function normalizedPilarSql(string $column): string
     {
         return "CASE
@@ -395,6 +403,79 @@ class SelloutQueryService
             || $request->filled('coverage_id');
     }
 
+    private function outletHistoryDateRange(DashboardFilterRequest $request): array
+    {
+        $months = $request->bulanList();
+        $year = (int) $request->tahun();
+
+        if (count($months) > 1) {
+            return [
+                Carbon::create($year, min($months), 1)->startOfMonth()->toDateTimeString(),
+                Carbon::create($year, max($months), 1)->endOfMonth()->toDateTimeString(),
+            ];
+        }
+
+        return $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+    }
+
+    private function applyMonthListFilter(Builder $query, array $months, int $year): void
+    {
+        if (count($months) <= 1) {
+            return;
+        }
+
+        $query->where(function ($q) use ($months, $year) {
+            foreach ($months as $month) {
+                $q->orWhereBetween('so.tgl_faktur', [
+                    Carbon::create($year, (int) $month, 1)->startOfMonth()->toDateTimeString(),
+                    Carbon::create($year, (int) $month, 1)->endOfMonth()->toDateTimeString(),
+                ]);
+            }
+        });
+    }
+
+    private function applyHistorySearch(Builder $query, string $search): void
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%' . $search . '%';
+
+        $query->where(function ($q) use ($like) {
+            $q->where('so.dist', 'like', $like)
+                ->orWhere('so.id_outlet', 'like', $like)
+                ->orWhere('vcd.nama_outlet', 'like', $like)
+                ->orWhere('mc.cov_nik', 'like', $like)
+                ->orWhere('ma.name', 'like', $like)
+                ->orWhere('vp.pilar', 'like', $like)
+                ->orWhereRaw("(CASE mc.cov_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
+        });
+    }
+
+    private function applyHistoryAggregateSearch(Builder $query, string $search): void
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%' . $search . '%';
+
+        $query->where(function ($q) use ($like) {
+            $q->where('so.dist', 'like', $like)
+                ->orWhere('so.id_outlet', 'like', $like)
+                ->orWhere('vcd.outlet_name', 'like', $like)
+                ->orWhere('so.coverage_nik', 'like', $like)
+                ->orWhere('ma.name', 'like', $like)
+                ->orWhere('so.product_pilar', 'like', $like)
+                ->orWhereRaw("(CASE so.coverage_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
+        });
+    }
+
     private function enrichedSummaryQuery(
         DashboardFilterRequest $request,
         bool $isHierarchical,
@@ -449,6 +530,10 @@ class SelloutQueryService
 
         if ($coverageId !== null && trim($coverageId) !== '') {
             $query->where('mc.id_coverage', $coverageId);
+        }
+
+        if ($request->filled('coverage_nik')) {
+            $query->where('mc.cov_nik', $request->get('coverage_nik'));
         }
 
         $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
@@ -722,15 +807,95 @@ class SelloutQueryService
 
         if (count($months) > 1) {
             $year = (int) $request->tahun();
+            $firstMonth = min($months);
+            $lastMonth = max($months);
+
             $query = $this->baseQuery($request, false, [
-                Carbon::create($year, 1, 1)->startOfMonth()->toDateString(),
-                Carbon::create($year, 12, 1)->endOfMonth()->toDateString(),
+                Carbon::create($year, $firstMonth, 1)->startOfMonth()->toDateString(),
+                Carbon::create($year, $lastMonth, 1)->endOfMonth()->toDateString(),
             ], $months, $coverageId);
         } else {
             $query = $this->baseQuery($request, false, null, null, $coverageId);
         }
 
         return $query;
+    }
+
+    public function outletHistoryAggregateQuery(DashboardFilterRequest $request, ?string $search = null): Builder
+    {
+        $months = $request->bulanList();
+        [$start, $end] = $this->outletHistoryDateRange($request);
+        $hasSearch = trim((string) $search) !== '';
+
+        $transactions = $this->enrichedSummaryQuery(
+            $request,
+            false,
+            [$start, $end],
+            $hasSearch,
+            $hasSearch,
+            false,
+            count($months) > 1 ? $months : null,
+            $request->get('coverage_id')
+        );
+
+        if ($hasSearch) {
+            $this->applyHistorySearch($transactions, (string) $search);
+        }
+
+        $query = $this->wrapAsSellout($transactions);
+
+        if (!$hasSearch) {
+            $query->leftJoinSub($this->customerOutletNameQuery(), 'vcd', function ($join) {
+                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
+                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+            })
+            ->leftJoin(
+                DB::raw($this->authTable('users') . ' as ma'),
+                'so.coverage_nik',
+                '=',
+                'ma.nik'
+            );
+        }
+
+        $outletNameSql = $hasSearch
+            ? 'so.outlet_name'
+            : 'COALESCE(vcd.outlet_name, so.id_outlet)';
+        $userNameSql = $hasSearch ? 'so.user_name' : 'ma.name';
+
+        return $query
+            ->selectRaw("
+                so.dist,
+                so.id_outlet,
+                {$outletNameSql} as outlet_name,
+                so.coverage_id,
+                so.coverage_desc,
+                so.coverage_nik,
+                {$userNameSql} as user_name,
+                so.coverage_level,
+                so.coverage_pilar,
+                so.product_pilar,
+                so.coverage_valid_from,
+                so.coverage_valid_to,
+                MIN(so.tgl_faktur) as bulan_date,
+                COUNT(so.source_id) as total_transaksi,
+                SUM(so.netto) as total_netto
+            ")
+            ->groupBy(
+                'so.dist',
+                'so.id_outlet',
+                DB::raw($outletNameSql),
+                'so.coverage_id',
+                'so.coverage_desc',
+                'so.coverage_nik',
+                DB::raw($userNameSql),
+                'so.coverage_level',
+                'so.coverage_pilar',
+                'so.product_pilar',
+                'so.coverage_valid_from',
+                'so.coverage_valid_to',
+                DB::raw('YEAR(so.tgl_faktur)'),
+                DB::raw('MONTH(so.tgl_faktur)')
+            );
     }
 
     /**
