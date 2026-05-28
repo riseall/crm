@@ -29,31 +29,35 @@ $(document).ready(function () {
             width: "100%",
         });
 
-        $coverage.select2({
-            placeholder: "Cari Coverage, NIK, atau Nama...",
-            allowClear: true,
-            ajax: {
-                url: routes.coverage,
-                dataType: "json",
-                delay: 250,
-                data: function (params) {
-                    return {
-                        q: params.term,
-                    };
+        $coverage
+            .select2({
+                placeholder: "Cari NIK atau Nama...",
+                allowClear: true,
+                ajax: {
+                    url: routes.coverage,
+                    dataType: "json",
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            q: params.term,
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.results,
+                        };
+                    },
                 },
-                processResults: function (data) {
-                    return {
-                        results: data.results,
-                    };
-                },
-            },
-            minimumInputLength: 2,
-            width: "100%",
-        }).on("select2:select", function (e) {
-            selectedCoverageNik = (e.params.data && e.params.data.cov_nik) || "";
-        }).on("select2:clear select2:unselect", function () {
-            selectedCoverageNik = "";
-        });
+                minimumInputLength: 2,
+                width: "100%",
+            })
+            .on("select2:select", function (e) {
+                selectedCoverageNik =
+                    (e.params.data && e.params.data.cov_nik) || "";
+            })
+            .on("select2:clear select2:unselect", function () {
+                selectedCoverageNik = "";
+            });
 
         $outlet.select2({
             placeholder: "Cari kode atau nama outlet...",

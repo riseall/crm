@@ -107,10 +107,10 @@
 
                     @if ($showCoverage)
                         <div class="col mb-4">
-                            <label class="small text-muted mb-1">Coverage</label>
+                            <label class="small text-muted mb-1">PIC</label>
                             <select id="{{ $idCoverage }}" class="form-control select2-coverage"
                                 style="width: 100%;">
-                                <option value="">Semua Coverage</option>
+                                <option value="">Semua PIC</option>
                             </select>
                         </div>
                     @endif

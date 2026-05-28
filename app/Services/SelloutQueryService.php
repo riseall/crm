@@ -528,12 +528,10 @@ class SelloutQueryService
             });
         }
 
-        if ($coverageId !== null && trim($coverageId) !== '') {
-            $query->where('mc.id_coverage', $coverageId);
-        }
-
         if ($request->filled('coverage_nik')) {
             $query->where('mc.cov_nik', $request->get('coverage_nik'));
+        } elseif ($coverageId !== null && trim($coverageId) !== '') {
+            $query->where('mc.id_coverage', $coverageId);
         }
 
         if ($request->filled('outlet_id')) {

@@ -348,7 +348,7 @@ class OutletController extends Controller
             ->get([
                 DB::raw('crm_mst_mappings.id_coverage as id'),
                 DB::raw('crm_mst_mappings.cov_nik as cov_nik'),
-                DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
+                DB::raw("CONCAT(crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
             ]);
 
         return response()->json(['results' => $coverage]);
