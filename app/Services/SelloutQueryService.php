@@ -621,30 +621,8 @@ class SelloutQueryService
     ): Builder {
         [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
         $levelDepth = max((int) $levelNum, 1);
-        $coverageSql = 'COALESCE(mo.id_coverage, mo_any.id_coverage)';
+        $coverageSql = 'mo.id_coverage';
         $parentCoverageSql = "NULLIF(SUBSTRING_INDEX({$coverageSql}, '.', {$levelDepth}), '')";
-
-        $mappingSub = DB::connection(self::CONN_DWH)
-            ->table('crm_mst_mappings')
-            ->selectRaw("
-                id_coverage,
-                cov_level,
-                MAX(cov_desc) as cov_desc,
-                MAX(cov_pilar) as cov_pilar,
-                MAX(cov_nik) as cov_nik,
-                MAX(cov_divisi) as cov_divisi
-            ")
-            ->where('cov_level', $levelNum)
-            ->whereNull('deleted_at')
-            ->groupBy('id_coverage', 'cov_level');
-
-        $outletAnySub = DB::connection(self::CONN_DWH)
-            ->table('crm_mst_outlets')
-            ->selectRaw('id_outlet, MAX(id_coverage) as id_coverage')
-            ->whereNull('deleted_at')
-            ->whereNotNull('id_coverage')
-            ->where('id_coverage', '<>', '')
-            ->groupBy('id_outlet');
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
@@ -661,13 +639,16 @@ class SelloutQueryService
                             ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                             ->whereNull('mx.deleted_at')
                             ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+
+                        $this->applyMappingValidity($exists, 'mx');
                     });
             })
-            ->leftJoinSub($outletAnySub, 'mo_any', function ($join) {
-                $join->on('so.id_outlet', '=', 'mo_any.id_outlet');
-            })
-            ->leftJoinSub($mappingSub, 'mc', function ($join) use ($parentCoverageSql) {
-                $join->on('mc.id_coverage', '=', DB::raw($parentCoverageSql));
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'), function ($join) use ($parentCoverageSql, $levelNum) {
+                $join->on('mc.id_coverage', '=', DB::raw($parentCoverageSql))
+                    ->where('mc.cov_level', $levelNum)
+                    ->whereNull('mc.deleted_at');
+
+                $this->applyMappingValidity($join, 'mc');
             })
             ->leftJoin(DB::raw($this->authTable('users') . ' as ma'), 'mc.cov_nik', '=', 'ma.nik')
             ->whereBetween('so.tgl_faktur', [$start, $end]);

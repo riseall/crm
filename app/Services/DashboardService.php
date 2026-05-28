@@ -327,39 +327,75 @@ class DashboardService
         $length = (int) $request->get('length', 10);
         $search = $request->get('search')['value'] ?? '';
 
-        $base = (clone $this->sellout->baseQuery($request))
-            ->selectRaw('
-                so.coverage_nik as nik,
-                so.user_name as name,
-                so.coverage_level as level,
-                so.coverage_pilar as pilar,
-                so.coverage_divisi as divisi,
-                so.coverage_id,
-                so.coverage_desc,
-                SUM(so.netto) as total_netto,
-                COUNT(DISTINCT so.id_outlet) as total_outlet,
-                COUNT(DISTINCT so.source_id) as total_transaksi
-            ')
-            ->groupBy('so.coverage_nik', 'so.user_name', 'so.coverage_level', 'so.coverage_pilar', 'so.coverage_divisi', 'so.coverage_id', 'so.coverage_desc');
+        $cacheKey = $this->sellout->cacheKey('anggota_rows', $request, 'MR');
+        $rows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
+            return $this->sellout->drilldownAggregateQuery($request, $this->sellout->levelToNum('MR'))
+                ->get()
+                ->map(function ($row) {
+                    $isUnmapped = (int) $row->is_unmapped === 1 || $row->coverage_id === 'UNMAPPED';
 
-        $total = $this->sellout->countGrouped(clone $base);
+                    return (object) [
+                        'nik' => $isUnmapped || $row->coverage_nik === '-' ? null : $row->coverage_nik,
+                        'name' => $isUnmapped || $row->user_name === 'N/A' ? null : $row->user_name,
+                        'level' => $row->coverage_level,
+                        'level_name' => $this->sellout->numToLevel($row->coverage_level),
+                        'pilar' => $row->coverage_pilar,
+                        'divisi' => $row->coverage_divisi,
+                        'coverage_id' => $row->coverage_id,
+                        'cov_desc' => $row->coverage_desc,
+                        'total_netto' => (float) $row->total_netto,
+                        'total_outlet' => (int) $row->total_outlet,
+                        'total_transaksi' => (int) $row->total_transaksi,
+                        'is_unmapped' => $isUnmapped ? 1 : 0,
+                    ];
+                });
+        });
 
-        if ($search) {
-            $base->where(function ($q) use ($search) {
-                $q->where('so.user_name',      'like', "%$search%")
-                    ->orWhere('so.coverage_nik',   'like', "%$search%")
-                    ->orWhere('so.coverage_id',    'like', "%$search%");
+        $total = $rows->count();
+        $filteredRows = $rows;
+
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $filteredRows = $rows->filter(function ($row) use ($needle) {
+                return str_contains(mb_strtolower((string) $row->nik), $needle)
+                    || str_contains(mb_strtolower((string) $row->name), $needle)
+                    || str_contains(mb_strtolower((string) $row->coverage_id), $needle)
+                    || str_contains(mb_strtolower((string) $row->cov_desc), $needle)
+                    || str_contains(mb_strtolower((string) $row->pilar), $needle)
+                    || str_contains(mb_strtolower((string) $row->level_name), $needle);
             });
         }
 
-        $filtered = $this->sellout->countGrouped(clone $base);
-        $records  = $base->orderByDesc('total_netto')->offset($start)->limit($length)->get();
+        $filtered = $filteredRows->count();
+        $orderColumns = [
+            1 => 'nik',
+            2 => 'name',
+            3 => 'level_name',
+            4 => 'pilar',
+            5 => 'divisi',
+            6 => 'cov_desc',
+            7 => 'total_outlet',
+            8 => 'total_transaksi',
+            9 => 'total_netto',
+        ];
+        $order = $request->get('order')[0] ?? null;
+        $orderColumn = $orderColumns[(int) ($order['column'] ?? 9)] ?? 'total_netto';
+        $orderDir = strtolower($order['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        $numericOrderColumns = ['total_outlet', 'total_transaksi', 'total_netto'];
 
-        // Konversi level angka → nama untuk tampilan
-        $records->transform(function ($row) {
-            $row->level_name = $this->sellout->numToLevel($row->level);
-            return $row;
-        });
+        $sortValue = function ($row) use ($orderColumn, $numericOrderColumns) {
+            $value = $row->{$orderColumn} ?? null;
+
+            return in_array($orderColumn, $numericOrderColumns, true)
+                ? (float) $value
+                : mb_strtolower((string) $value);
+        };
+
+        $records = ($orderDir === 'asc'
+                ? $filteredRows->sortBy($sortValue)
+                : $filteredRows->sortByDesc($sortValue))
+            ->slice($start, $length)
+            ->values();
 
         return [
             'draw'            => $draw,
@@ -367,5 +403,6 @@ class DashboardService
             'recordsFiltered' => $filtered,
             'data'            => $records,
         ];
+
     }
 }
