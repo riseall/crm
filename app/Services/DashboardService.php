@@ -76,13 +76,10 @@ class DashboardService
     public function getChartPerBulan(DashboardFilterRequest $request): array
     {
         return Cache::remember(
-            $this->sellout->cacheKey('chart_bulan', $request),
+            $this->sellout->yearlyCacheKey('chart_bulan', $request),
             $this->sellout->cacheTtl(),
             function () use ($request) {
-                // Gunakan baseQueryByYear yang sudah diperbaiki join-nya
-                $results = $this->sellout->baseChartQueryByYear($request)
-                    ->selectRaw('MONTH(so.tgl_faktur) as bulan, SUM(so.netto) as total_netto')
-                    ->groupByRaw('MONTH(so.tgl_faktur)')
+                $results = $this->sellout->monthlyChartQuery($request)
                     ->get()
                     ->keyBy('bulan');
 

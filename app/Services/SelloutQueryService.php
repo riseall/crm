@@ -315,6 +315,86 @@ class SelloutQueryService
         };
     }
 
+    private function applyMappingValidity($query, string $alias): void
+    {
+        $query->where(function ($q) use ($alias) {
+                $q->whereNull("{$alias}.valid_from")
+                    ->orWhereRaw("so.tgl_faktur >= {$alias}.valid_from");
+            })
+            ->where(function ($q) use ($alias) {
+                $q->whereNull("{$alias}.valid_to")
+                    ->orWhereRaw("so.tgl_faktur <= {$alias}.valid_to");
+            });
+    }
+
+    private function applyMatchingMappingExists(
+        $query,
+        string $alias = 'mx',
+        ?string $levelNum = null,
+        string $outletAlias = 'mo'
+    ): void
+    {
+        $query->whereExists(function ($exists) use ($alias, $levelNum, $outletAlias) {
+            $exists->select(DB::raw(1))
+                ->from(DB::raw($this->dwhTable('crm_mst_mappings') . " as {$alias}"))
+                ->whereColumn("{$alias}.id_coverage", "{$outletAlias}.id_coverage")
+                ->whereNull("{$alias}.deleted_at")
+                ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql("{$alias}.cov_pilar"));
+
+            if ($levelNum !== null) {
+                $exists->where("{$alias}.cov_level", $levelNum);
+            }
+
+            $this->applyMappingValidity($exists, $alias);
+        });
+    }
+
+    private function applyMonthlyOutletExists(Builder $query, DashboardFilterRequest $request): void
+    {
+        $user = Auth::user();
+        $isScopedUser = $user && !$this->coverageAccess->isGlobalAccessUser($user);
+        $roots = $isScopedUser ? $this->coverageAccess->rootCoverages($user) : [];
+
+        if ($isScopedUser && empty($roots)) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $levelNum = $request->filled('level')
+            ? $this->levelToNum($request->get('level'))
+            : null;
+
+        $query->whereExists(function ($exists) use ($request, $roots, $levelNum) {
+            $exists->select(DB::raw(1))
+                ->from(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo_filter'))
+                ->whereColumn('mo_filter.id_outlet', 'so.id_outlet')
+                ->whereNull('mo_filter.deleted_at');
+
+            if (!empty($roots)) {
+                $exists->where(function ($q) use ($roots) {
+                    foreach ($roots as $root) {
+                        $q->orWhere('mo_filter.id_coverage', 'like', $root . '%');
+                    }
+                });
+            }
+
+            if ($request->filled('coverage_id')) {
+                $exists->where('mo_filter.id_coverage', $request->get('coverage_id'));
+            }
+
+            $this->applyMatchingMappingExists($exists, 'mm_filter', $levelNum, 'mo_filter');
+        });
+    }
+
+    private function monthlyChartNeedsOutletFilter(DashboardFilterRequest $request): bool
+    {
+        $user = Auth::user();
+
+        return ($user && !$this->coverageAccess->isGlobalAccessUser($user))
+            || $request->filled('level')
+            || $request->filled('coverage_id');
+    }
+
     private function enrichedSummaryQuery(
         DashboardFilterRequest $request,
         bool $isHierarchical,
@@ -597,6 +677,42 @@ class SelloutQueryService
     }
 
     /**
+     * Query khusus chart bulanan.
+     * Tetap menghormati mapping/access filter, tapi tidak melakukan enrichment per transaksi.
+     */
+    public function monthlyChartQuery(DashboardFilterRequest $request): Builder
+    {
+        $year = (int) $request->tahun();
+        $start = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
+        $end = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
+        $query = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
+                $join->on('so.code_product', '=', 'vp.pt_dist')
+                    ->on('so.dist', '=', 'vp.dist');
+            })
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        if ($this->monthlyChartNeedsOutletFilter($request)) {
+            $this->applyMonthlyOutletExists($query, $request);
+        }
+
+        if ($request->filled('pilar')) {
+            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
+                $this->normalizePilarValue($request->get('pilar')),
+            ]);
+        }
+
+        if ($request->filled('distributor')) {
+            $query->where('so.dist', $request->get('distributor'));
+        }
+
+        return $query
+            ->selectRaw('MONTH(so.tgl_faktur) as bulan, SUM(so.netto) as total_netto')
+            ->groupByRaw('MONTH(so.tgl_faktur)');
+    }
+
+    /**
      * Query untuk outlet history - menampilkan perkembangan transaksi per outlet per bulan
      */
     public function outletHistoryQuery(DashboardFilterRequest $request)
@@ -643,6 +759,28 @@ class SelloutQueryService
             self::CACHE_VERSION,
             $userKey,
             $request->bulan(),
+            $request->tahun(),
+            $request->get('level', ''),
+            $request->get('pilar', ''),
+            $request->get('distributor', ''),
+            $request->get('coverage_id', ''),
+            $extra ?? '',
+        ];
+
+        return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
+    }
+
+    public function yearlyCacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
+    {
+        /** @var \App\Models\User */
+        $user = Auth::user();
+        $userKey = $user
+            ? ($user->id . '|' . $user->nik . '|' . $user->getRoleNames()->sort()->implode(','))
+            : 'guest';
+
+        $params = [
+            self::CACHE_VERSION,
+            $userKey,
             $request->tahun(),
             $request->get('level', ''),
             $request->get('pilar', ''),

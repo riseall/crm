@@ -91,17 +91,17 @@
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row mb-5">
-        <div class="col-lg col-md-6">
+        <div class="col-lg-6 col-md-6">
             <x-stat-card title="Total Netto" value="" valueId="card_netto" subtitle="-" subtitleId="card_growth"
                 subtitleColor="metric-growth" icon="fas fa-coins" color="success" />
         </div>
-        <div class="col-lg col-md-6">
+        <div class="col-lg-3 col-md-3">
             <x-stat-card title="Total Outlet" value="" valueId="card_outlet" icon="fas fa-store" color="primary" />
         </div>
-        {{-- <div class="col-lg col-md-6">
+        {{-- <div class="col col-lg col-md-6">
             <x-stat-card title="Total Anggota" value="" valueId="card_anggota" icon="fas fa-users" color="danger" />
         </div> --}}
-        <div class="col-lg col-md-6">
+        <div class="col-lg-3 col-md-3">
             <x-stat-card title="Total Transaksi" value="" valueId="card_transaksi" icon="fas fa-exchange-alt"
                 color="warning" />
         </div>
