@@ -113,12 +113,12 @@
             <div class="card card-custom">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label" id="chartTrendTitle">Netto per Bulan</h3>
+                        <h3 class="card-label" id="chartTrendTitle">Netto per Hari</h3>
                     </div>
                     <div class="card-toolbar">
                         <div class="btn-group chart-mode-toggle" role="group">
-                            <button id="btnModeBulan" class="btn btn-sm btn-outline-primary active">Per Bulan</button>
-                            <button id="btnModeHari" class="btn btn-sm btn-outline-primary">Per Hari</button>
+                            <button id="btnModeHari" class="btn btn-sm btn-outline-primary active">Per Hari</button>
+                            <button id="btnModeBulan" class="btn btn-sm btn-outline-primary">Per Bulan</button>
                         </div>
                     </div>
                 </div>

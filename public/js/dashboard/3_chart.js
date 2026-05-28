@@ -6,7 +6,7 @@ var Dashboard = Dashboard || {};
 
 Dashboard.Charts = (function ($, H) {
     var routes = {};
-    var chartMode = "bulan";
+    var chartMode = "hari";
     var chartTrend = null;
     var chartDivisi = null;
     var chartPilar = null;
