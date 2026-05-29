@@ -2,7 +2,7 @@
 
 (function (window, document, $) {
     var showTimer = null;
-    var showDelay = 120;
+    var showDelay = 650;
     var body = document.body;
     var modalId = "crm-inline-loading";
     var modalStyleId = "crm-inline-loading-style";
