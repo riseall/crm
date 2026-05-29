@@ -18,13 +18,13 @@ class Kernel extends ConsoleKernel
         // $schedule->command('inspire')->hourly();
         $schedule->command('hrms:sync')
             ->timezone('Asia/Jakarta')
-            ->dailyAt('01:00')
+            ->dailyAt('04:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/hrms-sync.log'));
 
         $schedule->command('sellout:refresh-summary')
             ->timezone('Asia/Jakarta')
-            ->dailyAt('02:30')
+            ->dailyAt('05:45')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/sellout-summary-refresh.log'));
     }
