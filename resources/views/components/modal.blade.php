@@ -6,8 +6,8 @@
     'submitBtnText' => 'Simpan',
 ])
 
-<div class="modal fade" id="{{ $id }}" tabindex="-1" aria-labelledby="{{ $id }}Label"
-    aria-hidden="true">
+<div class="modal fade" id="{{ $id }}" data-backdrop="static" tabindex="-1"
+    aria-labelledby="{{ $id }}Label" aria-hidden="true">
     <div class="modal-dialog {{ $size }} modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
