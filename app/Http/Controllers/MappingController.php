@@ -36,6 +36,33 @@ class MappingController extends Controller
         return (bool) $coverage->is_active && !$this->validToIsExpired($coverage->valid_to);
     }
 
+    private function monthStart(?string $month): ?string
+    {
+        if (empty($month)) {
+            return null;
+        }
+
+        return Carbon::createFromFormat('!Y-m', $month)->startOfMonth()->toDateString();
+    }
+
+    private function monthEnd(?string $month): ?string
+    {
+        if (empty($month)) {
+            return null;
+        }
+
+        return Carbon::createFromFormat('!Y-m', $month)->endOfMonth()->toDateString();
+    }
+
+    private function formatMonthYear($date): string
+    {
+        if (empty($date)) {
+            return '-';
+        }
+
+        return Carbon::parse($date)->translatedFormat('F Y');
+    }
+
     public function index()
     {
         $totalData = Mapping::count();
@@ -69,6 +96,12 @@ class MappingController extends Controller
             ->addIndexColumn()
             ->addColumn('user_name', function ($row) {
                 return $row->user_name ?? '-';
+            })
+            ->editColumn('valid_from', function ($row) {
+                return $this->formatMonthYear($row->valid_from);
+            })
+            ->editColumn('valid_to', function ($row) {
+                return $this->formatMonthYear($row->valid_to);
             })
             ->filterColumn('cov_nik', function ($query, $keyword) {
                 $query->where(function ($q) use ($keyword) {
@@ -193,8 +226,8 @@ class MappingController extends Controller
             'cov_level_desc'     => 'required|in:MR/SR,AM,SAM,RM,PM,GM',
             'tanggung_jwb_pilar' => 'required|in:Single,Combo',
             'cov_nik'            => 'required|string',
-            'valid_from'         => 'required|date',
-            'valid_to'           => 'nullable|date|after_or_equal:valid_from',
+            'valid_from'         => 'required|date_format:Y-m',
+            'valid_to'           => 'nullable|date_format:Y-m|after_or_equal:valid_from',
         ]);
 
         $levelMapping = [
@@ -214,7 +247,9 @@ class MappingController extends Controller
         DB::connection('db_dwh')->beginTransaction();
         try {
             $today = Carbon::today()->toDateString();
-            $willBeActive = !$this->validToIsExpired($request->valid_to);
+            $validFrom = $this->monthStart($request->valid_from);
+            $validTo = $this->monthEnd($request->valid_to);
+            $willBeActive = !$this->validToIsExpired($validTo);
             $alertService = app(CoverageReplacementAlertService::class);
             $closedCoverages = collect();
 
@@ -246,8 +281,8 @@ class MappingController extends Controller
                 'cov_level_desc'     => $request->cov_level_desc,
                 'cov_nik'            => $request->cov_nik,
                 'tanggung_jwb_pilar' => $request->tanggung_jwb_pilar,
-                'valid_from'         => $request->valid_from,
-                'valid_to'           => $request->valid_to,
+                'valid_from'         => $validFrom,
+                'valid_to'           => $validTo,
                 'is_active'          => $willBeActive,
             ]);
 
@@ -285,8 +320,8 @@ class MappingController extends Controller
             'cov_pilar'          => 'nullable|in:ETHICAL,OGB,OTC',
             'cov_level_desc'     => 'required|in:MR/SR,AM,SAM,RM,PM,GM',
             'tanggung_jwb_pilar' => 'required|in:Single,Combo',
-            'valid_from'         => 'required|date',
-            'valid_to'           => 'nullable|date|after_or_equal:valid_from',
+            'valid_from'         => 'required|date_format:Y-m',
+            'valid_to'           => 'nullable|date_format:Y-m|after_or_equal:valid_from',
         ]);
 
         $levelMapping = [
@@ -303,7 +338,9 @@ class MappingController extends Controller
             return response()->json(['success' => false, 'message' => 'PIC yang dipilih berstatus nonaktif di HRMS.'], 422);
         }
 
-        $willBeActive = (bool) $coverage->is_active && !$this->validToIsExpired($request->valid_to);
+        $validFrom = $this->monthStart($request->valid_from);
+        $validTo = $this->monthEnd($request->valid_to);
+        $willBeActive = (bool) $coverage->is_active && !$this->validToIsExpired($validTo);
 
         // Validasi Single/Combo (exclude diri sendiri)
         $validation = Mapping::validateCoverage(
@@ -329,8 +366,8 @@ class MappingController extends Controller
                 'cov_level_desc'     => $request->cov_level_desc,
                 'cov_nik'            => $request->cov_nik,
                 'tanggung_jwb_pilar' => $request->tanggung_jwb_pilar,
-                'valid_from'         => $request->valid_from,
-                'valid_to'           => $request->valid_to,
+                'valid_from'         => $validFrom,
+                'valid_to'           => $validTo,
                 'is_active'          => $willBeActive,
             ]);
 

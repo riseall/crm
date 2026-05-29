@@ -165,6 +165,15 @@
                 fillPicMetadata(data);
             });
 
+            $('.mapping-monthpicker').datepicker({
+                format: 'yyyy-mm',
+                minViewMode: 1,
+                orientation: 'top left',
+                todayHighlight: true,
+                autoclose: true,
+                clearBtn: true
+            });
+
             // Auto-disable Combo jika pilar OTC
             $('#cov_pilar').on('change', function() {
                 if ($(this).val() === 'OTC') {
@@ -201,8 +210,8 @@
                     setSelectValue($('#cov_pilar'), data.cov_pilar);
                     setSelectValue($('#cov_level'), getLevelDesc(data));
                     setSelectValue($('#tanggung_jwb_pilar'), data.tanggung_jwb_pilar);
-                    $('#valid_from').val(data.valid_from);
-                    $('#valid_to').val(data.valid_to);
+                    $('#valid_from').val(dateToMonth(data.valid_from));
+                    $('#valid_to').val(dateToMonth(data.valid_to));
 
                     // Set select2 NIK
                     var anggotaText = data.user && data.user.name ? data.cov_nik + ' - ' + data.user
@@ -401,7 +410,7 @@
                 //     $('#valid_from').val(data.tanggal_masuk);
                 // }
 
-                $('#valid_to').val(data.tanggal_keluar || '');
+                $('#valid_to').val(dateToMonth(data.tanggal_keluar));
 
                 if (data.is_active === 0) {
                     $('#formErrorAlert')
@@ -450,10 +459,20 @@
                 return levelMap[data.cov_level] || '';
             }
 
+            function dateToMonth(value) {
+                if (!value) {
+                    return '';
+                }
+
+                return String(value).substring(0, 7);
+            }
+
             function clearFormErrors() {
                 $('#formErrorAlert').addClass('d-none').text('');
                 $('#modalCoverage .is-invalid').removeClass('is-invalid');
-                $('#modalCoverage .invalid-feedback').text('');
+                $('#modalCoverage .invalid-feedback').removeClass('d-block').text('');
+                $('#modalCoverage .bootstrap-select').removeClass('is-invalid');
+                $('#modalCoverage .bootstrap-select .dropdown-toggle').removeClass('border border-danger');
                 $('.select2-anggota').next('.select2-container').find('.select2-selection')
                     .removeClass('border border-danger');
             }
@@ -471,6 +490,17 @@
 
                         $input.addClass('is-invalid');
                         $('#error_' + field).html(message);
+
+                        if ($input.hasClass('mapping-monthpicker')) {
+                            $('#error_' + field).addClass('d-block');
+                        }
+
+                        if ($input.hasClass('selectpicker')) {
+                            $input.closest('.bootstrap-select').addClass('is-invalid');
+                            $input.closest('.bootstrap-select').find('.dropdown-toggle')
+                                .addClass('border border-danger');
+                            $('#error_' + field).addClass('d-block');
+                        }
 
                         if ($input.hasClass('select2-anggota')) {
                             $input.next('.select2-container').find('.select2-selection')

@@ -88,14 +88,30 @@
     <div class="col-md-6">
         <div class="form-group">
             <label>Valid From <span class="text-danger">*</span></label>
-            <input type="date" id="valid_from" class="form-control">
+            <div class="input-group date mb-2">
+                <input type="text" id="valid_from" class="form-control mapping-monthpicker"
+                    placeholder="Pilih bulan">
+                <div class="input-group-append">
+                    <span class="input-group-text">
+                        <i class="far fa-calendar-alt"></i>
+                    </span>
+                </div>
+            </div>
             <div class="invalid-feedback" id="error_valid_from"></div>
         </div>
     </div>
     <div class="col-md-6">
         <div class="form-group">
             <label>Valid To</label>
-            <input type="date" id="valid_to" class="form-control">
+            <div class="input-group date mb-2">
+                <input type="text" id="valid_to" class="form-control mapping-monthpicker"
+                    placeholder="Pilih bulan">
+                <div class="input-group-append">
+                    <span class="input-group-text">
+                        <i class="far fa-calendar-alt"></i>
+                    </span>
+                </div>
+            </div>
             <div class="invalid-feedback" id="error_valid_to"></div>
         </div>
     </div>
