@@ -34,4 +34,8 @@ return [
         'key' => env('TURNSTILE_SITE_KEY'),
         'secret' => env('TURNSTILE_SECRET_KEY'),
     ],
+
+    'cron' => [
+        'token' => env('CRON_ENDPOINT_TOKEN'),
+    ],
 ];
