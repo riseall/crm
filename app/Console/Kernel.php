@@ -24,7 +24,7 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('sellout:refresh-summary')
             ->timezone('Asia/Jakarta')
-            ->dailyAt('05:45')
+            ->dailyAt('12:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/sellout-summary-refresh.log'));
     }
