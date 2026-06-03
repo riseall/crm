@@ -9,6 +9,10 @@ Dashboard.Charts = (function ($, H) {
     var chartMode = "hari";
     var chartTrend = null;
     var chartDivisi = null;
+    var chartDivisiEl = null;
+    var chartDivisiResizeObserver = null;
+    var chartDivisiResizeFrame = null;
+    var chartDivisiLastWidth = 0;
     var chartPilar = null;
     var chartCoverage = null;
 
@@ -161,16 +165,23 @@ Dashboard.Charts = (function ($, H) {
         var el = document.querySelector("#chartPerDivisi");
         if (!el) return;
 
+        chartDivisiEl = el;
         chartDivisi = new ApexCharts(el, {
-            chart: { type: "donut", height: 300 },
+            chart: {
+                type: "donut",
+                height: getDivisiChartOptions(el).chart.height,
+                redrawOnParentResize: true,
+                redrawOnWindowResize: true,
+            },
             series: [],
             labels: [],
             colors: ["#8B5CF6", "#EC4899", "#3B82F6"],
-            legend: { position: "right", fontSize: "12px" },
+            legend: getDivisiChartOptions(el).legend,
             plotOptions: {
                 pie: {
+                    expandOnClick: false,
                     donut: {
-                        size: "65%",
+                        size: getDivisiChartOptions(el).plotOptions.pie.donut.size,
                         labels: {
                             show: true,
                             total: {
@@ -190,12 +201,14 @@ Dashboard.Charts = (function ($, H) {
                                 formatter: function (v) {
                                     return H.formatShort(v);
                                 },
+                                fontSize: "14px",
                             },
                         },
                     },
                 },
             },
             dataLabels: {
+                enabled: getDivisiChartOptions(el).dataLabels.enabled,
                 formatter: function (val, opts) {
                     return (
                         opts.w.config.labels[opts.seriesIndex] +
@@ -217,6 +230,70 @@ Dashboard.Charts = (function ($, H) {
             stroke: { width: 2, colors: ["#fff"] },
         });
         chartDivisi.render();
+        bindChartDivisiResize();
+    }
+
+    function getDivisiChartOptions(el) {
+        var width = el && el.parentElement ? el.parentElement.clientWidth : window.innerWidth;
+        var isMobile = width < 576;
+        var isTablet = width >= 576 && width < 992;
+
+        return {
+            chart: {
+                height: isMobile ? 340 : isTablet ? 320 : 300,
+            },
+            legend: {
+                position: isMobile ? "bottom" : "right",
+                horizontalAlign: "center",
+                fontSize: isMobile ? "11px" : "12px",
+                itemMargin: {
+                    horizontal: isMobile ? 8 : 10,
+                    vertical: isMobile ? 2 : 4,
+                },
+            },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: isMobile ? "58%" : "65%",
+                    },
+                },
+            },
+            dataLabels: {
+                enabled: !isMobile,
+            },
+        };
+    }
+
+    function applyChartDivisiResponsiveOptions() {
+        if (!chartDivisi || !chartDivisiEl) return;
+
+        var width = chartDivisiEl.parentElement ? chartDivisiEl.parentElement.clientWidth : chartDivisiEl.clientWidth;
+        if (width === chartDivisiLastWidth) return;
+
+        chartDivisiLastWidth = width;
+        chartDivisi.updateOptions(getDivisiChartOptions(chartDivisiEl), false, true);
+    }
+
+    function bindChartDivisiResize() {
+        if (!chartDivisiEl) return;
+
+        chartDivisiLastWidth = chartDivisiEl.parentElement ? chartDivisiEl.parentElement.clientWidth : chartDivisiEl.clientWidth;
+
+        if (window.ResizeObserver) {
+            chartDivisiResizeObserver = new ResizeObserver(function () {
+                if (chartDivisiResizeFrame) {
+                    window.cancelAnimationFrame(chartDivisiResizeFrame);
+                }
+
+                chartDivisiResizeFrame = window.requestAnimationFrame(function () {
+                    chartDivisiResizeFrame = null;
+                    applyChartDivisiResponsiveOptions();
+                });
+            });
+            chartDivisiResizeObserver.observe(chartDivisiEl.parentElement || chartDivisiEl);
+        } else {
+            $(window).on("resize.dashboardChartDivisi", applyChartDivisiResponsiveOptions);
+        }
     }
 
     function loadChartDivisi() {

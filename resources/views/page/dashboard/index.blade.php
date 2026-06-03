@@ -81,6 +81,23 @@
         .metric-growth.down {
             color: #F64E60;
         }
+
+        .dashboard-donut-chart {
+            width: 100%;
+            min-height: 260px;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard-donut-chart {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .dashboard-donut-chart {
+                min-height: 340px;
+            }
+        }
     </style>
 @endpush
 
@@ -139,7 +156,7 @@
                     </div>
                 </div>
                 <div class="card-body d-flex align-items-center justify-content-center">
-                    <div id="chartPerDivisi" style="width:100%"></div>
+                    <div id="chartPerDivisi" class="dashboard-donut-chart"></div>
                 </div>
             </div>
         </div>
