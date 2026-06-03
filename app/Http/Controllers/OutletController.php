@@ -44,10 +44,20 @@ class OutletController extends Controller
                 ->whereNull('crm_mst_outlets.deleted_at');
         };
 
-        $totalData = MCustDist::query()->leftJoin($outletsTable, $joinActiveOutlets)->count();
-        $totalTercoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->whereNotNull('crm_mst_outlets.id_coverage')->count();
-        $totalBelumCoverage = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->whereNull('crm_mst_outlets.id_coverage')->count();
-        $totalButuhPengganti = MCustDist::query()->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as crm_mst_outlets'), $joinActiveOutlets)->where('crm_mst_outlets.needs_replacement', 1)->count();
+        $totals = MCustDist::query()
+            ->leftJoin($outletsTable, $joinActiveOutlets)
+            ->selectRaw('
+                COUNT(*) as total_data,
+                SUM(CASE WHEN crm_mst_outlets.id_coverage IS NOT NULL THEN 1 ELSE 0 END) as total_tercoverage,
+                SUM(CASE WHEN crm_mst_outlets.id_coverage IS NULL THEN 1 ELSE 0 END) as total_belum_coverage,
+                SUM(CASE WHEN crm_mst_outlets.needs_replacement = 1 THEN 1 ELSE 0 END) as total_butuh_pengganti
+            ')
+            ->first();
+
+        $totalData = (int) ($totals->total_data ?? 0);
+        $totalTercoverage = (int) ($totals->total_tercoverage ?? 0);
+        $totalBelumCoverage = (int) ($totals->total_belum_coverage ?? 0);
+        $totalButuhPengganti = (int) ($totals->total_butuh_pengganti ?? 0);
         // $newData = Outlet::where('created_at', '>=', now()->subDays(7))->count();
         // $updatedToday = Outlet::whereDate('updated_at', today())->count();
         $coverage = Mapping::active()
@@ -81,6 +91,13 @@ class OutletController extends Controller
 
     public function data(Request $request)
     {
+        $search = trim((string) data_get($request->input('search'), 'value', ''));
+        if (mb_strlen($search) === 1) {
+            $request->merge([
+                'search' => array_replace((array) $request->input('search', []), ['value' => '']),
+            ]);
+        }
+
         $latestMappings = DB::connection('db_dwh')
             ->table('crm_mst_mappings')
             ->selectRaw('MAX(id) as id, id_coverage')

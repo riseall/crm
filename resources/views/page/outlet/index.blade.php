@@ -57,8 +57,36 @@
             window.tableMapping = $('#tblMapping').DataTable({
                 processing: true,
                 serverSide: true,
+                searchDelay: 700,
                 autoWidth: false,
                 ajax: '{{ route('outlet.data') }}',
+                initComplete: function() {
+                    var api = this.api();
+                    var $input = $('#tblMapping_filter input');
+                    var timer = null;
+
+                    $input
+                        .off('.DT')
+                        .attr('placeholder', 'Min. 2 karakter')
+                        .on('keyup search', function(e) {
+                            var value = this.value.trim();
+
+                            if (e.type === 'keyup' && e.key === 'Enter') {
+                                clearTimeout(timer);
+                                if (value.length === 0 || value.length >= 2) {
+                                    api.search(value).draw();
+                                }
+                                return;
+                            }
+
+                            clearTimeout(timer);
+                            timer = setTimeout(function() {
+                                if (value.length === 0 || value.length >= 2) {
+                                    api.search(value).draw();
+                                }
+                            }, 700);
+                        });
+                },
                 columns: [{
                         data: 'DT_RowIndex',
                         orderable: false,
