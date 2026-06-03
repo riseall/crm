@@ -275,7 +275,7 @@ class SelloutQueryService
             SELECT
                 'METD' as source_table,
                 m.id,
-                m.tgl_faktur,
+                m.tgl_shipper,
                 'METD' as dist,
                 m.id_outlet,
                 m.kode_cbg_ph,
@@ -284,7 +284,7 @@ class SelloutQueryService
                 NOW(),
                 NOW()
             FROM selling_out_metd AS m
-            WHERE m.tgl_faktur BETWEEN ? AND ?
+            WHERE m.tgl_shipper BETWEEN ? AND ?
             ON DUPLICATE KEY UPDATE 
                 tgl_faktur = VALUES(tgl_faktur),
                 netto = VALUES(netto),
@@ -313,9 +313,9 @@ class SelloutQueryService
             }
 
             $join->where(function ($q) {
-                    $q->whereNull('mc.valid_from')
-                        ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                })
+                $q->whereNull('mc.valid_from')
+                    ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+            })
                 ->where(function ($q) {
                     $q->whereNull('mc.valid_to')
                         ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
@@ -326,9 +326,9 @@ class SelloutQueryService
     private function applyMappingValidity($query, string $alias): void
     {
         $query->where(function ($q) use ($alias) {
-                $q->whereNull("{$alias}.valid_from")
-                    ->orWhereRaw("so.tgl_faktur >= {$alias}.valid_from");
-            })
+            $q->whereNull("{$alias}.valid_from")
+                ->orWhereRaw("so.tgl_faktur >= {$alias}.valid_from");
+        })
             ->where(function ($q) use ($alias) {
                 $q->whereNull("{$alias}.valid_to")
                     ->orWhereRaw("so.tgl_faktur <= {$alias}.valid_to");
@@ -340,8 +340,7 @@ class SelloutQueryService
         string $alias = 'mx',
         ?string $levelNum = null,
         string $outletAlias = 'mo'
-    ): void
-    {
+    ): void {
         $query->whereExists(function ($exists) use ($alias, $levelNum, $outletAlias) {
             $exists->select(DB::raw(1))
                 ->from(DB::raw($this->dwhTable('crm_mst_mappings') . " as {$alias}"))
@@ -832,12 +831,12 @@ class SelloutQueryService
                 $join->on('so.id_outlet', '=', 'vcd.id_outlet')
                     ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
             })
-            ->leftJoin(
-                DB::raw($this->authTable('users') . ' as ma'),
-                'so.coverage_nik',
-                '=',
-                'ma.nik'
-            );
+                ->leftJoin(
+                    DB::raw($this->authTable('users') . ' as ma'),
+                    'so.coverage_nik',
+                    '=',
+                    'ma.nik'
+                );
         }
 
         $outletNameSql = $hasSearch
