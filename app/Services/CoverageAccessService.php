@@ -11,6 +11,11 @@ class CoverageAccessService
     public const LEVEL_ORDER = ['GM', 'RM', 'SAM', 'AM', 'MR'];
 
     private const GLOBAL_ROLE_NAMES = ['Super Admin', 'Admin IT', 'Marketing Insight'];
+    private const DRILLDOWN_RESTRICTED_ROLE_NAMES = [
+        'Marketing Representative',
+        'Medical Representative',
+        'Sales Representative',
+    ];
 
     public function rootCoverages(?User $user = null): array
     {
@@ -107,12 +112,14 @@ class CoverageAccessService
         $drilldownLevels = $this->accessibleDrillLevels($user);
         $defaultDrilldownLevel = $this->defaultDrillLevel($user);
         $isGlobalAccess = $this->isGlobalAccessUser($user);
+        $canViewDrilldown = $this->canViewDashboardDrilldown($user);
 
         return [
             'is_global_access' => $isGlobalAccess,
             'filter_levels' => $isGlobalAccess ? self::LEVEL_ORDER : ($drilldownLevels ?: self::LEVEL_ORDER),
             'drilldown_levels' => $drilldownLevels ?: self::LEVEL_ORDER,
             'default_drilldown_level' => $defaultDrilldownLevel,
+            'can_view_drilldown' => $canViewDrilldown,
         ];
     }
 
@@ -167,6 +174,15 @@ class CoverageAccessService
         }
 
         return $user->hasAnyRole(self::GLOBAL_ROLE_NAMES);
+    }
+
+    public function canViewDashboardDrilldown(?User $user = null): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return ! $user->hasAnyRole(self::DRILLDOWN_RESTRICTED_ROLE_NAMES);
     }
 
     public function levelNumToName(?string $num): ?string

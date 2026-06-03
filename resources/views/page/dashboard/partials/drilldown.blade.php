@@ -3,19 +3,20 @@
         @php
             $dashboardAccess = $dashboardAccess ?? [];
             $drilldownLevels = $dashboardAccess['drilldown_levels'] ?? ($drilldownLevels ?? ['GM']);
-            $drilldownDefaultLevel = $dashboardAccess['default_drilldown_level'] ?? ($drilldownDefaultLevel ?? ($drilldownLevels[0] ?? 'GM'));
+            $drilldownDefaultLevel =
+                $dashboardAccess['default_drilldown_level'] ??
+                ($drilldownDefaultLevel ?? ($drilldownLevels[0] ?? 'GM'));
         @endphp
         <div class="card card-custom">
-            <div class="card-header flex-wrap py-3">
+            <div class="card-header flex-wrap border-0 pt-6 pb-0">
                 <div class="card-title">
-                    <div class="d-flex">
-                        <h3 class="card-label">Hierarki Performance</h3>
-                        <span class="text-muted font-size-sm ml-3">
-                            Klik level untuk filter, klik <i class="fas fa-chevron-right fa-xs"></i> untuk masuk ke
-                            bawahan
-                        </span>
-                    </div>
+                    <h3 class="card-label">Hierarki Performance
+                        <span class="d-block text-muted pt-2 font-size-sm">Klik level untuk filter, klik <i
+                                class="fas fa-chevron-right fa-xs"></i> untuk masuk ke
+                            bawahan</span>
+                    </h3>
                 </div>
+
                 <div class="card-toolbar">
                     {{-- Breadcrumb navigasi drill-down --}}
                     <div class="drill-path" id="drillPath">

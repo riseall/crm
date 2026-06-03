@@ -174,9 +174,9 @@
     </div> --}}
 
     {{-- ===== ROW 4: Drill-Down Hierarki ===== --}}
-    @unlessrole(['Marketing Representative', 'Sales Representative'])
+    @if ($dashboardAccess['can_view_drilldown'] ?? true)
         @include('page.dashboard.partials.drilldown')
-    @endunlessrole
+    @endif
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
     <x-datatable-card title="Detail Performance per Anggota" subtitle="Data anggota sesuai filter yang dipilih"

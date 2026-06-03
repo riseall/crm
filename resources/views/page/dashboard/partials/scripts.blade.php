@@ -8,7 +8,7 @@
             chartDivisi: "{{ route('dashboard.chart.divisi') }}",
             chartPilar: "{{ route('dashboard.chart.pilar') }}",
             chartCoverage: "{{ route('dashboard.chart.coverage') }}",
-            drilldown: "{{ route('dashboard.drilldown') }}",
+            drilldown: @json(($dashboardAccess['can_view_drilldown'] ?? true) ? route('dashboard.drilldown') : null),
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
         }
     };

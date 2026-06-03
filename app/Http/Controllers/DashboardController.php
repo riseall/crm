@@ -73,6 +73,8 @@ class DashboardController extends Controller
 
     public function getDrillDown(DashboardFilterRequest $request)
     {
+        abort_unless($this->coverageAccess->canViewDashboardDrilldown(Auth::user()), 403);
+
         return response()->json($this->service->getDrillDown($request));
     }
 
