@@ -11,12 +11,6 @@ class CronCommandController extends Controller
 {
     public function run(Request $request, string $job)
     {
-        if (!$this->hasValidToken($request)) {
-            return response()->json([
-                'message' => 'Unauthorized.',
-            ], 401);
-        }
-
         $command = $this->commands()[$job] ?? null;
 
         if (!$command) {
@@ -40,19 +34,6 @@ class CronCommandController extends Controller
             'success' => $exitCode === 0,
             'output' => trim(Artisan::output()),
         ], $exitCode === 0 ? 200 : 500);
-    }
-
-    protected function hasValidToken(Request $request): bool
-    {
-        $configuredToken = config('services.cron.token');
-
-        if (!$configuredToken) {
-            return false;
-        }
-
-        $token = $request->bearerToken() ?: $request->query('token');
-
-        return is_string($token) && hash_equals($configuredToken, $token);
     }
 
     protected function commands(): array
