@@ -9,6 +9,8 @@
     'distributors' => ['KFTD', 'AAM', 'METD'],
     'selectedMonth' => null,
     'selectedYear' => null,
+    'showBulan' => true,
+    'showTahun' => true,
     'showPilar' => true,
     'showDistributor' => false,
     'showCoverage' => false,
@@ -56,30 +58,34 @@
 
             <div class="col-12 {{ $showHeader ? 'col-xl-8' : '' }}">
                 <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 g-2 align-items-end justify-content-xl-end">
-                    <div class="col mb-4">
-                        <label class="small text-muted mb-1">Bulan</label>
-                        <select id="{{ $idBulan }}"
-                            class="form-control {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
-                            data-width="100%" style="width: 100%;" @if ($bulanMultiple) multiple @endif>
-                            @foreach ($months as $num => $name)
-                                <option value="{{ $num }}"
-                                    {{ in_array((string) (int) $num, $activeMonths, true) ? 'selected' : '' }}>
-                                    {{ $name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @if ($showBulan)
+                        <div class="col mb-4">
+                            <label class="small text-muted mb-1">Bulan</label>
+                            <select id="{{ $idBulan }}"
+                                class="form-control {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
+                                data-width="100%" style="width: 100%;" @if ($bulanMultiple) multiple @endif>
+                                @foreach ($months as $num => $name)
+                                    <option value="{{ $num }}"
+                                        {{ in_array((string) (int) $num, $activeMonths, true) ? 'selected' : '' }}>
+                                        {{ $name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
 
-                    <div class="col mb-4">
-                        <label class="small text-muted mb-1">Tahun</label>
-                        <select id="{{ $idTahun }}" class="form-control selectpicker" data-width="100%">
-                            @foreach ($yearOptions as $y)
-                                <option value="{{ $y }}" {{ (int) $y === $activeYear ? 'selected' : '' }}>
-                                    {{ $y }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @if ($showTahun)
+                        <div class="col mb-4">
+                            <label class="small text-muted mb-1">Tahun</label>
+                            <select id="{{ $idTahun }}" class="form-control selectpicker" data-width="100%">
+                                @foreach ($yearOptions as $y)
+                                    <option value="{{ $y }}" {{ (int) $y === $activeYear ? 'selected' : '' }}>
+                                        {{ $y }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
 
                     @if ($showPilar)
                         <div class="col mb-4">

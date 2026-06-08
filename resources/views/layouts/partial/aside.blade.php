@@ -146,11 +146,13 @@
                                 width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
                                 <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
                                     <polygon points="0 0 24 0 24 24 0 24" />
-                                    <rect fill="#000000" opacity="0.3" x="3" y="17" width="18" height="2"
+                                    <rect fill="#000000" opacity="0.3" x="3" y="3" width="2" height="18"
                                         rx="1" />
-                                    <path
-                                        d="M3,17 L3,11.5 L7,7.5 C7.39052429,7.10947571 8.02368927,7.10947571 8.41421356,7.5 L11.5,10.5 L15.5,5.5 C15.8905243,5.10947571 16.5236893,5.10947571 16.9142136,5.5 L21,9.5 L21,17 Z"
-                                        fill="#000000" />
+                                    <rect fill="#000000" x="6" y="5" width="14" height="3.5" rx="1" />
+                                    <rect fill="#000000" x="6" y="10.5" width="10" height="3.5"
+                                        rx="1" />
+                                    <rect fill="#000000" opacity="0.3" x="6" y="16" width="6" height="3.5"
+                                        rx="1" />
                                 </g>
                             </svg>
                         </span>
@@ -158,7 +160,7 @@
                     </a>
                 </li>
                 <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('dashboard.index') }}" class="menu-link">
+                    <a href="{{ route('stock.index') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 width="24px" height="24px" viewBox="0 0 24 24" version="1.1">

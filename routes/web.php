@@ -5,6 +5,7 @@ use App\Http\Controllers\MappingController;
 use App\Http\Controllers\OutletController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SellingInController;
+use App\Http\Controllers\StockController;
 use App\Http\Controllers\UserController;
 use App\Notifications\CoverageNeedsReplacementNotification;
 use Illuminate\Support\Facades\Route;
@@ -100,6 +101,22 @@ Route::middleware('auth')->group(function () {
         Route::post('top-pm',       [SellingInController::class, 'getTopPm'])->name('top-pm');
         Route::post('top-produk',   [SellingInController::class, 'getTopProduk'])->name('top-produk');
         Route::post('table',        [SellingInController::class, 'getTableDetail'])->name('table');
+    });
+
+    //Stock
+    Route::prefix('stock')->name('stock.')->group(function () {
+        Route::get('/',  [StockController::class, 'index'])->name('index');
+
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::post('summary',            [StockController::class, 'getSummaryCards'])->name('summary');
+            Route::post('chart/aging',        [StockController::class, 'getChartAging'])->name('chart.aging');
+            Route::post('chart/aging-source', [StockController::class, 'getChartAgingPerSource'])->name('chart.aging-source');
+            Route::post('per-source',         [StockController::class, 'getPerSource'])->name('per-source');
+            Route::post('top-cabang',         [StockController::class, 'getTopCabang'])->name('top-cabang');
+            Route::post('produk-prioritas',   [StockController::class, 'getProdukPrioritas'])->name('produk-prioritas');
+            Route::post('table',              [StockController::class, 'getTableDetail'])->name('table');
+            Route::get('filter-options',      [StockController::class, 'getFilterOptions'])->name('filter-options');
+        });
     });
 
     Route::post('/notifications/coverage/read', function () {
