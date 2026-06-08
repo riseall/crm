@@ -34,4 +34,9 @@ return [
         'key' => env('TURNSTILE_SITE_KEY'),
         'secret' => env('TURNSTILE_SECRET_KEY'),
     ],
+
+    'qad_wsa' => [
+        'url' => env('QAD_WSA_URL'),
+        'namespace' => env('QAD_WSA_NAMESPACE'),
+    ],
 ];
