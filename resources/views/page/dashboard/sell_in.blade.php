@@ -22,7 +22,7 @@
 
     <div class="row g-3 mb-4" id="kpiCards">
         @foreach ($sellingInKpis as $card)
-            <div class="col">
+            <div class="col-12 col-sm-6 col-xl-4">
                 <x-stat-card title="{{ $card['label'] }}" value="" valueId="{{ $card['id'] }}" subtitle="-"
                     subtitleId="{{ $card['id'] }}Sub" subtitleColor="metric-growth" icon="fas {{ $card['icon'] }}"
                     color="success" />
@@ -48,7 +48,7 @@
     </div>
 
     <div class="row g-3 mb-4 h-auto">
-        <div class="col-md-4">
+        <div class="col-md-4 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -64,7 +64,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-4 mb-4 ">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -78,7 +78,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-4 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">

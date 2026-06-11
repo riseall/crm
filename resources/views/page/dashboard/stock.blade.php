@@ -70,7 +70,7 @@
         </div>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-4">
+            <div class="col-md-4 mb-4">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
@@ -83,7 +83,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4 mb-4">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
@@ -96,7 +96,7 @@
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4 mb-4">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">

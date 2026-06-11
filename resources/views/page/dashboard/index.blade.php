@@ -148,7 +148,7 @@
 
     {{-- ===== ROW 2: Divisi + Pilar ===== --}}
     <div class="row mb-5">
-        <div class="col-md-6">
+        <div class="col-md-6 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -160,7 +160,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
