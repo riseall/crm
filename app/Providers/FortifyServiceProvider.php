@@ -11,6 +11,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -53,17 +54,17 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         Fortify::authenticateUsing(function (Request $request) {
-            // $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
-            //     'secret' => env('TURNSTILE_SECRET_KEY'),
-            //     'response' => $request->input('cf-turnstile-response'),
-            //     'remoteip' => $request->ip(),
-            // ]);
+            $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => env('TURNSTILE_SECRET_KEY'),
+                'response' => $request->input('cf-turnstile-response'),
+                'remoteip' => $request->ip(),
+            ]);
 
-            // if (!$turnstileResponse->json('success')) {
-            //     throw ValidationException::withMessages([
-            //         'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
-            //     ]);
-            // }
+            if (!$turnstileResponse->json('success')) {
+                throw ValidationException::withMessages([
+                    'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
+                ]);
+            }
 
             $spkUser = DB::connection('db_master')
                 ->table('mst_anggota')
