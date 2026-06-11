@@ -70,7 +70,8 @@
 
     function fmtVal(value) {
         if (value === null || value === undefined || value === "") return "-";
-        if (H && typeof H.formatShort === "function") return H.formatShort(value);
+        if (H && typeof H.formatShort === "function")
+            return H.formatShort(value);
 
         const n = Number(value);
         if (Number.isNaN(n)) return "-";
@@ -122,8 +123,7 @@
         const data = await apiFetch(ROUTES.summary, filters);
 
         byId("kpiGpj").textContent = fmtVal(data.gpj_value);
-        byId("kpiGpjSub").textContent =
-            `${fmtInt(data.total_sku)} total SKU`;
+        byId("kpiGpjSub").textContent = `${fmtInt(data.total_sku)} total SKU`;
         byId("kpiCabang").textContent = fmtVal(data.cabang_value);
         byId("kpiCabangSub").textContent = "AAM, KFTD, METD";
         byId("kpiKritis").textContent = fmtVal(data.kritis_value);
@@ -378,19 +378,20 @@
                         };
                         return `<span class="font-size-xs font-weight-bold px-3 py-1 rounded" style="background:${style.bg};color:${style.tc}">${esc(source)}</span>`;
                     },
+                    className: "text-center",
                 },
-                { data: "pt_part", className: "text-muted font-size-sm" },
+                { data: "pt_part", className: "font-size-sm" },
                 { data: "pt_desc" },
                 { data: "pilar" },
                 { data: "cabang" },
                 {
                     data: "stock",
-                    className: "text-right",
+                    className: "text-center",
                     render: (value) => fmtInt(value),
                 },
                 {
                     data: "value",
-                    className: "text-right font-weight-bold",
+                    className: "text-center font-weight-bold",
                     render: (value) => fmtVal(value),
                 },
                 { data: "exp_date" },
@@ -404,6 +405,7 @@
                         ];
                         return `<span class="font-size-xs font-weight-bold px-3 py-1 rounded" style="background:${pill[0]};color:${pill[1]}">${esc(pill[2])}</span>`;
                     },
+                    className: "text-center",
                 },
             ],
             order: [[6, "desc"]],

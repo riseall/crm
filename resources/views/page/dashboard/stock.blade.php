@@ -5,9 +5,9 @@
         subtitle="Pantau stock GPJ dan distributor cabang berdasarkan aging ED" icon="fa-database" :show-bulan="false"
         :show-tahun="false" :show-pilar="false" id-apply="btnApply" btn-icon="fa-sync-alt">
         <div class="col mb-4">
-            <label class="small text-muted mb-1">Sumber</label>
+            <label class="small text-muted mb-1">Distributor</label>
             <select class="form-control selectpicker" id="filterSource" data-width="100%">
-                <option value="">Semua sumber</option>
+                <option value="">Semua distributor</option>
                 <option value="GPJ">GPJ</option>
                 <option value="AAM">AAM</option>
                 <option value="KFTD">KFTD</option>
@@ -51,7 +51,7 @@
                 ['id' => 'kpiCabang', 'label' => 'Stock Cabang', 'icon' => 'fa-truck', 'color' => 'success'],
                 [
                     'id' => 'kpiKritis',
-                    'label' => 'Kritis (< 3 bln ED)',
+                    'label' => 'Kritis (ED 1-3 bulan)',
                     'icon' => 'fa-exclamation-triangle',
                     'color' => 'warning',
                 ],
@@ -74,7 +74,7 @@
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label">Per sumber</h3>
+                            <h3 class="card-label">Per distributor</h3>
                         </div>
                     </div>
                     <div class="card-body p-3">
@@ -112,15 +112,14 @@
         </div>
 
         <x-datatable-card title="Detail Stock" subtitle="GPJ vs Cabang, diurutkan dari aging paling kritis"
-            table-id="tableStock" :show-export="true"
-            table-class="table-separate table-head-custom table-checkable table-sm">
-            <th>Sumber</th>
+            table-id="tableStock" :show-export="true" table-class="table-separate table-head-custom table-checkable table-sm">
+            <th>Dist</th>
             <th>Kode</th>
             <th>Nama Produk</th>
             <th>Pilar</th>
             <th>Cabang</th>
-            <th class="text-right">Stock</th>
-            <th class="text-right">Nilai</th>
+            <th>Stock</th>
+            <th>Nilai</th>
             <th>Exp. Date</th>
             <th>Kelompok ED</th>
         </x-datatable-card>
@@ -178,7 +177,6 @@
             border-radius: 8px;
             background: #fff;
         }
-
     </style>
 @endpush
 
@@ -200,6 +198,8 @@
     <script>
         window.StockDashboardConfig = @json($stockDashboardConfig);
     </script>
-    <script src="{{ asset('js/dashboard/1_helper_rupiah.js') }}?v={{ filemtime(public_path('js/dashboard/1_helper_rupiah.js')) }}"></script>
+    <script
+        src="{{ asset('js/dashboard/1_helper_rupiah.js') }}?v={{ filemtime(public_path('js/dashboard/1_helper_rupiah.js')) }}">
+    </script>
     <script src="{{ asset('js/dashboard/stock.js') }}?v={{ filemtime(public_path('js/dashboard/stock.js')) }}"></script>
 @endpush
