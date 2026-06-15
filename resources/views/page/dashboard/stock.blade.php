@@ -6,10 +6,10 @@
         :show-tahun="false" :show-pilar="false" id-apply="btnApply" btn-icon="fa-sync-alt">
         <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Distributor</label>
-            <select class="form-control selectpicker" id="filterSource" data-width="100%" multiple
-                data-actions-box="true" data-selected-text-format="count > 1"
-                data-none-selected-text="Semua distributor" data-select-all-text="Pilih semua"
-                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
+            <select class="form-control selectpicker" id="filterSource" data-width="100%" multiple data-actions-box="true"
+                data-selected-text-format="count > 1" data-none-selected-text="Semua distributor"
+                data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
+                data-count-selected-text="{0} dipilih">
                 <option value="GPJ">GPJ</option>
                 <option value="AAM">AAM</option>
                 <option value="KFTD">KFTD</option>
@@ -19,24 +19,24 @@
 
         <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Pilar</label>
-            <select class="form-control selectpicker" id="filterPilar" data-width="100%" multiple
-                data-actions-box="true" data-selected-text-format="count > 1"
-                data-none-selected-text="Semua pilar" data-select-all-text="Pilih semua"
-                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih"></select>
+            <select class="form-control selectpicker" id="filterPilar" data-width="100%" multiple data-actions-box="true"
+                data-selected-text-format="count > 1" data-none-selected-text="Semua pilar"
+                data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
+                data-count-selected-text="{0} dipilih"></select>
         </div>
 
         <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Cabang</label>
-            <select class="form-control selectpicker" id="filterCabang" data-width="100%" data-live-search="true"
-                multiple data-actions-box="true" data-selected-text-format="count > 1"
-                data-none-selected-text="Semua cabang" data-select-all-text="Pilih semua"
-                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih"></select>
+            <select class="form-control selectpicker" id="filterCabang" data-width="100%" data-live-search="true" multiple
+                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua cabang"
+                data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
+                data-count-selected-text="{0} dipilih"></select>
         </div>
 
         <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Aging</label>
-            <select class="form-control selectpicker" id="filterKelEd" data-width="100%" multiple
-                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
+            <select class="form-control selectpicker" id="filterKelEd" data-width="100%" multiple data-actions-box="true"
+                data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih">
                 <option value="sudah_ed">Sudah ED</option>
@@ -51,28 +51,39 @@
     </x-filter-bar>
 
     <div class="sk-page">
-        @php
-            $stockKpis = [
-                ['id' => 'kpiGpj', 'label' => 'Stock GPJ', 'icon' => 'fa-industry', 'color' => 'primary'],
-                ['id' => 'kpiCabang', 'label' => 'Stock Cabang', 'icon' => 'fa-truck', 'color' => 'success'],
-                [
-                    'id' => 'kpiKritis',
-                    'label' => 'Kritis (ED 1-3 bulan)',
-                    'icon' => 'fa-exclamation-triangle',
-                    'color' => 'warning',
-                ],
-                ['id' => 'kpiEd', 'label' => 'Sudah ED', 'icon' => 'fa-calendar-times', 'color' => 'danger'],
-            ];
-        @endphp
+        <div role="status" aria-live="polite"
+            style="
+                display:flex; align-items:stretch;
+                border-radius:10px; overflow:hidden;
+                border:0.5px solid #FBBF24;
+                background:#ffffff;
+                margin-bottom:1rem;
+                box-shadow:0 1px 3px rgba(0,0,0,0.06);
+            ">
+            {{-- Label kiri --}}
+            <div
+                style="
+                    display:flex; flex-direction:column; align-items:center; justify-content:center;
+                    gap:4px; background:#F59E0B; color:#451a03;
+                    padding:12px 16px; min-width:80px; text-align:center; flex-shrink:0;
+                ">
+                <i class="fas fa-exclamation-triangle text-dark" style="font-size:18px"></i>
+                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+                    Stok ED
+                </span>
+            </div>
 
-        <div class="row g-3 mb-4">
-            @foreach ($stockKpis as $card)
-                <div class="col-12 col-sm-6 col-xl-3">
-                    <x-stat-card title="{{ $card['label'] }}" value="" valueId="{{ $card['id'] }}" subtitle="-"
-                        subtitleId="{{ $card['id'] }}Sub" subtitleColor="text-muted" icon="fas {{ $card['icon'] }}"
-                        color="{{ $card['color'] }}" />
+            {{-- Ticker viewport --}}
+            <div class="sk-warning-viewport" style="flex:1; overflow:hidden; position:relative;">
+                <div class="sk-warning-track" id="stockWarningTrack">
+                    <div class="sk-warning-group"
+                        style="display:inline-flex; align-items:center; padding:0 16px; height:100%;">
+                        <span style="font-size:13px; color:#64748b;">
+                            Memuat peringatan stok&hellip;
+                        </span>
+                    </div>
                 </div>
-            @endforeach
+            </div>
         </div>
 
         <div class="row g-3 mb-4">
@@ -118,7 +129,8 @@
         </div>
 
         <x-datatable-card title="Detail Stock" subtitle="GPJ vs Cabang, diurutkan dari aging paling kritis"
-            table-id="tableStock" :show-export="true" table-class="table-separate table-head-custom table-checkable table-sm">
+            table-id="tableStock" :show-export="true"
+            table-class="table-separate table-head-custom table-checkable table-sm">
             <th>Dist</th>
             <th>Kode</th>
             <th>Nama Produk</th>
@@ -182,6 +194,106 @@
             border: 1px solid #E2E8F0;
             border-radius: 8px;
             background: #fff;
+        }
+
+        .sk-warning-bar {
+            display: flex;
+            min-height: 58px;
+            overflow: hidden;
+            align-items: stretch;
+            border: 1px solid #F6C343;
+            border-radius: 8px;
+            background: #FFFBEB;
+        }
+
+        .sk-warning-label {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            padding: 0 20px;
+            background: #F59E0B;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            z-index: 1;
+        }
+
+        .sk-warning-viewport {
+            display: flex;
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            align-items: center;
+        }
+
+        .sk-warning-track {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            will-change: transform;
+        }
+
+        .sk-warning-track.is-running {
+            animation-name: stock-warning-scroll;
+            animation-duration: 30s;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        .sk-warning-viewport:hover .sk-warning-track {
+            animation-play-state: paused;
+        }
+
+        .sk-warning-group {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+        }
+
+        .sk-warning-item {
+            display: flex;
+            min-height: 56px;
+            align-items: center;
+            padding: 0 28px;
+            color: #78350F;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .sk-warning-item::after {
+            width: 5px;
+            height: 5px;
+            margin-left: 28px;
+            border-radius: 50%;
+            background: #F59E0B;
+            content: '';
+        }
+
+        .sk-warning-item strong {
+            margin: 0 4px;
+            color: #92400E;
+        }
+
+        @keyframes stock-warning-scroll {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translate3d(-50%, 0, 0);
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .sk-warning-bar {
+                display: block;
+            }
+
+            .sk-warning-label {
+                min-height: 42px;
+                justify-content: center;
+            }
         }
     </style>
 @endpush

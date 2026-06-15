@@ -16,45 +16,45 @@ class StockService
     }
 
     // -------------------------------------------------------
-    // SUMMARY CARDS
+    // SUMMARY WARNING
     // -------------------------------------------------------
 
     public function getSummaryCards(StockFilterRequest $request): array
     {
         return Cache::remember(
-            $this->query->cacheKey('summary', $request),
+            $this->query->cacheKey('summary_warning_v2', $request),
             $this->query->cacheTtl(),
             function () use ($request) {
-                $base = $this->query->baseQuery($request);
+                $rows = $this->query->baseQuery($request)
+                    ->whereIn('s.kelompok_ed', ['1_3', '4_7', '8_12'])
+                    ->selectRaw('
+                        s.kelompok_ed,
+                        SUM(s.stock) as total_stock,
+                        SUM(s.value) as total_value,
+                        COUNT(DISTINCT s.pt_part) as total_sku
+                    ')
+                    ->groupBy('s.kelompok_ed')
+                    ->get()
+                    ->keyBy('kelompok_ed');
 
-                $gpjValue    = (float) (clone $base)->where('s.source', 'GPJ')->sum('s.value');
-                $cabangValue = (float) (clone $base)->where('s.source', '!=', 'GPJ')->sum('s.value');
-                $totalSku    = (int)   (clone $base)->distinct('s.pt_part')->count('s.pt_part');
-
-                $kritisValue = (float) (clone $base)
-                    ->whereIn('s.kelompok_ed', ['sudah_ed', '1_3'])
-                    ->sum('s.value');
-
-                $kritisSkus  = (int) (clone $base)
-                    ->whereIn('s.kelompok_ed', ['sudah_ed', '1_3'])
-                    ->distinct('s.pt_part')->count('s.pt_part');
-
-                $edValue     = (float) (clone $base)
-                    ->where('s.kelompok_ed', 'sudah_ed')
-                    ->sum('s.value');
-
-                $edSkus      = (int) (clone $base)
-                    ->where('s.kelompok_ed', 'sudah_ed')
-                    ->distinct('s.pt_part')->count('s.pt_part');
+                $labels = [
+                    '1_3' => '1-3 bulan',
+                    '4_7' => '4-7 bulan',
+                    '8_12' => '8-12 bulan',
+                ];
 
                 return [
-                    'gpj_value'      => $gpjValue,
-                    'cabang_value'   => $cabangValue,
-                    'total_sku'      => $totalSku,
-                    'kritis_value'   => $kritisValue,
-                    'kritis_skus'    => $kritisSkus,
-                    'sudah_ed_value' => $edValue,
-                    'sudah_ed_skus'  => $edSkus,
+                    'warnings' => collect($labels)->map(function ($label, $key) use ($rows) {
+                        $row = $rows->get($key);
+
+                        return [
+                            'key' => $key,
+                            'label' => $label,
+                            'total_stock' => round((float) ($row->total_stock ?? 0), 2),
+                            'total_value' => round((float) ($row->total_value ?? 0)),
+                            'total_sku' => (int) ($row->total_sku ?? 0),
+                        ];
+                    })->values(),
                 ];
             }
         );

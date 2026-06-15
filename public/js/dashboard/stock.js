@@ -90,6 +90,12 @@
         return Number(value || 0).toLocaleString("id-ID");
     }
 
+    function fmtStock(value) {
+        return Number(value || 0).toLocaleString("id-ID", {
+            maximumFractionDigits: 2,
+        });
+    }
+
     function getFilters() {
         return {
             source: $("#filterSource").val() || [],
@@ -121,17 +127,112 @@
 
     async function loadSummary(filters) {
         const data = await apiFetch(ROUTES.summary, filters);
+        renderStockWarnings(data.warnings || []);
+    }
 
-        byId("kpiGpj").textContent = fmtVal(data.gpj_value);
-        byId("kpiGpjSub").textContent = `${fmtInt(data.total_sku)} total SKU`;
-        byId("kpiCabang").textContent = fmtVal(data.cabang_value);
-        byId("kpiCabangSub").textContent = "AAM, KFTD, METD";
-        byId("kpiKritis").textContent = fmtVal(data.kritis_value);
-        byId("kpiKritisSub").textContent =
-            `${fmtInt(data.kritis_skus)} SKU perlu tindakan`;
-        byId("kpiEd").textContent = fmtVal(data.sudah_ed_value);
-        byId("kpiEdSub").textContent =
-            `${fmtInt(data.sudah_ed_skus)} SKU perlu disposal`;
+    function renderStockWarnings(warnings) {
+        const track = byId("stockWarningTrack");
+        if (!track) return;
+
+        const AGING_PILL_KEY = {
+            "1_3": {
+                background: "#FFF1F2",
+                color: "#BE123C",
+                border: "#FDA4AF",
+                separator: "#E11D48",
+            },
+            "4_7": {
+                background: "#FFF7ED",
+                color: "#C2410C",
+                border: "#FDBA74",
+                separator: "#F97316",
+            },
+            "8_12": {
+                background: "#F5F3FF",
+                color: "#6D28D9",
+                border: "#C4B5FD",
+                separator: "#8B5CF6",
+            },
+        };
+
+        const filtered = warnings.filter(
+            (w) =>
+                Number(w.total_stock) > 0 ||
+                Number(w.total_value) > 0 ||
+                Number(w.total_sku) > 0,
+        );
+
+        const makeItem = (w) => {
+            const colors = AGING_PILL_KEY[w.key] || {
+                background: "#F8FAFC",
+                color: "#475569",
+                border: "#CBD5E1",
+                separator: "#94A3B8",
+            };
+            const isCrit = w.key === "1_3";
+            const icon = isCrit
+                ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>`
+                : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>`;
+
+            return `
+        <span style="
+            display:inline-flex; align-items:center; gap:8px;
+            padding-right:32px; font-size:13px; color:#1e293b;
+        ">
+            <span style="
+                display:inline-flex; align-items:center; gap:5px;
+                background:${colors.background}; color:${colors.color};
+                border:1px solid ${colors.border};
+                padding:3px 9px; border-radius:6px;
+                font-size:11px; font-weight:600; white-space:nowrap;
+            ">${icon} ${esc(w.label)}</span>
+            <span style="white-space:nowrap">
+                <strong style="color:#0f172a">${fmtStock(w.total_stock)}</strong> unit
+                &nbsp;·&nbsp;
+                <strong style="color:#0f172a">${fmtInt(w.total_sku)}</strong> SKU
+                &nbsp;·&nbsp;
+                <strong style="color:${isCrit ? "#BE123C" : "#0f172a"}">${fmtVal(w.total_value)}</strong>
+            </span>
+            <span style="color:${colors.separator}; opacity:0.65; font-size:10px">◆</span>
+        </span>`;
+        };
+
+        const emptyItem = `
+        <span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; color:#64748b; padding-right:32px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 13.01 9 10.01"/></svg>
+            Tidak ada stock pada kelompok ED 1–12 bulan sesuai filter.
+        </span>`;
+
+        const itemsHtml = filtered.length
+            ? filtered.map(makeItem).join("")
+            : emptyItem;
+
+        const viewport = track.parentElement;
+        track.classList.remove("is-running");
+        track.removeAttribute("style");
+        track.innerHTML = `<div class="sk-warning-group">${itemsHtml}</div>`;
+
+        const group = track.querySelector(".sk-warning-group");
+        if (!group || !viewport) return;
+
+        // Duplikasi konten agar ticker seamless
+        while (
+            viewport.clientWidth > 0 &&
+            group.scrollWidth < viewport.clientWidth + 100
+        ) {
+            group.insertAdjacentHTML("beforeend", itemsHtml);
+        }
+
+        const groupWidth = group.scrollWidth;
+        track.insertAdjacentHTML(
+            "beforeend",
+            `<div class="sk-warning-group" aria-hidden="true">${group.innerHTML}</div>`,
+        );
+        track.style.width = `${groupWidth * 2}px`;
+        track.style.animationDuration = `${Math.max(18, groupWidth / 45)}s`;
+
+        void track.offsetWidth;
+        track.classList.add("is-running");
     }
 
     async function loadChartAging(filters) {
@@ -431,12 +532,19 @@
     async function loadAll() {
         const filters = getFilters();
 
-        const results = await Promise.allSettled([
-            loadSummary(filters),
-            loadChartAging(filters),
-            loadPerSource(filters),
-            loadTopCabang(filters),
-        ]);
+        const results = await Promise.all(
+            [
+                loadSummary(filters),
+                loadChartAging(filters),
+                loadPerSource(filters),
+                loadTopCabang(filters),
+            ].map((job) =>
+                Promise.resolve(job).then(
+                    (value) => ({ status: "fulfilled", value }),
+                    (reason) => ({ status: "rejected", reason }),
+                ),
+            ),
+        );
 
         const failed = results.some((result) => result.status === "rejected");
         if (failed) {
