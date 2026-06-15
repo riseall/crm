@@ -57,7 +57,7 @@ class SelloutQueryService
     {
         return DB::connection(self::CONN_DWH)
             ->table('v_pt_mstr_dist')
-            ->selectRaw('pt_dist, dist, MIN(pilar) as pilar')
+            ->selectRaw('pt_dist, dist, MIN(pt_ph) as pt_ph, MIN(pilar) as pilar')
             ->groupBy('pt_dist', 'dist');
     }
 
@@ -558,6 +558,10 @@ class SelloutQueryService
             $query->whereIn('so.dist', $request->input('distributor'));
         }
 
+        if ($request->filled('product')) {
+            $query->whereIn('vp.pt_ph', $request->input('product'));
+        }
+
         $selects = [
             'so.id',
             DB::raw('MAX(so.source_table) as source_table'),
@@ -691,6 +695,10 @@ class SelloutQueryService
             $query->whereIn('so.dist', $request->input('distributor'));
         }
 
+        if ($request->filled('product')) {
+            $query->whereIn('vp.pt_ph', $request->input('product'));
+        }
+
         return $query->selectRaw("
                 COALESCE(mc.id_coverage, 'UNMAPPED') as coverage_id,
                 COALESCE(MAX(mc.cov_desc), 'Data Belum Termapping') as coverage_desc,
@@ -785,6 +793,10 @@ class SelloutQueryService
 
         if ($request->filled('distributor')) {
             $query->whereIn('so.dist', $request->input('distributor'));
+        }
+
+        if ($request->filled('product')) {
+            $query->whereIn('vp.pt_ph', $request->input('product'));
         }
 
         return $query
@@ -923,6 +935,7 @@ class SelloutQueryService
             $request->get('level', ''),
             json_encode($request->get('pilar', [])),
             json_encode($request->get('distributor', [])),
+            json_encode($request->get('product', [])),
             $request->get('coverage_id', ''),
             $extra ?? '',
         ];
@@ -945,6 +958,7 @@ class SelloutQueryService
             $request->get('level', ''),
             json_encode($request->get('pilar', [])),
             json_encode($request->get('distributor', [])),
+            json_encode($request->get('product', [])),
             $request->get('coverage_id', ''),
             $extra ?? '',
         ];

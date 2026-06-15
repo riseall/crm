@@ -33,6 +33,7 @@ Dashboard.Helpers = (function () {
             level: $('#filter_level').val(),
             pilar: $('#filter_pilar').val() || [],
             distributor: $('#filter_distributor').val() || [],
+            product: $('#filter_product').val() || [],
         };
     }
 

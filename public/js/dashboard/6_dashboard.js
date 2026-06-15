@@ -26,6 +26,29 @@ $(document).ready(function () {
         tableAnggota: routes.tableAnggota,
     });
 
+    function initProductFilter() {
+        var productFilter = $('#filter_product');
+        if (!productFilter.length || !routes.productLookup) return;
+
+        productFilter.select2({
+            placeholder: 'Semua produk',
+            closeOnSelect: false,
+            width: '100%',
+            ajax: {
+                url: routes.productLookup,
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '' };
+                },
+                processResults: function (data) {
+                    return data;
+                },
+                cache: true,
+            },
+        });
+    }
+
     function loadAll() {
         var chartAndCardJob = Promise.all([
             Dashboard.Cards.load(),
@@ -52,5 +75,6 @@ $(document).ready(function () {
     }
 
     $('#btnApplyFilter').on('click', loadAll);
+    initProductFilter();
     loadAll();
 });

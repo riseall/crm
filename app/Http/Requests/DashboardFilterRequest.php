@@ -18,6 +18,7 @@ class DashboardFilterRequest extends FormRequest
         $tahun = $this->input('tahun');
         $pilar = $this->normalizeArrayInput('pilar');
         $distributor = $this->normalizeArrayInput('distributor');
+        $product = $this->normalizeArrayInput('product');
 
         if (is_array($bulan)) {
             $bulan = collect($bulan)
@@ -37,6 +38,7 @@ class DashboardFilterRequest extends FormRequest
             'end_date' => $this->input('end_date') ?: null,
             'pilar' => $pilar,
             'distributor' => $distributor,
+            'product' => $product,
         ]);
     }
 
@@ -61,6 +63,8 @@ class DashboardFilterRequest extends FormRequest
             'pilar.*'     => ['string', 'distinct', 'in:ETHICAL,OGB,GENERIK,OTC'],
             'distributor' => ['nullable', 'array'],
             'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
+            'product'     => ['nullable', 'array'],
+            'product.*'   => ['string', 'distinct', 'max:50'],
             'coverage_id' => 'nullable|string',
             'coverage_nik' => 'nullable|string',
             'outlet_id' => 'nullable|string',

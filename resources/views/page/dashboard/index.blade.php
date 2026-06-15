@@ -104,7 +104,12 @@
 @section('content')
     {{-- ===== FILTER BAR ===== --}}
     <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
-        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true" />
+        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true">
+        <div class="col-12 col-sm-8 col-lg-4 mb-4">
+            <label class="small text-muted mb-1">Produk</label>
+            <select id="filter_product" class="form-control select2-product" style="width: 100%;" multiple></select>
+        </div>
+    </x-filter-bar>
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row mb-5">
@@ -191,9 +196,9 @@
     </div> --}}
 
     {{-- ===== ROW 4: Drill-Down Hierarki ===== --}}
-    @if ($dashboardAccess['can_view_drilldown'] ?? true)
+    {{-- @if ($dashboardAccess['can_view_drilldown'] ?? true)
         @include('page.dashboard.partials.drilldown')
-    @endif
+    @endif --}}
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
     <x-datatable-card title="Detail Performance per Anggota" subtitle="Data anggota sesuai filter yang dipilih"
