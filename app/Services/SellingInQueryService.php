@@ -54,7 +54,7 @@ class SellingInQueryService
         return "CASE
             WHEN {$value} IN (101, 102, 103, 104, 105) THEN 'OTC'
             WHEN {$value} IN (206, 207, 208, 209) THEN 'ETHICAL'
-            WHEN {$value} IN (311, 312, 313, 314, 315, 316, 317, 318, 319) THEN 'GENERIK'
+            WHEN {$value} IN (311, 312, 313, 314, 315, 316, 317, 318, 319) THEN 'OGB'
             WHEN {$value} IN (417, 418, 419, 420) THEN 'ETHICAL'
             WHEN {$value} = 510 THEN 'ALKES'
             WHEN {$value} IN (610, 611, 612, 613, 614) THEN 'TOLL IN'
@@ -75,6 +75,8 @@ class SellingInQueryService
             case 'ETHICOM':
             case 'ETHIPROM':
                 return 'ETHICAL';
+            case 'GENERIK':
+                return 'OGB';
             default:
                 return $pilar;
         }
@@ -172,8 +174,8 @@ class SellingInQueryService
         return 'selling_in:' . $prefix . ':' . md5(implode('|', [
             $request->startDate(),
             $request->endDate(),
-            $request->get('pilar', ''),
-            $request->get('product', ''),
+            json_encode($request->get('pilar', [])),
+            json_encode($request->get('product', [])),
             $extra ?? '',
         ]));
     }
@@ -211,13 +213,18 @@ class SellingInQueryService
             ->fromSub($source, 'si');
 
         if ($request->filled('pilar')) {
-            $query->whereRaw($this->promoPilarSql('si.tr_promo') . ' = ?', [
-                $this->normalizePilarValue($request->get('pilar')),
-            ]);
+            $query->whereIn(
+                DB::raw($this->promoPilarSql('si.tr_promo')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
         }
 
         if ($request->filled('product')) {
-            $query->where('si.tr_part', $request->get('product'));
+            $query->whereIn('si.tr_part', $request->input('product'));
         }
 
         return $query;
@@ -253,13 +260,18 @@ class SellingInQueryService
 
         // Filter pilar
         if ($request->filled('pilar')) {
-            $query->whereRaw($this->promoPilarSql('si.tr_promo') . ' = ?', [
-                $this->normalizePilarValue($request->get('pilar')),
-            ]);
+            $query->whereIn(
+                DB::raw($this->promoPilarSql('si.tr_promo')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
         }
 
         if ($request->filled('product')) {
-            $query->where('si.tr_part', $request->get('product'));
+            $query->whereIn('si.tr_part', $request->input('product'));
         }
 
         return $query;

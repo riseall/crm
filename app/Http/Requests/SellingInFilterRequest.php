@@ -12,6 +12,15 @@ class SellingInFilterRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'pilar' => $this->normalizePilarInput(),
+            'product' => $this->normalizeArrayInput('product'),
+            'distributor' => $this->normalizeArrayInput('distributor'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
@@ -19,9 +28,12 @@ class SellingInFilterRequest extends FormRequest
             'tahun'       => ['nullable', 'integer', 'min:2000'],
             'start_date'  => ['nullable', 'date_format:Y-m-d', 'required_with:end_date'],
             'end_date'    => ['nullable', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
-            'pilar'       => ['nullable', 'string', 'in:ETHICAL,GENERIK,OTC,EXPORT'],
-            'product'     => ['nullable', 'string', 'max:50'],
-            'distributor' => ['nullable', 'string', 'in:KFTD,AAM,METD'],
+            'pilar'       => ['nullable', 'array'],
+            'pilar.*'     => ['string', 'distinct', 'in:ETHICAL,OGB,OTC,EXPORT'],
+            'product'     => ['nullable', 'array'],
+            'product.*'   => ['string', 'distinct', 'max:50'],
+            'distributor' => ['nullable', 'array'],
+            'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
             'search'       => ['nullable'],
             'search.value' => ['nullable', 'string', 'max:100'],
         ];
@@ -79,5 +91,38 @@ class SellingInFilterRequest extends FormRequest
     public function prevEndDate(): string
     {
         return Carbon::parse($this->startDate())->subDay()->toDateString();
+    }
+
+    private function normalizeArrayInput(string $key): ?array
+    {
+        $value = $this->input($key);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return collect(is_array($value) ? $value : [$value])
+            ->filter(fn($item) => $item !== null && $item !== '')
+            ->map(fn($item) => (string) $item)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all() ?: null;
+    }
+
+    private function normalizePilarInput(): ?array
+    {
+        $pilars = $this->normalizeArrayInput('pilar');
+
+        if ($pilars === null) {
+            return null;
+        }
+
+        return collect($pilars)
+            ->map(fn($pilar) => strtoupper($pilar) === 'GENERIK' ? 'OGB' : strtoupper($pilar))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 }

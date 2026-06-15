@@ -20,7 +20,6 @@
 
     const PILAR_COLORS = {
         ETHICAL: '#4F46E5',
-        GENERIK: '#0891B2',
         OGB: '#0891B2',
         OTC: '#8B5CF6',
         ALKES: '#A855F7',
@@ -51,8 +50,8 @@
         return {
             start_date: byId('filterStartDate').value,
             end_date: byId('filterEndDate').value,
-            pilar: byId('filterPilar').value,
-            product: byId('filterProduct').value,
+            pilar: $('#filterPilar').val() || [],
+            product: $('#filterProduct').val() || [],
         };
     }
 
@@ -507,7 +506,7 @@
     function initProductFilter() {
         $('#filterProduct').select2({
             placeholder: 'Semua produk',
-            allowClear: true,
+            closeOnSelect: false,
             width: '100%',
             ajax: {
                 url: ROUTES.productLookup,

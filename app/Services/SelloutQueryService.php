@@ -544,13 +544,18 @@ class SelloutQueryService
         }
 
         if ($request->filled('pilar')) {
-            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
-                $this->normalizePilarValue($request->get('pilar')),
-            ]);
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
         }
 
         if ($request->filled('distributor')) {
-            $query->where('so.dist', $request->get('distributor'));
+            $query->whereIn('so.dist', $request->input('distributor'));
         }
 
         $selects = [
@@ -672,13 +677,18 @@ class SelloutQueryService
         }
 
         if ($request->filled('pilar')) {
-            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
-                $this->normalizePilarValue($request->get('pilar')),
-            ]);
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
         }
 
         if ($request->filled('distributor')) {
-            $query->where('so.dist', $request->get('distributor'));
+            $query->whereIn('so.dist', $request->input('distributor'));
         }
 
         return $query->selectRaw("
@@ -763,13 +773,18 @@ class SelloutQueryService
         }
 
         if ($request->filled('pilar')) {
-            $query->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ?', [
-                $this->normalizePilarValue($request->get('pilar')),
-            ]);
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
         }
 
         if ($request->filled('distributor')) {
-            $query->where('so.dist', $request->get('distributor'));
+            $query->whereIn('so.dist', $request->input('distributor'));
         }
 
         return $query
@@ -906,8 +921,8 @@ class SelloutQueryService
             $request->startDate(),
             $request->endDate(),
             $request->get('level', ''),
-            $request->get('pilar', ''),
-            $request->get('distributor', ''),
+            json_encode($request->get('pilar', [])),
+            json_encode($request->get('distributor', [])),
             $request->get('coverage_id', ''),
             $extra ?? '',
         ];
@@ -928,8 +943,8 @@ class SelloutQueryService
             $userKey,
             $request->tahun(),
             $request->get('level', ''),
-            $request->get('pilar', ''),
-            $request->get('distributor', ''),
+            json_encode($request->get('pilar', [])),
+            json_encode($request->get('distributor', [])),
             $request->get('coverage_id', ''),
             $extra ?? '',
         ];

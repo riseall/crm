@@ -4,10 +4,12 @@
     <x-filter-bar title="Monitoring Stock GPJ vs Cabang"
         subtitle="Pantau stock GPJ dan distributor cabang berdasarkan aging ED" icon="fa-database" :show-bulan="false"
         :show-tahun="false" :show-pilar="false" id-apply="btnApply" btn-icon="fa-sync-alt">
-        <div class="col mb-4">
+        <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Distributor</label>
-            <select class="form-control selectpicker" id="filterSource" data-width="100%">
-                <option value="">Semua distributor</option>
+            <select class="form-control selectpicker" id="filterSource" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1"
+                data-none-selected-text="Semua distributor" data-select-all-text="Pilih semua"
+                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
                 <option value="GPJ">GPJ</option>
                 <option value="AAM">AAM</option>
                 <option value="KFTD">KFTD</option>
@@ -15,24 +17,28 @@
             </select>
         </div>
 
-        <div class="col mb-4">
+        <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Pilar</label>
-            <select class="form-control selectpicker" id="filterPilar" data-width="100%">
-                <option value="">Semua pilar</option>
-            </select>
+            <select class="form-control selectpicker" id="filterPilar" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1"
+                data-none-selected-text="Semua pilar" data-select-all-text="Pilih semua"
+                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih"></select>
         </div>
 
-        <div class="col mb-4">
+        <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Cabang</label>
-            <select class="form-control selectpicker" id="filterCabang" data-width="100%" data-live-search="true">
-                <option value="">Semua cabang</option>
-            </select>
+            <select class="form-control selectpicker" id="filterCabang" data-width="100%" data-live-search="true"
+                multiple data-actions-box="true" data-selected-text-format="count > 1"
+                data-none-selected-text="Semua cabang" data-select-all-text="Pilih semua"
+                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih"></select>
         </div>
 
-        <div class="col mb-4">
+        <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Aging</label>
-            <select class="form-control selectpicker" id="filterKelEd" data-width="100%">
-                <option value="">Semua aging</option>
+            <select class="form-control selectpicker" id="filterKelEd" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
+                data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
+                data-count-selected-text="{0} dipilih">
                 <option value="sudah_ed">Sudah ED</option>
                 <option value="1_3">1-3 Bulan</option>
                 <option value="4_7">4-7 Bulan</option>

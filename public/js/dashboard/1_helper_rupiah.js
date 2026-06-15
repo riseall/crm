@@ -31,8 +31,8 @@ Dashboard.Helpers = (function () {
             start_date: $('#filter_start_date').val() || null,
             end_date: $('#filter_end_date').val() || null,
             level: $('#filter_level').val(),
-            pilar: $('#filter_pilar').val(),
-            distributor: $('#filter_distributor').val(),
+            pilar: $('#filter_pilar').val() || [],
+            distributor: $('#filter_distributor').val() || [],
         };
     }
 

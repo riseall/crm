@@ -31,19 +31,19 @@ class StockQueryService
             ->table('v_stock_ph as s');
 
         if ($request->filled('source')) {
-            $query->where('s.source', $request->source);
+            $query->whereIn('s.source', $request->input('source'));
         }
 
         if ($request->filled('pilar')) {
-            $query->where('s.pilar', $request->pilar);
+            $query->whereIn('s.pilar', $request->input('pilar'));
         }
 
         if ($request->filled('cabang')) {
-            $query->where('s.cabang', $request->cabang);
+            $query->whereIn('s.cabang', $request->input('cabang'));
         }
 
         if ($request->filled('kelompok_ed')) {
-            $query->where('s.kelompok_ed', $request->kelompok_ed);
+            $query->whereIn('s.kelompok_ed', $request->input('kelompok_ed'));
         }
 
         return $query;
@@ -61,10 +61,10 @@ class StockQueryService
     public function cacheKey(string $prefix, StockFilterRequest $request, ?string $extra = null): string
     {
         return 'stock:' . $prefix . ':' . md5(implode('|', [
-            $request->get('source', ''),
-            $request->get('pilar', ''),
-            $request->get('cabang', ''),
-            $request->get('kelompok_ed', ''),
+            json_encode($request->get('source', [])),
+            json_encode($request->get('pilar', [])),
+            json_encode($request->get('cabang', [])),
+            json_encode($request->get('kelompok_ed', [])),
             $extra ?? '',
         ]));
     }

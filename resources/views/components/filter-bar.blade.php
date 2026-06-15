@@ -123,8 +123,10 @@
                     @if ($showPilar)
                         <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Pilar</label>
-                            <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%">
-                                <option value="">Semua pilar</option>
+                            <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%" multiple
+                                data-actions-box="true" data-selected-text-format="count > 1"
+                                data-none-selected-text="Semua pilar" data-select-all-text="Pilih semua"
+                                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
                                 @foreach ($pilars as $p)
                                     <option value="{{ $p }}">{{ $p }}</option>
                                 @endforeach
@@ -135,8 +137,10 @@
                     @if ($showDistributor)
                         <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Distributor</label>
-                            <select id="{{ $idDistributor }}" class="form-control selectpicker" data-width="100%">
-                                <option value="">Semua</option>
+                            <select id="{{ $idDistributor }}" class="form-control selectpicker" data-width="100%"
+                                multiple data-actions-box="true" data-selected-text-format="count > 1"
+                                data-none-selected-text="Semua distributor" data-select-all-text="Pilih semua"
+                                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
                                 @foreach ($distributors as $d)
                                     <option value="{{ $d }}">{{ $d }}</option>
                                 @endforeach

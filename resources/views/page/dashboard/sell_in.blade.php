@@ -5,11 +5,9 @@
         subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line"
         :show-bulan="false" :show-tahun="false" :show-period="true" id-start-date="filterStartDate"
         id-end-date="filterEndDate" id-pilar="filterPilar" id-apply="btnApply">
-        <div class="col mb-4">
+        <div class="col-12 col-sm-8 col-lg-4 mb-4">
             <label class="small text-muted mb-1">Produk</label>
-            <select id="filterProduct" class="form-control select2-product" style="width: 100%;">
-                <option value="">Semua produk</option>
-            </select>
+            <select id="filterProduct" class="form-control select2-product" style="width: 100%;" multiple></select>
         </div>
     </x-filter-bar>
 

@@ -16,6 +16,8 @@ class DashboardFilterRequest extends FormRequest
     {
         $bulan = $this->input('bulan');
         $tahun = $this->input('tahun');
+        $pilar = $this->normalizeArrayInput('pilar');
+        $distributor = $this->normalizeArrayInput('distributor');
 
         if (is_array($bulan)) {
             $bulan = collect($bulan)
@@ -33,6 +35,8 @@ class DashboardFilterRequest extends FormRequest
             'tahun' => $tahun === null || $tahun === '' ? null : (int) $tahun,
             'start_date' => $this->input('start_date') ?: null,
             'end_date' => $this->input('end_date') ?: null,
+            'pilar' => $pilar,
+            'distributor' => $distributor,
         ]);
     }
 
@@ -53,8 +57,10 @@ class DashboardFilterRequest extends FormRequest
             'start_date'  => ['nullable', 'date_format:Y-m-d', 'required_with:end_date'],
             'end_date'    => ['nullable', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
             'level'       => 'nullable|in:GM,RM,SAM,AM,MR',
-            'pilar'       => 'nullable|in:ETHICAL,OGB,GENERIK,OTC',
-            'distributor' => 'nullable|in:KFTD,AAM,METD',
+            'pilar'       => ['nullable', 'array'],
+            'pilar.*'     => ['string', 'distinct', 'in:ETHICAL,OGB,GENERIK,OTC'],
+            'distributor' => ['nullable', 'array'],
+            'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
             'coverage_id' => 'nullable|string',
             'coverage_nik' => 'nullable|string',
             'outlet_id' => 'nullable|string',
@@ -133,5 +139,22 @@ class DashboardFilterRequest extends FormRequest
     public function prevEndDate(): string
     {
         return Carbon::parse($this->startDate())->subDay()->endOfDay()->toDateTimeString();
+    }
+
+    private function normalizeArrayInput(string $key): ?array
+    {
+        $value = $this->input($key);
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return collect(is_array($value) ? $value : [$value])
+            ->filter(fn($item) => $item !== null && $item !== '')
+            ->map(fn($item) => (string) $item)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all() ?: null;
     }
 }

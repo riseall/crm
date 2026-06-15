@@ -92,10 +92,10 @@
 
     function getFilters() {
         return {
-            source: byId("filterSource").value,
-            pilar: byId("filterPilar").value,
-            cabang: byId("filterCabang").value,
-            kelompok_ed: byId("filterKelEd").value,
+            source: $("#filterSource").val() || [],
+            pilar: $("#filterPilar").val() || [],
+            cabang: $("#filterCabang").val() || [],
+            kelompok_ed: $("#filterKelEd").val() || [],
         };
     }
 
