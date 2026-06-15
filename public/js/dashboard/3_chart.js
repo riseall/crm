@@ -147,11 +147,11 @@ Dashboard.Charts = (function ($, H) {
         return H.apiGet(routeKey, H.getFilters()).then(function (res) {
             var title =
                 res.mode === "hari"
-                    ? "Netto per Hari - " + res.month
-                    : "Netto per Bulan - " + $("#filter_tahun").val();
+                    ? "Netto per Hari - " + res.period
+                    : "Netto per Bulan - " + res.period;
             $("#chartTrendTitle").text(title);
 
-            var showLabel = res.mode === "hari" || res.data.length <= 15;
+            var showLabel = res.data.length <= 31;
             return Promise.resolve(chartTrend.updateOptions({
                 xaxis: { categories: res.labels },
                 dataLabels: { enabled: showLabel },

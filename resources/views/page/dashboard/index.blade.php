@@ -104,7 +104,7 @@
 @section('content')
     {{-- ===== FILTER BAR ===== --}}
     <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
-        :show-distributor="true" />
+        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true" />
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row mb-5">
@@ -213,5 +213,8 @@
 
 @push('scripts')
     <script src="{{ asset('js/datatables.bundle.js') }}"></script>
+    <script
+        src="{{ asset('js/dashboard/date-range-filter.js') }}?v={{ filemtime(public_path('js/dashboard/date-range-filter.js')) }}">
+    </script>
     @include('page.dashboard.partials.scripts')
 @endpush

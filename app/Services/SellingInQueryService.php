@@ -170,8 +170,8 @@ class SellingInQueryService
     public function cacheKey(string $prefix, SellingInFilterRequest $request, ?string $extra = null): string
     {
         return 'selling_in:' . $prefix . ':' . md5(implode('|', [
-            $request->bulan(),
-            $request->tahun(),
+            $request->startDate(),
+            $request->endDate(),
             $request->get('pilar', ''),
             $request->get('product', ''),
             $extra ?? '',

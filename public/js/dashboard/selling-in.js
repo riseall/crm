@@ -49,8 +49,8 @@
 
     function getFilters() {
         return {
-            bulan: byId('filterBulan').value,
-            tahun: byId('filterTahun').value,
+            start_date: byId('filterStartDate').value,
+            end_date: byId('filterEndDate').value,
             pilar: byId('filterPilar').value,
             product: byId('filterProduct').value,
         };
@@ -107,7 +107,7 @@
         const data = await apiFetch(ROUTES.summary, filters);
 
         byId('kpiNetto').textContent = formatRupiah(data.total_netto);
-        byId('kpiNettoSub').innerHTML = formatGrowth(data.diff_netto) + ' vs bln lalu';
+        byId('kpiNettoSub').innerHTML = formatGrowth(data.diff_netto) + ' vs periode sebelumnya';
         byId('kpiSku').textContent = data.total_sku?.toLocaleString('id-ID') ?? '-';
         byId('kpiTransaksi').textContent = data.total_transaksi?.toLocaleString('id-ID') ?? '-';
     }
@@ -115,7 +115,7 @@
     async function loadChartTrend(filters) {
         const url = chartMode === 'hari' ? ROUTES.chartHari : ROUTES.chartBulan;
         const data = await apiFetch(url, filters);
-        const showLabel = chartMode === 'hari' || data.data.length <= 15;
+        const showLabel = data.data.length <= 31;
         const options = {
             chart: {
                 type: 'area',

@@ -2,8 +2,9 @@
 
 @section('content')
     <x-filter-bar :months="$months" :years="$years" :pilars="$pilars" title="Monitoring Selling In"
-        subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line" id-bulan="filterBulan"
-        id-tahun="filterTahun" id-pilar="filterPilar" id-apply="btnApply">
+        subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line"
+        :show-bulan="false" :show-tahun="false" :show-period="true" id-start-date="filterStartDate"
+        id-end-date="filterEndDate" id-pilar="filterPilar" id-apply="btnApply">
         <div class="col mb-4">
             <label class="small text-muted mb-1">Produk</label>
             <select id="filterProduct" class="form-control select2-product" style="width: 100%;">
@@ -128,6 +129,9 @@
 
     <script>
         window.SellingInDashboardConfig = @json($sellingInDashboardConfig);
+    </script>
+    <script
+        src="{{ asset('js/dashboard/date-range-filter.js') }}?v={{ filemtime(public_path('js/dashboard/date-range-filter.js')) }}">
     </script>
     <script src="{{ asset('js/dashboard/selling-in.js') }}?v={{ filemtime(public_path('js/dashboard/selling-in.js')) }}">
     </script>

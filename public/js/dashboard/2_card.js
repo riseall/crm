@@ -21,7 +21,7 @@ Dashboard.Cards = (function ($, H) {
             var growth = parseFloat(res.diff_netto) || 0;
             var growthEl = $('#card_growth');
             growthEl
-                .text((growth >= 0 ? '+' : '') + growth.toFixed(1) + '% vs bulan lalu')
+                .text((growth >= 0 ? '+' : '') + growth.toFixed(1) + '% vs periode sebelumnya')
                 .removeClass('text-success text-danger')
                 .addClass(growth >= 0 ? 'text-success' : 'text-danger');
         });

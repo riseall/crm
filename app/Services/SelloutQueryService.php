@@ -749,9 +749,7 @@ class SelloutQueryService
      */
     public function monthlyChartQuery(DashboardFilterRequest $request): Builder
     {
-        $year = (int) $request->tahun();
-        $start = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
-        $end = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
             ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
@@ -775,8 +773,8 @@ class SelloutQueryService
         }
 
         return $query
-            ->selectRaw('MONTH(so.tgl_faktur) as bulan, SUM(so.netto) as total_netto')
-            ->groupByRaw('MONTH(so.tgl_faktur)');
+            ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
+            ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')");
     }
 
     /**
@@ -905,8 +903,8 @@ class SelloutQueryService
         $params = [
             self::CACHE_VERSION,
             $userKey,
-            $request->bulan(),
-            $request->tahun(),
+            $request->startDate(),
+            $request->endDate(),
             $request->get('level', ''),
             $request->get('pilar', ''),
             $request->get('distributor', ''),

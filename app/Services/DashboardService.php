@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Http\Requests\DashboardFilterRequest;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\Cache;
 
 class DashboardService
@@ -76,24 +78,34 @@ class DashboardService
     public function getChartPerBulan(DashboardFilterRequest $request): array
     {
         return Cache::remember(
-            $this->sellout->yearlyCacheKey('chart_bulan', $request),
+            $this->sellout->cacheKey('chart_bulan', $request),
             $this->sellout->cacheTtl(),
             function () use ($request) {
                 $results = $this->sellout->monthlyChartQuery($request)
                     ->get()
-                    ->keyBy('bulan');
+                    ->keyBy('periode');
 
-                $names  = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
                 $labels = [];
                 $data   = [];
 
-                for ($m = 1; $m <= 12; $m++) {
-                    $labels[] = $names[$m - 1] . ' ' . $request->tahun();
-                    // Round untuk menghindari desimal panjang di chart
-                    $data[]   = $results->has($m) ? round((float)$results[$m]->total_netto) : 0;
+                $period = CarbonPeriod::create(
+                    Carbon::parse($request->startDate())->startOfMonth(),
+                    '1 month',
+                    Carbon::parse($request->endDate())->startOfMonth()
+                );
+
+                foreach ($period as $month) {
+                    $key = $month->format('Y-m');
+                    $labels[] = $month->locale('id')->translatedFormat('M Y');
+                    $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
                 }
 
-                return ['labels' => $labels, 'data' => $data, 'mode' => 'bulan'];
+                return [
+                    'labels' => $labels,
+                    'data' => $data,
+                    'mode' => 'bulan',
+                    'period' => $this->periodLabel($request),
+                ];
             }
         );
     }
@@ -109,25 +121,30 @@ class DashboardService
             function () use ($request) {
                 // Gunakan baseQuery (bukan clone manual)
                 $results = $this->sellout->baseChartQuery($request)
-                    ->selectRaw('DAY(so.tgl_faktur) as hari, SUM(so.netto) as total_netto')
-                    ->groupByRaw('DAY(so.tgl_faktur)')
+                    ->selectRaw('DATE(so.tgl_faktur) as tanggal, SUM(so.netto) as total_netto')
+                    ->groupByRaw('DATE(so.tgl_faktur)')
                     ->get()
-                    ->keyBy('hari');
+                    ->keyBy('tanggal');
 
-                $totalDays = (int) date('t', strtotime($request->startDate()));
                 $labels    = [];
                 $data      = [];
 
-                for ($d = 1; $d <= $totalDays; $d++) {
-                    $labels[] = $d . ' ' . date('M', strtotime($request->startDate()));
-                    $data[]   = $results->has($d) ? round((float)$results[$d]->total_netto) : 0;
+                $period = CarbonPeriod::create(
+                    Carbon::parse($request->startDate())->startOfDay(),
+                    Carbon::parse($request->endDate())->startOfDay()
+                );
+
+                foreach ($period as $date) {
+                    $key = $date->toDateString();
+                    $labels[] = $date->locale('id')->translatedFormat('d M');
+                    $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
                 }
 
                 return [
                     'labels' => $labels,
                     'data'   => $data,
                     'mode'   => 'hari',
-                    'month'  => date('F Y', strtotime($request->startDate())),
+                    'period' => $this->periodLabel($request),
                 ];
             }
         );
@@ -315,6 +332,14 @@ class DashboardService
             'parent_id'  => $parentId,
             'data'       => $rows,
         ];
+    }
+
+    private function periodLabel(DashboardFilterRequest $request): string
+    {
+        $start = Carbon::parse($request->startDate())->locale('id')->translatedFormat('d M Y');
+        $end = Carbon::parse($request->endDate())->locale('id')->translatedFormat('d M Y');
+
+        return $start . ' - ' . $end;
     }
 
     // -------------------------------------------------------

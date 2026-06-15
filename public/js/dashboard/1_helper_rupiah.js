@@ -28,8 +28,8 @@ Dashboard.Helpers = (function () {
 
     function getFilters() {
         return {
-            bulan: parseInt($('#filter_bulan').val(), 10) || null,
-            tahun: parseInt($('#filter_tahun').val(), 10) || null,
+            start_date: $('#filter_start_date').val() || null,
+            end_date: $('#filter_end_date').val() || null,
             level: $('#filter_level').val(),
             pilar: $('#filter_pilar').val(),
             distributor: $('#filter_distributor').val(),

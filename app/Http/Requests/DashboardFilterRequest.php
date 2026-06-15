@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class DashboardFilterRequest extends FormRequest
@@ -30,6 +31,8 @@ class DashboardFilterRequest extends FormRequest
         $this->merge([
             'bulan' => $bulan === [] ? null : $bulan,
             'tahun' => $tahun === null || $tahun === '' ? null : (int) $tahun,
+            'start_date' => $this->input('start_date') ?: null,
+            'end_date' => $this->input('end_date') ?: null,
         ]);
     }
 
@@ -47,6 +50,8 @@ class DashboardFilterRequest extends FormRequest
                 }
             }],
             'tahun'       => 'nullable|integer|min:2020|max:' . date('Y'),
+            'start_date'  => ['nullable', 'date_format:Y-m-d', 'required_with:end_date'],
+            'end_date'    => ['nullable', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
             'level'       => 'nullable|in:GM,RM,SAM,AM,MR',
             'pilar'       => 'nullable|in:ETHICAL,OGB,GENERIK,OTC',
             'distributor' => 'nullable|in:KFTD,AAM,METD',
@@ -61,6 +66,10 @@ class DashboardFilterRequest extends FormRequest
     // -------------------------------------------------------
     public function bulan(): string
     {
+        if ($this->filled('start_date')) {
+            return Carbon::parse($this->input('start_date'))->format('m');
+        }
+
         $bulan = $this->get('bulan', date('m'));
 
         if (is_array($bulan)) {
@@ -88,27 +97,41 @@ class DashboardFilterRequest extends FormRequest
 
     public function tahun(): string
     {
-        // return $this->get('tahun', date('Y'));
+        if ($this->filled('start_date')) {
+            return Carbon::parse($this->input('start_date'))->format('Y');
+        }
+
         return $this->input('tahun') ?? (string) date('Y');
     }
 
     public function startDate(): string
     {
+        if ($this->filled('start_date')) {
+            return Carbon::parse($this->input('start_date'))->startOfDay()->toDateTimeString();
+        }
+
         return "{$this->tahun()}-{$this->bulan()}-01";
     }
 
     public function endDate(): string
     {
+        if ($this->filled('end_date')) {
+            return Carbon::parse($this->input('end_date'))->endOfDay()->toDateTimeString();
+        }
+
         return date('Y-m-t', strtotime($this->startDate()));
     }
 
     public function prevStartDate(): string
     {
-        return date('Y-m-01', strtotime($this->startDate() . ' -1 month'));
+        $start = Carbon::parse($this->startDate());
+        $days = $start->diffInDays(Carbon::parse($this->endDate())) + 1;
+
+        return $start->copy()->subDays($days)->startOfDay()->toDateTimeString();
     }
 
     public function prevEndDate(): string
     {
-        return date('Y-m-t', strtotime($this->prevStartDate()));
+        return Carbon::parse($this->startDate())->subDay()->endOfDay()->toDateTimeString();
     }
 }

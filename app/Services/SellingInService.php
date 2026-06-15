@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Http\Requests\SellingInFilterRequest;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -75,22 +76,26 @@ class SellingInService
             $this->query->cacheTtl(),
             function () use ($request) {
                 $results = $this->query->baseTransactionQuery($request)
-                    ->selectRaw('DAY(si.tr_eff_date) as hari, SUM(si.netto) as total_netto')
-                    ->groupByRaw('DAY(si.tr_eff_date)')
-                    ->orderByRaw('DAY(si.tr_eff_date)')
+                    ->selectRaw('DATE(si.tr_eff_date) as tanggal, SUM(si.netto) as total_netto')
+                    ->groupByRaw('DATE(si.tr_eff_date)')
+                    ->orderByRaw('DATE(si.tr_eff_date)')
                     ->get()
-                    ->keyBy('hari');
+                    ->keyBy('tanggal');
 
-                $totalDays = Carbon::create($request->tahun(), $request->bulan(), 1)->daysInMonth;
                 $labels    = [];
                 $data      = [];
 
-                for ($d = 1; $d <= $totalDays; $d++) {
-                    $labels[] = $d . ' ' . Carbon::create($request->tahun(), $request->bulan())->format('M');
-                    $data[]   = round((float) ($results[$d]->total_netto ?? 0));
+                foreach (CarbonPeriod::create($request->startDate(), $request->endDate()) as $date) {
+                    $key = $date->toDateString();
+                    $labels[] = $date->locale('id')->translatedFormat('d M');
+                    $data[] = round((float) ($results[$key]->total_netto ?? 0));
                 }
 
-                return ['labels' => $labels, 'data' => $data];
+                return [
+                    'labels' => $labels,
+                    'data' => $data,
+                    'period' => $this->periodLabel($request),
+                ];
             }
         );
     }
@@ -105,22 +110,32 @@ class SellingInService
             $this->query->cacheKey('chart_bulan', $request),
             $this->query->cacheTtl(),
             function () use ($request) {
-                $results = $this->query->baseTransactionQueryByYear($request)
-                    ->selectRaw('MONTH(si.tr_eff_date) as bulan, SUM(si.netto) as total_netto')
-                    ->groupByRaw('MONTH(si.tr_eff_date)')
+                $results = $this->query->baseTransactionQuery($request)
+                    ->selectRaw("DATE_FORMAT(si.tr_eff_date, '%Y-%m') as periode, SUM(si.netto) as total_netto")
+                    ->groupByRaw("DATE_FORMAT(si.tr_eff_date, '%Y-%m')")
                     ->get()
-                    ->keyBy('bulan');
+                    ->keyBy('periode');
 
-                $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
                 $labels = [];
                 $data   = [];
 
-                for ($m = 1; $m <= 12; $m++) {
-                    $labels[] = $monthNames[$m - 1] . ' ' . $request->tahun();
-                    $data[]   = round((float) ($results[$m]->total_netto ?? 0));
+                $period = CarbonPeriod::create(
+                    Carbon::parse($request->startDate())->startOfMonth(),
+                    '1 month',
+                    Carbon::parse($request->endDate())->startOfMonth()
+                );
+
+                foreach ($period as $month) {
+                    $key = $month->format('Y-m');
+                    $labels[] = $month->locale('id')->translatedFormat('M Y');
+                    $data[] = round((float) ($results[$key]->total_netto ?? 0));
                 }
 
-                return ['labels' => $labels, 'data' => $data];
+                return [
+                    'labels' => $labels,
+                    'data' => $data,
+                    'period' => $this->periodLabel($request),
+                ];
             }
         );
     }
@@ -314,5 +329,13 @@ class SellingInService
         }
 
         return $curr > 0 ? 100.0 : 0.0;
+    }
+
+    private function periodLabel(SellingInFilterRequest $request): string
+    {
+        $start = Carbon::parse($request->startDate())->locale('id')->translatedFormat('d M Y');
+        $end = Carbon::parse($request->endDate())->locale('id')->translatedFormat('d M Y');
+
+        return $start . ' - ' . $end;
     }
 }

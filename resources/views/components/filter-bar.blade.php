@@ -15,6 +15,11 @@
     'showDistributor' => false,
     'showCoverage' => false,
     'showOutlet' => false,
+    'showPeriod' => false,
+    'periodLabel' => 'Periode',
+    'selectedStartDate' => null,
+    'selectedEndDate' => null,
+    'periodRequired' => true,
     'bulanMultiple' => false,
     'btnText' => 'Terapkan',
     'btnIcon' => 'fa-filter',
@@ -24,6 +29,9 @@
     'idDistributor' => 'filter_distributor',
     'idCoverage' => 'filter_coverage_id',
     'idOutlet' => 'filter_outlet_id',
+    'idPeriod' => 'filter_period',
+    'idStartDate' => 'filter_start_date',
+    'idEndDate' => 'filter_end_date',
     'idApply' => 'btnApplyFilter',
 ])
 
@@ -31,13 +39,18 @@
     $activeMonths = collect((array) ($selectedMonth ?? now()->month))->map(fn($m) => (string) (int) $m)->all();
     $activeYear = (int) ($selectedYear ?? now()->year);
     $yearOptions = count($years) ? $years : range(now()->year, now()->year - 3);
+    $activeStartDate = $selectedStartDate ?? ($periodRequired ? now()->startOfMonth()->toDateString() : '');
+    $activeEndDate = $selectedEndDate ?? ($periodRequired ? now()->endOfMonth()->toDateString() : '');
+    $headerColumnClass = $showPeriod ? 'col-xl-3' : 'col-xl-4';
+    $filterColumnClass = $showPeriod ? 'col-xl-9' : 'col-xl-8';
+    $controlColumnClass = 'col-6 col-sm-4 col-lg-3';
 @endphp
 
 <div class="card card-custom gutter-b">
     <div class="card-body">
         <div class="row align-items-start justify-content-between">
             @if ($showHeader)
-                <div class="col-12 col-xl-4 mb-4 mb-xl-0">
+                <div class="col-12 {{ $headerColumnClass }} mb-4 mb-xl-0">
                     <div class="d-flex align-items-center">
                         <div class="symbol symbol-50 symbol-light-primary mr-5">
                             <span class="symbol-label">
@@ -56,10 +69,30 @@
                 </div>
             @endif
 
-            <div class="col-12 {{ $showHeader ? 'col-xl-8' : '' }}">
-                <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 g-2 align-items-end justify-content-xl-end">
+            <div class="col-12 {{ $showHeader ? $filterColumnClass : '' }}">
+                <div class="row align-items-end justify-content-xl-end">
+                    @if ($showPeriod)
+                        <div class="col-12 col-sm-8 col-lg-4 mb-4">
+                            <label class="small text-muted mb-1">{{ $periodLabel }}</label>
+                            <div class="input-group">
+                                <input type="text" id="{{ $idPeriod }}"
+                                    class="form-control dashboard-date-range bg-white"
+                                    data-start-input="#{{ $idStartDate }}" data-end-input="#{{ $idEndDate }}"
+                                    data-required="{{ $periodRequired ? 'true' : 'false' }}" readonly
+                                    placeholder="Pilih interval tanggal">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">
+                                        <i class="far fa-calendar-alt"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="{{ $idStartDate }}" value="{{ $activeStartDate }}">
+                            <input type="hidden" id="{{ $idEndDate }}" value="{{ $activeEndDate }}">
+                        </div>
+                    @endif
+
                     @if ($showBulan)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Bulan</label>
                             <select id="{{ $idBulan }}"
                                 class="form-control {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
@@ -75,7 +108,7 @@
                     @endif
 
                     @if ($showTahun)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Tahun</label>
                             <select id="{{ $idTahun }}" class="form-control selectpicker" data-width="100%">
                                 @foreach ($yearOptions as $y)
@@ -88,7 +121,7 @@
                     @endif
 
                     @if ($showPilar)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Pilar</label>
                             <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%">
                                 <option value="">Semua pilar</option>
@@ -100,7 +133,7 @@
                     @endif
 
                     @if ($showDistributor)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Distributor</label>
                             <select id="{{ $idDistributor }}" class="form-control selectpicker" data-width="100%">
                                 <option value="">Semua</option>
@@ -112,7 +145,7 @@
                     @endif
 
                     @if ($showCoverage)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">PIC</label>
                             <select id="{{ $idCoverage }}" class="form-control select2-coverage"
                                 style="width: 100%;">
@@ -122,7 +155,7 @@
                     @endif
 
                     @if ($showOutlet)
-                        <div class="col mb-4">
+                        <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Outlet</label>
                             <select id="{{ $idOutlet }}" class="form-control select2-outlet" style="width: 100%;">
                                 <option value="">Semua Outlet</option>
@@ -132,9 +165,9 @@
 
                     {{ $slot }}
 
-                    <div class="col mb-4 text-right">
+                    <div class="col-6 col-sm-4 col-lg-auto mb-4 text-right">
                         <label class="small text-muted mb-1 d-block invisible">Aksi</label>
-                        <button class="btn btn-primary font-weight-bolder" id="{{ $idApply }}">
+                        <button class="btn btn-primary font-weight-bolder text-nowrap" id="{{ $idApply }}">
                             <i class="fas {{ $btnIcon }} mr-1"></i> {{ $btnText }}
                         </button>
                     </div>
