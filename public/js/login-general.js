@@ -23,14 +23,25 @@ const KTLogin = (function () {
     const clearErrors = (formEl) => {
         formEl.find(".is-invalid").removeClass("is-invalid");
         formEl.find(".invalid-feedback.ajax-error").remove();
+        formEl
+            .find("[data-error-for]")
+            .removeClass("d-block")
+            .text("");
     };
 
     // Fungsi untuk menampilkan error dari Laravel ke bawah input
     const displayErrors = (formEl, errors) => {
         $.each(errors, function (field, messages) {
             const input = formEl.find(`[name="${field}"]`);
+            const feedback = formEl.find(`[data-error-for="${field}"]`);
+
             if (input.length) {
                 input.addClass("is-invalid");
+            }
+
+            if (feedback.length) {
+                feedback.text(messages[0]).addClass("d-block");
+            } else if (input.length) {
                 input.after(
                     `<div class="invalid-feedback text-left ajax-error">${messages[0]}</div>`,
                 );

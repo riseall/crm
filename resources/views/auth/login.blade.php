@@ -53,12 +53,12 @@
                         </div>
                         <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.key') }}">
                         </div>
-
-                        @error('cf-turnstile-response')
-                            <span class="text-danger" style="color: red; font-size: 0.875rem;">
+                        <div class="invalid-feedback text-left text-danger @error('cf-turnstile-response') d-block @enderror"
+                            data-error-for="cf-turnstile-response">
+                            @error('cf-turnstile-response')
                                 {{ $message }}
-                            </span>
-                        @enderror
+                            @enderror
+                        </div>
                         <div class="form-group text-center mt-10">
                             <button id="kt_login_signin_submit" class="btn btn-pill btn-primary opacity-90 px-15 py-3">Sign
                                 In</button>
