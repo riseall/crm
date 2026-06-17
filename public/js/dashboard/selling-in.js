@@ -19,9 +19,10 @@
     ];
 
     const PILAR_COLORS = {
-        ETHICAL: '#4F46E5',
+        ETHIPROM: '#4F46E5',
+        ETHICOM: '#1D4ED8',
         OGB: '#0891B2',
-        OTC: '#8B5CF6',
+        OTC: '#EC4899',
         ALKES: '#A855F7',
         'TOLL IN': '#14B8A6',
         EXPORT: '#0EA5E9',
@@ -52,6 +53,7 @@
             end_date: byId('filterEndDate').value,
             pilar: $('#filterPilar').val() || [],
             product: $('#filterProduct').val() || [],
+            pm: $('#filterPm').val() || [],
         };
     }
 
@@ -107,8 +109,10 @@
 
         byId('kpiNetto').textContent = formatRupiah(data.total_netto);
         byId('kpiNettoSub').innerHTML = formatGrowth(data.diff_netto) + ' vs periode sebelumnya';
-        byId('kpiSku').textContent = data.total_sku?.toLocaleString('id-ID') ?? '-';
-        byId('kpiTransaksi').textContent = data.total_transaksi?.toLocaleString('id-ID') ?? '-';
+        byId('kpiYtd').textContent = formatRupiah(data.ytd_netto);
+        byId('kpiYtdSub').textContent = data.ytd_period || '-';
+        byId('kpiYtdGrowth').innerHTML = formatGrowth(data.ytd_growth);
+        byId('kpiYtdGrowthSub').textContent = `YTD tahun lalu ${formatRupiah(data.last_year_ytd_netto)}`;
     }
 
     async function loadChartTrend(filters) {
@@ -420,12 +424,12 @@
         el.innerHTML = `
             <div class="si-funnel">
                 ${topData.map((product, index) => {
-                    const value = Number(product.total_netto || 0);
-                    const width = Math.max(58, Math.round((value / max) * 100));
-                    const name = product.nama || product.kode_produk || '-';
-                    const pilar = product.pilar || '-';
+            const value = Number(product.total_netto || 0);
+            const width = Math.max(58, Math.round((value / max) * 100));
+            const name = product.nama || product.kode_produk || '-';
+            const pilar = product.pilar || '-';
 
-                    return `
+            return `
                         <div class="si-funnel-stage" style="width:${width}%;background:${colors[index]}" title="${name} | ${formatRupiah(value)} | ${pilar}">
                             <div class="si-funnel-content">
                                 <div class="si-funnel-title">${name}</div>
@@ -433,7 +437,7 @@
                             </div>
                         </div>
                     `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
     }
@@ -521,6 +525,22 @@
         });
     }
 
+    function initPmFilter() {
+        $('#filterPm').select2({
+            placeholder: 'Semua PM',
+            closeOnSelect: false,
+            width: '100%',
+            ajax: {
+                url: ROUTES.pmLookup,
+                dataType: 'json',
+                delay: 250,
+                data: params => ({ q: params.term || '' }),
+                processResults: data => ({ results: data.results }),
+                cache: true,
+            },
+        });
+    }
+
     function initChartModeToggle() {
         byId('chartModeToggle').addEventListener('click', event => {
             const btn = event.target.closest('button[data-mode]');
@@ -540,6 +560,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         byId('btnApply').addEventListener('click', loadAll);
         initProductFilter();
+        initPmFilter();
         initChartModeToggle();
         initDataTable();
         loadAll();

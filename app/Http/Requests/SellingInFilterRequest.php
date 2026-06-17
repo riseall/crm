@@ -15,9 +15,10 @@ class SellingInFilterRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'pilar' => $this->normalizePilarInput(),
-            'product' => $this->normalizeArrayInput('product'),
+            'pilar'       => $this->normalizePilarInput(),
+            'product'     => $this->normalizeArrayInput('product'),
             'distributor' => $this->normalizeArrayInput('distributor'),
+            'pm'          => $this->normalizeArrayInput('pm'),
         ]);
     }
 
@@ -32,8 +33,10 @@ class SellingInFilterRequest extends FormRequest
             'pilar.*'     => ['string', 'distinct', 'in:ETHIPROM,ETHICOM,ETHICAL,OGB,OTC,EXPORT'],
             'product'     => ['nullable', 'array'],
             'product.*'   => ['string', 'distinct', 'max:50'],
-            'distributor' => ['nullable', 'array'],
+            'distributor'  => ['nullable', 'array'],
             'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
+            'pm'           => ['nullable', 'array'],
+            'pm.*'         => ['string', 'distinct', 'max:20'],
             'search'       => ['nullable'],
             'search.value' => ['nullable', 'string', 'max:100'],
         ];

@@ -9,13 +9,17 @@
             <label class="small text-muted mb-1">Produk</label>
             <select id="filterProduct" class="form-control select2-product" style="width: 100%;" multiple></select>
         </div>
+        <div class="col-12 col-sm-8 col-lg-4 mb-4">
+            <label class="small text-muted mb-1">PM</label>
+            <select id="filterPm" class="form-control select2-pm" style="width: 100%;" multiple></select>
+        </div>
     </x-filter-bar>
 
     @php
         $sellingInKpis = [
             ['id' => 'kpiNetto', 'label' => 'Total Selling In', 'icon' => 'fa-money-bill-wave'],
-            ['id' => 'kpiSku', 'label' => 'SKU Terjual', 'icon' => 'fa-box'],
-            ['id' => 'kpiTransaksi', 'label' => 'Total Transaksi', 'icon' => 'fa-receipt'],
+            ['id' => 'kpiYtd', 'label' => 'Selling In YTD', 'icon' => 'fa-calendar-check'],
+            ['id' => 'kpiYtdGrowth', 'label' => 'Growth YTD', 'icon' => 'fa-chart-line'],
         ];
     @endphp
 
@@ -118,8 +122,9 @@
                 'chartPilar' => route('selling-in.chart.pilar'),
                 'topPm' => route('selling-in.top-pm'),
                 'topProduk' => route('selling-in.top-produk'),
-                'table' => route('selling-in.table'),
+                'table'         => route('selling-in.table'),
                 'productLookup' => route('product.produk'),
+                'pmLookup'      => route('selling-in.pm-lookup'),
             ],
             'csrf' => csrf_token(),
         ];

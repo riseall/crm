@@ -178,6 +178,7 @@ class SellingInQueryService
             $request->endDate(),
             json_encode($request->get('pilar', [])),
             json_encode($request->get('product', [])),
+            json_encode($request->get('pm', [])),
             $extra ?? '',
         ]));
     }
@@ -229,6 +230,12 @@ class SellingInQueryService
             $query->whereIn('si.tr_part', $request->input('product'));
         }
 
+        // Filter PM: ambil list tr_part yg dicoverage PM tersebut di DWH
+        if ($request->filled('pm')) {
+            $parts = $this->getPartsByPm($request->input('pm'));
+            $query->whereIn('si.tr_part', $parts ?: ['__no_match__']);
+        }
+
         return $query;
     }
 
@@ -276,7 +283,66 @@ class SellingInQueryService
             $query->whereIn('si.tr_part', $request->input('product'));
         }
 
+        // Filter PM: ambil list tr_part yg dicoverage PM tersebut di DWH
+        if ($request->filled('pm')) {
+            $parts = $this->getPartsByPm($request->input('pm'));
+            $query->whereIn('si.tr_part', $parts ?: ['__no_match__']);
+        }
+
         return $query;
+    }
+
+    // -------------------------------------------------------
+    // PM LOOKUP
+    // -------------------------------------------------------
+
+    /**
+     * Kembalikan list PM (nik + name) untuk select2 autocomplete.
+     */
+    public function pmLookup(string $search = '', int $limit = 30): array
+    {
+        return DB::connection(self::CONN_AUTH)
+            ->table('users as u')
+            ->join(
+                DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
+                DB::raw('u.nik COLLATE utf8mb4_0900_ai_ci'),
+                '=',
+                DB::raw('mc.cov_nik COLLATE utf8mb4_0900_ai_ci')
+            )
+            ->where('mc.id_coverage', 'like', '3.%')
+            ->whereNull('mc.deleted_at')
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('u.name', 'like', "%{$search}%")
+                   ->orWhere('u.nik', 'like', "%{$search}%");
+            }))
+            ->selectRaw('u.nik, u.name')
+            ->groupBy('u.nik', 'u.name')
+            ->orderBy('u.name')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($r) => ['id' => $r->nik, 'text' => "{$r->name} ({$r->nik})"])
+            ->toArray();
+    }
+
+    /**
+     * Dapatkan daftar tr_part (kode produk) yang di-coverage oleh PM tertentu.
+     */
+    private function getPartsByPm(array $niks): array
+    {
+        return DB::connection(self::CONN_AUTH)
+            ->table(DB::raw($this->productCoverageTable('mp')))
+            ->join(
+                DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
+                fn ($j) => $j
+                    ->on('mp.id_coverage', '=', DB::raw('mc.id_coverage COLLATE utf8mb4_0900_ai_ci'))
+                    ->whereNull('mc.deleted_at')
+                    ->where('mc.is_active', true)
+            )
+            ->whereIn(DB::raw('mc.cov_nik COLLATE utf8mb4_0900_ai_ci'), $niks)
+            ->pluck('mp.pt_ph')
+            ->unique()
+            ->values()
+            ->toArray();
     }
 
     /**

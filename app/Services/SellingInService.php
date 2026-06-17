@@ -36,14 +36,12 @@ class SellingInService
     public function getSummaryCards(SellingInFilterRequest $request): array
     {
         return Cache::remember(
-            $this->query->cacheKey('summary', $request),
+            $this->query->cacheKey('summary_v2', $request),
             $this->query->cacheTtl(),
             function () use ($request) {
                 $curr = $this->query->baseTransactionQuery($request)
                     ->selectRaw('
-                        SUM(si.netto)          as total_netto,
-                        COUNT(DISTINCT si.tr_part) as total_sku,
-                        COUNT(*)               as total_transaksi
+                        SUM(si.netto) as total_netto
                     ')
                     ->first();
 
@@ -53,13 +51,33 @@ class SellingInService
                 )->sum('si.netto') ?: 0);
 
                 $currNetto = (float) ($curr->total_netto ?? 0);
+                $endDate = Carbon::parse($request->endDate());
+                $ytdStart = $endDate->copy()->startOfYear()->toDateString();
+                $ytdEnd = $endDate->toDateString();
+                $lastYearYtdStart = $endDate->copy()->subYear()->startOfYear()->toDateString();
+                $lastYearYtdEnd = $endDate->copy()->subYear()->toDateString();
+
+                $ytdNetto = (float) ($this->query->baseTransactionQuery(
+                    $request,
+                    [$ytdStart, $ytdEnd]
+                )->sum('si.netto') ?: 0);
+
+                $lastYearYtdNetto = (float) ($this->query->baseTransactionQuery(
+                    $request,
+                    [$lastYearYtdStart, $lastYearYtdEnd]
+                )->sum('si.netto') ?: 0);
 
                 return [
-                    'total_netto'     => $currNetto,
-                    'total_sku'       => (int) ($curr->total_sku ?? 0),
-                    'total_transaksi' => (int) ($curr->total_transaksi ?? 0),
-                    'prev_netto'      => $prevNetto,
-                    'diff_netto'      => $this->calcGrowth($currNetto, $prevNetto),
+                    'total_netto' => $currNetto,
+                    'prev_netto' => $prevNetto,
+                    'diff_netto' => $this->calcGrowth($currNetto, $prevNetto),
+                    'ytd_netto' => $ytdNetto,
+                    'last_year_ytd_netto' => $lastYearYtdNetto,
+                    'ytd_growth' => $this->calcGrowth($ytdNetto, $lastYearYtdNetto),
+                    'ytd_period' => Carbon::parse($ytdStart)->locale('id')->translatedFormat('d M Y')
+                        . ' - ' . $endDate->locale('id')->translatedFormat('d M Y'),
+                    'last_year_ytd_period' => Carbon::parse($lastYearYtdStart)->locale('id')->translatedFormat('d M Y')
+                        . ' - ' . Carbon::parse($lastYearYtdEnd)->locale('id')->translatedFormat('d M Y'),
                 ];
             }
         );

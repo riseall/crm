@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SellingInFilterRequest;
+use App\Services\SellingInQueryService;
 use App\Services\SellingInService;
+use Illuminate\Http\Request;
 
 /**
  * SellingInController
@@ -14,11 +16,13 @@ use App\Services\SellingInService;
 class SellingInController extends Controller
 {
     private SellingInService $service;
+    private SellingInQueryService $queryService;
 
-    public function __construct(SellingInService $service)
+    public function __construct(SellingInService $service, SellingInQueryService $queryService)
     {
         $this->middleware('auth');
         $this->service = $service;
+        $this->queryService = $queryService;
     }
 
     // -------------------------------------------------------
@@ -74,5 +78,15 @@ class SellingInController extends Controller
     public function getTableDetail(SellingInFilterRequest $request)
     {
         return response()->json($this->service->getTableDetail($request));
+    }
+
+    public function getPmLookup(Request $request)
+    {
+        $results = $this->queryService->pmLookup(
+            (string) $request->query('q', ''),
+            30
+        );
+
+        return response()->json(['results' => $results]);
     }
 }

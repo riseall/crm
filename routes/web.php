@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
         Route::post('top-pm',       [SellingInController::class, 'getTopPm'])->name('top-pm');
         Route::post('top-produk',   [SellingInController::class, 'getTopProduk'])->name('top-produk');
         Route::post('table',        [SellingInController::class, 'getTableDetail'])->name('table');
+        Route::get('pm-lookup',     [SellingInController::class, 'getPmLookup'])->name('pm-lookup');
     });
 
     //Stock
