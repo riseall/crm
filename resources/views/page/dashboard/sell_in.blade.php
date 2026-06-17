@@ -101,6 +101,7 @@
         <th>Kode</th>
         <th>Nama Produk</th>
         <th>Pilar</th>
+        <th>PM</th>
         <th class="text-end">Qty</th>
         <th class="text-end">Harga</th>
         <th class="text-end">Netto</th>

@@ -474,6 +474,14 @@
                     className: 'text-center',
                 },
                 {
+                    data: 'pm_name',
+                    render: (value, type, row) => {
+                        const name = value || '-';
+                        const nik = row.pm_nik && row.pm_nik !== '-' ? ` (${row.pm_nik})` : '';
+                        return `${name}${nik}`;
+                    },
+                },
+                {
                     data: 'qty',
                     className: 'text-end',
                     render: value => Number(value).toLocaleString('id-ID'),
@@ -489,7 +497,7 @@
                     render: value => formatRupiah(value),
                 },
             ],
-            order: [[7, 'desc']],
+            order: [[8, 'desc']],
         });
     }
 

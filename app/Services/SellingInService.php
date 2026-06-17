@@ -293,7 +293,22 @@ class SellingInService
         $length = (int) $request->get('length', 25);
         $search = $request->get('search')['value'] ?? '';
 
-        $base = $this->query->baseTransactionQuery($request)
+        $base = $this->query->baseQuery($request)
+            ->leftJoin(DB::raw($this->query->productCoverageTable('mp')), function ($join) {
+                $join->on('si.tr_part', '=', DB::raw('mp.pt_ph COLLATE utf8mb4_0900_ai_ci'));
+            })
+            ->leftJoin(DB::raw($this->query->dwhTable('crm_mst_mappings') . ' as mc'), function ($join) {
+                $join->on('mp.id_coverage', '=', DB::raw('mc.id_coverage COLLATE utf8mb4_0900_ai_ci'))
+                    ->whereNull('mc.deleted_at')
+                    ->where('mc.is_active', true);
+            })
+            ->leftJoin(DB::raw($this->query->authTable('users') . ' as u'), function ($join) {
+                $join->on(
+                    DB::raw('mc.cov_nik COLLATE utf8mb4_0900_ai_ci'),
+                    '=',
+                    DB::raw('u.nik COLLATE utf8mb4_0900_ai_ci')
+                );
+            })
             ->selectRaw("
                 si.tr_eff_date as tanggal,
                 si.tr_part     as kode_produk,
@@ -302,6 +317,8 @@ class SellingInService
                     si.tr_part
                 ) as nama_produk,
                 " . $this->query->promoPilarSql('si.tr_promo') . " as pilar,
+                COALESCE(u.name, '-') as pm_name,
+                COALESCE(mc.cov_nik, '-') as pm_nik,
                 '-' as promotion_group,
                 si.tr_price    as harga,
                 si.tr_qty      as qty,
@@ -314,6 +331,8 @@ class SellingInService
             $base->where(function ($q) use ($search) {
                 $q->where('si.tr_part',  'like', "%{$search}%")
                     ->orWhereRaw("TRIM(CONCAT_WS(' ', si.tr_desc1, si.tr_desc2)) like ?", ["%{$search}%"])
+                    ->orWhere('u.name', 'like', "%{$search}%")
+                    ->orWhere('mc.cov_nik', 'like', "%{$search}%")
                     ->orWhereRaw($this->query->promoPilarSql('si.tr_promo') . ' like ?', ["%{$search}%"]);
             });
         }
