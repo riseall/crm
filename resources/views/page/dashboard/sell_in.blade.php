@@ -91,7 +91,7 @@
         </div>
     </div>
 
-    <x-datatable-card title="Detail transaksi" subtitle="" table-id="tableDetail" table-class="table-sm">
+    <x-datatable-card title="Detail transaksi" subtitle="" table-id="tableDetail" table-class="table-sm" :collapsible="true" :collapsed="true">
         <th>No</th>
         <th>Tanggal</th>
         <th>Kode</th>

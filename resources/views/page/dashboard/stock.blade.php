@@ -128,9 +128,9 @@
             </div>
         </div>
 
-        <x-datatable-card title="Detail Stock" subtitle="GPJ vs Cabang, diurutkan dari aging paling kritis"
-            table-id="tableStock" :show-export="true"
-            table-class="table-separate table-head-custom table-checkable table-sm">
+        <x-datatable-card title="Detail Stock"
+            table-id="tableStock"
+            table-class="table-separate table-head-custom table-checkable table-sm" :collapsible="true" :collapsed="true">
             <th>Dist</th>
             <th>Kode</th>
             <th>Nama Produk</th>

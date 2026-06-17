@@ -201,8 +201,8 @@
     @endif --}}
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
-    <x-datatable-card title="Detail Performance per Anggota" subtitle="Data anggota sesuai filter yang dipilih"
-        table-id="tblAnggota" table-class="table-sm" :load-assets="false">
+    <x-datatable-card title="Detail Performance per Anggota"
+        table-id="tblAnggota" table-class="table-sm" :load-assets="false" :collapsible="true" :collapsed="true">
         <th>No</th>
         <th>NIK</th>
         <th>Nama</th>
@@ -210,8 +210,8 @@
         <th>Pilar</th>
         <th>Divisi</th>
         <th>Coverage</th>
-        <th>Outlet</th>
-        <th>Transaksi</th>
+        <!-- <th>Outlet</th>
+        <th>Transaksi</th> -->
         <th>Netto</th>
     </x-datatable-card>
 @endsection

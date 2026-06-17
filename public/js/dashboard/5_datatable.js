@@ -41,18 +41,18 @@ Dashboard.Tables = (function ($, H) {
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
                 { data: "cov_desc", defaultContent: "-" },
-                {
-                    data: "total_outlet",
-                    render: function (v) {
-                        return H.formatInt(v);
-                    },
-                },
-                {
-                    data: "total_transaksi",
-                    render: function (v) {
-                        return H.formatInt(v);
-                    },
-                },
+                // {
+                //     data: "total_outlet",
+                //     render: function (v) {
+                //         return H.formatInt(v);
+                //     },
+                // },
+                // {
+                //     data: "total_transaksi",
+                //     render: function (v) {
+                //         return H.formatInt(v);
+                //     },
+                // },
                 {
                     data: "total_netto",
                     render: function (v) {
@@ -60,7 +60,7 @@ Dashboard.Tables = (function ($, H) {
                     },
                 },
             ],
-            order: [[9, "desc"]],
+            order: [[7, "desc"]],
         });
     }
 
