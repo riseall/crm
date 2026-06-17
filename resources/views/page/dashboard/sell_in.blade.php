@@ -104,7 +104,7 @@
         <th>PM</th>
         <th class="text-end">Qty</th>
         <th class="text-end">Harga</th>
-        <th class="text-end">Netto</th>
+        <th class="text-end">Value</th>
     </x-datatable-card>
 @endsection
 
