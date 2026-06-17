@@ -31,7 +31,7 @@ class DashboardController extends Controller
             'dashboardAccess' => $dashboardAccess,
             'drilldownLevels' => $dashboardAccess['drilldown_levels'],
             'drilldownDefaultLevel' => $dashboardAccess['default_drilldown_level'],
-            'pilars' => ['ETHICAL', 'OGB', 'OTC'],
+            'pilars' => ['ETHIPROM', 'ETHICOM', 'OGB', 'OTC'],
             'months' => collect(range(1, 12))
                 ->mapWithKeys(fn($m) => [$m => date('F', mktime(0, 0, 0, $m, 1))])
                 ->toArray(),

@@ -60,7 +60,7 @@ class DashboardFilterRequest extends FormRequest
             'end_date'    => ['nullable', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
             'level'       => 'nullable|in:GM,RM,SAM,AM,MR',
             'pilar'       => ['nullable', 'array'],
-            'pilar.*'     => ['string', 'distinct', 'in:ETHICAL,OGB,GENERIK,OTC'],
+            'pilar.*'     => ['string', 'distinct', 'in:ETHIPROM,ETHICOM,ETHICAL,OGB,GENERIK,OTC'],
             'distributor' => ['nullable', 'array'],
             'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
             'product'     => ['nullable', 'array'],

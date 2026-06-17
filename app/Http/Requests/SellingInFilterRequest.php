@@ -29,7 +29,7 @@ class SellingInFilterRequest extends FormRequest
             'start_date'  => ['nullable', 'date_format:Y-m-d', 'required_with:end_date'],
             'end_date'    => ['nullable', 'date_format:Y-m-d', 'required_with:start_date', 'after_or_equal:start_date'],
             'pilar'       => ['nullable', 'array'],
-            'pilar.*'     => ['string', 'distinct', 'in:ETHICAL,OGB,OTC,EXPORT'],
+            'pilar.*'     => ['string', 'distinct', 'in:ETHIPROM,ETHICOM,ETHICAL,OGB,OTC,EXPORT'],
             'product'     => ['nullable', 'array'],
             'product.*'   => ['string', 'distinct', 'max:50'],
             'distributor' => ['nullable', 'array'],

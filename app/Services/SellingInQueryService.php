@@ -40,7 +40,8 @@ class SellingInQueryService
 
         return "CASE
             WHEN {$value} IS NULL OR {$value} = '' THEN 'EXPORT'
-            WHEN {$value} IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
+            WHEN {$value} = 'ETHICOM' THEN 'ETHICOM'
+            WHEN {$value} = 'ETHIPROM' THEN 'ETHIPROM'
             WHEN {$value} IN ('OGB', 'GENERIK') THEN 'OGB'
             WHEN {$value} = 'OTC' THEN 'OTC'
             ELSE {$value}
@@ -53,9 +54,9 @@ class SellingInQueryService
 
         return "CASE
             WHEN {$value} IN (101, 102, 103, 104, 105) THEN 'OTC'
-            WHEN {$value} IN (206, 207, 208, 209) THEN 'ETHICAL'
+            WHEN {$value} IN (206, 207, 208, 209) THEN 'ETHIPROM'
             WHEN {$value} IN (311, 312, 313, 314, 315, 316, 317, 318, 319) THEN 'OGB'
-            WHEN {$value} IN (417, 418, 419, 420) THEN 'ETHICAL'
+            WHEN {$value} IN (417, 418, 419, 420) THEN 'ETHICOM'
             WHEN {$value} = 510 THEN 'ALKES'
             WHEN {$value} IN (610, 611, 612, 613, 614) THEN 'TOLL IN'
             WHEN {$value} = 700 THEN 'EXPORT'
@@ -73,8 +74,9 @@ class SellingInQueryService
 
         switch ($pilar) {
             case 'ETHICOM':
+                return 'ETHICOM';
             case 'ETHIPROM':
-                return 'ETHICAL';
+                return 'ETHIPROM';
             case 'GENERIK':
                 return 'OGB';
             default:

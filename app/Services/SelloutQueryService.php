@@ -57,7 +57,7 @@ class SelloutQueryService
     {
         return DB::connection(self::CONN_DWH)
             ->table('v_pt_mstr_dist')
-            ->selectRaw('pt_dist, dist, MIN(pt_ph) as pt_ph, MIN(pilar) as pilar')
+            ->selectRaw('pt_dist, dist, MIN(pt_ph) as pt_ph, MIN(COALESCE(pilar_sub, pilar)) as pilar')
             ->groupBy('pt_dist', 'dist');
     }
 
@@ -72,11 +72,20 @@ class SelloutQueryService
     private function normalizedPilarSql(string $column): string
     {
         return "CASE
-            WHEN UPPER(TRIM({$column})) IN ('ETHICAL', 'ETHICOM', 'ETHIPROM') THEN 'ETHICAL'
+            WHEN UPPER(TRIM({$column})) = 'ETHICOM' THEN 'ETHICOM'
+            WHEN UPPER(TRIM({$column})) = 'ETHIPROM' THEN 'ETHIPROM'
             WHEN UPPER(TRIM({$column})) IN ('OGB', 'GENERIK') THEN 'OGB'
             WHEN UPPER(TRIM({$column})) = 'OTC' THEN 'OTC'
             ELSE UPPER(TRIM({$column}))
         END";
+    }
+
+    private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
+    {
+        $prod = $this->normalizedPilarSql($productPilarCol);
+        $map = $this->normalizedPilarSql($mappingPilarCol);
+
+        return "({$prod} = {$map} OR ({$map} = 'ETHICAL' AND {$prod} IN ('ETHICOM', 'ETHIPROM')))";
     }
 
     private function normalizePilarValue(?string $pilar): ?string
@@ -89,8 +98,9 @@ class SelloutQueryService
 
         switch ($pilar) {
             case 'ETHICOM':
+                return 'ETHICOM';
             case 'ETHIPROM':
-                return 'ETHICAL';
+                return 'ETHIPROM';
             case 'GENERIK':
                 return 'OGB';
             default:
@@ -122,7 +132,7 @@ class SelloutQueryService
                             ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
                             ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                             ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
                     });
                 }
             });
@@ -148,7 +158,7 @@ class SelloutQueryService
                             ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
                             ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                             ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
                     });
                 }
             });
@@ -309,7 +319,7 @@ class SelloutQueryService
             $join->whereNull('mc.deleted_at');
 
             if (!$isHierarchical) {
-                $join->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mc.cov_pilar'));
+                $join->whereRaw($this->pilarMatchSql('vp.pilar', 'mc.cov_pilar'));
             }
 
             $join->where(function ($q) {
@@ -346,7 +356,7 @@ class SelloutQueryService
                 ->from(DB::raw($this->dwhTable('crm_mst_mappings') . " as {$alias}"))
                 ->whereColumn("{$alias}.id_coverage", "{$outletAlias}.id_coverage")
                 ->whereNull("{$alias}.deleted_at")
-                ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql("{$alias}.cov_pilar"));
+                ->whereRaw($this->pilarMatchSql('vp.pilar', "{$alias}.cov_pilar"));
 
             if ($levelNum !== null) {
                 $exists->where("{$alias}.cov_level", $levelNum);
@@ -646,7 +656,7 @@ class SelloutQueryService
                             ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
                             ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                             ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->normalizedPilarSql('vp.pilar') . ' = ' . $this->normalizedPilarSql('mx.cov_pilar'));
+                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
 
                         $this->applyMappingValidity($exists, 'mx');
                     });

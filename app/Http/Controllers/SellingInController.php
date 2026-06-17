@@ -28,7 +28,7 @@ class SellingInController extends Controller
     public function index()
     {
         return view('page.dashboard.sell_in', [
-            'pilars'       => ['ETHICAL', 'OGB', 'OTC', 'EXPORT'],
+            'pilars'       => ['ETHIPROM', 'ETHICOM', 'OGB', 'OTC', 'EXPORT'],
             'months'       => collect(range(1, 12))
                 ->mapWithKeys(fn($m) => [$m => date('F', mktime(0, 0, 0, $m, 1))])
                 ->toArray(),

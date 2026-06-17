@@ -43,6 +43,8 @@
             <label>Pilar <span class="text-danger">*</span></label>
             <select id="cov_pilar" class="form-control selectpicker">
                 <option value="">-- Pilih Pilar --</option>
+                <option value="ETHIPROM">ETHIPROM</option>
+                <option value="ETHICOM">ETHICOM</option>
                 <option value="ETHICAL">ETHICAL</option>
                 <option value="OGB">OGB</option>
                 <option value="OTC">OTC</option>
