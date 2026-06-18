@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\SelloutQueryService;
+use App\Services\SelloutSummaryRefreshService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +12,7 @@ class RefreshSelloutSummaryCommand extends Command
     protected $signature = 'sellout:refresh-summary {from?} {to?}';
     protected $description = 'Refresh crm_sellout_summary table for a date range.';
 
-    public function handle(SelloutQueryService $service)
+    public function handle(SelloutSummaryRefreshService $service)
     {
         $from = $this->argument('from')
             ? Carbon::parse($this->argument('from'))->toDateString()
