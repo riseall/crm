@@ -14,6 +14,7 @@ Dashboard.Charts = (function ($, H) {
     var chartDivisiResizeFrame = null;
     var chartDivisiLastWidth = 0;
     var chartPilar = null;
+    var chartSegment = null;
     var chartCoverage = null;
 
     var GRID_LIGHT = { borderColor: "#f0f0f0", strokeDashArray: 4 };
@@ -34,6 +35,7 @@ Dashboard.Charts = (function ($, H) {
         routes = appRoutes || {};
         initChartTrend();
         initChartDivisi();
+        initChartSegment();
         initChartPilar();
         initChartCoverage();
     }
@@ -306,6 +308,96 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
+    function initChartSegment() {
+        var el = document.querySelector("#chartPerSegment");
+        if (!el) return;
+
+        chartSegment = new ApexCharts(el, {
+            chart: {
+                type: "bar",
+                height: 360,
+                toolbar: { show: false },
+                animations: { enabled: true, easing: "easeinout", speed: 500 },
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 5,
+                    distributed: true,
+                    barHeight: "52%",
+                    dataLabels: { position: "top" },
+                },
+            },
+            grid: {
+                borderColor: "#eef0f5",
+                strokeDashArray: 4,
+                padding: { right: 78, left: 4 },
+            },
+            series: [{ name: "Netto", data: [] }],
+            xaxis: {
+                categories: [],
+                labels: {
+                    formatter: function (v) {
+                        return H.formatShort(v);
+                    },
+                },
+            },
+            yaxis: {
+                labels: {
+                    style: { fontSize: "11px", fontWeight: 600 },
+                },
+            },
+            colors: [
+                "#0EA5E9",
+                "#22C55E",
+                "#F59E0B",
+                "#EF4444",
+                "#8B5CF6",
+                "#14B8A6",
+                "#64748B",
+            ],
+            dataLabels: {
+                enabled: true,
+                formatter: function (v) {
+                    return v > 0 ? H.formatShort(v) : "";
+                },
+                textAnchor: "start",
+                style: { fontSize: "10px", fontWeight: 700, colors: ["#111827"] },
+                dropShadow: { enabled: false },
+            },
+            legend: { show: false },
+            tooltip: {
+                y: {
+                    formatter: function (v) {
+                        return H.formatRupiah(v);
+                    },
+                },
+            },
+        });
+        chartSegment.render();
+    }
+
+    function loadChartSegment() {
+        if (!chartSegment) return Promise.resolve();
+
+        return H.apiGet("chartSegment", H.getFilters()).then(function (res) {
+            var values = (res.data || []).map(function (value) {
+                return Number(value) || 0;
+            });
+            var maxValue = values.length ? Math.max.apply(null, values) : 0;
+            var axisMax = maxValue > 0 ? maxValue * 1.25 : undefined;
+
+            return Promise.resolve(chartSegment.updateOptions({
+                xaxis: {
+                    categories: res.labels,
+                    max: axisMax,
+                },
+            })).then(function () {
+                return chartSegment.updateSeries([{ name: "Netto", data: res.data }]);
+            });
+        });
+    }
+
     function initChartPilar() {
         var el = document.querySelector("#chartPerPilar");
         if (!el) return;
@@ -460,6 +552,7 @@ Dashboard.Charts = (function ($, H) {
         return Promise.all([
             loadChartTrend(),
             loadChartDivisi(),
+            loadChartSegment(),
             loadChartPilar(),
             loadChartCoverage(),
         ]);

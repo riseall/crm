@@ -66,6 +66,11 @@ class DashboardController extends Controller
         return response()->json($this->service->getChartPerDivisi($request));
     }
 
+    public function getChartPerSegment(DashboardFilterRequest $request)
+    {
+        return response()->json($this->service->getChartPerSegment($request));
+    }
+
     public function getChartPerCoverage(DashboardFilterRequest $request)
     {
         return response()->json($this->service->getChartPerCoverage($request));

@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/chart/hari',        [DashboardController::class, 'getChartPerHari'])->name('chart.hari');
         Route::get('/chart/pilar',       [DashboardController::class, 'getChartPerPilar'])->name('chart.pilar');
         Route::get('/chart/divisi',      [DashboardController::class, 'getChartPerDivisi'])->name('chart.divisi');
+        Route::get('/chart/segment',     [DashboardController::class, 'getChartPerSegment'])->name('chart.segment');
         Route::get('/chart/coverage',    [DashboardController::class, 'getChartPerCoverage'])->name('chart.coverage');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');

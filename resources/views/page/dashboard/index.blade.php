@@ -151,9 +151,9 @@
         </div>
     </div>
 
-    {{-- ===== ROW 2: Divisi + Pilar ===== --}}
+    {{-- ===== ROW 2: Divisi + Segment + Pilar ===== --}}
     <div class="row mb-5">
-        <div class="col-md-6 mb-4">
+        <div class="col-xl-4 col-md-6 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -165,7 +165,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-4">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card card-custom h-100">
+                <div class="card-header">
+                    <div class="card-title">
+                        <h3 class="card-label">Netto per Segment</h3>
+                    </div>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div id="chartPerSegment" style="width:100%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">

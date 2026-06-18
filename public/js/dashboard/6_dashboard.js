@@ -14,6 +14,7 @@ $(document).ready(function () {
         chartHari: routes.chartHari,
         chartBulan: routes.chartBulan,
         chartDivisi: routes.chartDivisi,
+        chartSegment: routes.chartSegment,
         chartPilar: routes.chartPilar,
         chartCoverage: routes.chartCoverage,
     });

@@ -450,6 +450,7 @@ class SelloutQueryService
             DB::raw('MAX(so.id_outlet) as id_outlet'),
             DB::raw('MAX(so.id_cbg) as id_cbg'),
             DB::raw('MAX(so.code_product) as code_product'),
+            DB::raw('MAX(so.segment_mi) as segment_mi'),
             DB::raw('MAX(so.netto) as netto'),
             DB::raw('MAX(vp.pilar) as product_pilar'),
             DB::raw('MAX(mc.id_coverage) as coverage_id'),

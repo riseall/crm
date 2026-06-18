@@ -6,6 +6,7 @@
             chartHari: "{{ route('dashboard.chart.hari') }}",
             chartBulan: "{{ route('dashboard.chart.bulan') }}",
             chartDivisi: "{{ route('dashboard.chart.divisi') }}",
+            chartSegment: "{{ route('dashboard.chart.segment') }}",
             chartPilar: "{{ route('dashboard.chart.pilar') }}",
             chartCoverage: "{{ route('dashboard.chart.coverage') }}",
             drilldown: @json(($dashboardAccess['can_view_drilldown'] ?? true) ? route('dashboard.drilldown') : null),

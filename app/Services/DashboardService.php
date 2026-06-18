@@ -213,6 +213,29 @@ class DashboardService
     }
 
     // -------------------------------------------------------
+    // CHART: Netto per Segment MI
+    // -------------------------------------------------------
+    public function getChartPerSegment(DashboardFilterRequest $request): array
+    {
+        return Cache::remember(
+            $this->sellout->cacheKey('chart_segment', $request),
+            $this->sellout->cacheTtl(),
+            function () use ($request) {
+                $results = $this->sellout->baseChartQuery($request)
+                    ->selectRaw("COALESCE(NULLIF(TRIM(so.segment_mi), ''), 'UNMAPPED') as segment_name, SUM(so.netto) as total_netto")
+                    ->groupBy('segment_name')
+                    ->orderByDesc('total_netto')
+                    ->get();
+
+                return [
+                    'labels' => $results->pluck('segment_name')->values(),
+                    'data' => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values(),
+                ];
+            }
+        );
+    }
+
+    // -------------------------------------------------------
     // CHART: Top 10 Coverage by Netto (bar horizontal)
     // -------------------------------------------------------
     public function getChartPerCoverage(DashboardFilterRequest $request): array
