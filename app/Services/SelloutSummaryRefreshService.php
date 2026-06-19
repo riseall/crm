@@ -271,17 +271,14 @@ class SelloutSummaryRefreshService
      */
     private function insertMetdSummary(string $start, string $end): void
     {
-        $segDist = $this->utf8Key('seg.dist');
         $segSegment = $this->utf8Key('seg.segment_dist');
         $mSegment = $this->utf8Key('m.segmen');
-        $vpDist = $this->utf8Key('vp.dist');
         $vpProduct = $this->utf8Key('vp.pt_dist');
         $mProduct = $this->utf8Key('m.kode_brg_metd');
         $subSegment = $this->utf8Key('sub.segment_mi');
         $segSegmentMi = $this->utf8Key('seg.segment_mi');
         $subPilar = $this->utf8Key('sub.pilar_sub');
         $vpPilar = $this->utf8Key('vp.pilar_sub');
-        $cbgDist = $this->utf8Key('cbg.dist');
         $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
         $mCbg = $this->utf8Key('m.kode_cbg_ph');
         $regSubDivisi = $this->utf8Key('reg.sub_divisi');
@@ -331,12 +328,10 @@ class SelloutSummaryRefreshService
         FROM selling_out_metd AS m
 
         LEFT JOIN mst_segment AS seg
-            ON {$segDist} = 'METD'
-            AND {$segSegment} = {$mSegment}
+            ON {$segSegment} = {$mSegment}
 
         LEFT JOIN v_pt_mstr_dist AS vp
-            ON {$vpDist} = 'METD'
-            AND {$vpProduct} = {$mProduct}
+            ON {$vpProduct} = {$mProduct}
 
         LEFT JOIN crm_mst_sub_div AS sub
             ON {$subSegment} = {$segSegmentMi}
@@ -344,8 +339,7 @@ class SelloutSummaryRefreshService
             AND sub.is_active = 1
 
         LEFT JOIN mst_cbg_dist_new AS cbg
-            ON {$cbgDist} = 'METD'
-            AND {$cbgDistId} = {$mCbg}
+            ON {$cbgDistId} = {$mCbg}
 
         LEFT JOIN crm_mst_regional AS reg
             ON {$regSubDivisi} = {$subSubDivisi}
