@@ -1,6 +1,19 @@
 @extends('layouts.guest', ['title' => 'Login'])
 
 @section('content')
+  <style>
+        .login-form input.form-control:-webkit-autofill,
+        .login-form input.form-control:-webkit-autofill:hover,
+        .login-form input.form-control:-webkit-autofill:focus,
+        .login-form input.form-control:-webkit-autofill:active {
+            -webkit-text-fill-color: #ffffff !important;
+            caret-color: #ffffff;
+            box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.08) inset !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.08) inset !important;
+            border-color: transparent !important;
+            transition: background-color 9999s ease-out 0s;
+        }
+    </style>
     <div class="login login-3 login-signin-on d-flex flex-row-fluid" id="kt_login">
         <div class="d-flex flex-center bgi-size-cover bgi-no-repeat flex-row-fluid"
             style="background-image: url('{{ asset('images/bg-2.jpg') }}');">
