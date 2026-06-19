@@ -25,7 +25,9 @@ class RefreshSelloutSummaryCommand extends Command
         $this->info("Memulai refresh crm_sellout_summary dari {$from} sampai {$to}...");
 
         try {
-            $service->refreshSummaryRange($from, $to);
+            $service->refreshSummaryRange($from, $to, function (string $chunkFrom, string $chunkTo) {
+                $this->line("Memproses {$chunkFrom} sampai {$chunkTo}...");
+            });
             $this->info('Refresh crm_sellout_summary selesai.');
             return 0;
         } catch (\Throwable $e) {

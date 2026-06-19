@@ -27,13 +27,28 @@ class SelloutSummaryRefreshService
      * Refresh summary untuk tanggal range tertentu.
      * Query langsung dari source table (KFTD, AAM, METD) di DWH.
      */
-    public function refreshSummaryRange(string $from, string $to): void
+    public function refreshSummaryRange(string $from, string $to, ?callable $progress = null): void
     {
         [$start, $end] = $this->normalizeDateRange([$from, $to]);
 
-        $this->insertKftdSummary($start, $end);
-        $this->insertAamSummary($start, $end);
-        $this->insertMetdSummary($start, $end);
+        $rangeStart = Carbon::parse($start);
+        $rangeEnd = Carbon::parse($end);
+        $cursor = $rangeStart->copy()->startOfMonth();
+
+        while ($cursor->lte($rangeEnd)) {
+            $chunkStart = $cursor->copy()->max($rangeStart);
+            $chunkEnd = $cursor->copy()->endOfMonth()->min($rangeEnd);
+
+            if ($progress) {
+                $progress($chunkStart->toDateString(), $chunkEnd->toDateString());
+            }
+
+            $this->insertKftdSummary($chunkStart->toDateTimeString(), $chunkEnd->toDateTimeString());
+            $this->insertAamSummary($chunkStart->toDateTimeString(), $chunkEnd->toDateTimeString());
+            $this->insertMetdSummary($chunkStart->toDateTimeString(), $chunkEnd->toDateTimeString());
+
+            $cursor->addMonthNoOverflow()->startOfMonth();
+        }
     }
 
     /**
@@ -41,14 +56,17 @@ class SelloutSummaryRefreshService
      */
     private function insertKftdSummary(string $start, string $end): void
     {
+        $segDist = $this->utf8Key('seg.dist');
         $segSegment = $this->utf8Key('seg.segment_dist');
         $kSegment = $this->utf8Key('k.desc_cust_grp4');
+        $vpDist = $this->utf8Key('vp.dist');
         $vpProduct = $this->utf8Key('vp.pt_dist');
         $kProduct = $this->utf8Key('k.material');
         $subSegment = $this->utf8Key('sub.segment_mi');
         $segSegmentMi = $this->utf8Key('seg.segment_mi');
         $subPilar = $this->utf8Key('sub.pilar_sub');
         $vpPilar = $this->utf8Key('vp.pilar_sub');
+        $cbgDist = $this->utf8Key('cbg.dist');
         $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
         $kCbg = $this->utf8Key('k.sales_office');
         $regSubDivisi = $this->utf8Key('reg.sub_divisi');
@@ -98,10 +116,12 @@ class SelloutSummaryRefreshService
             FROM selling_out_kftd AS k
 
             LEFT JOIN mst_segment AS seg
-                ON {$segSegment} = {$kSegment}
+                ON {$segDist} = 'KFTD'
+                AND {$segSegment} = {$kSegment}
 
             LEFT JOIN v_pt_mstr_dist AS vp
-                ON {$vpProduct} = {$kProduct}
+                ON {$vpDist} = 'KFTD'
+                AND {$vpProduct} = {$kProduct}
 
             LEFT JOIN crm_mst_sub_div AS sub
                 ON {$subSegment} = {$segSegmentMi}
@@ -109,7 +129,8 @@ class SelloutSummaryRefreshService
                 AND sub.is_active = 1
 
             LEFT JOIN mst_cbg_dist_new AS cbg
-                ON {$cbgDistId} = {$kCbg}
+                ON {$cbgDist} = 'KFTD'
+                AND {$cbgDistId} = {$kCbg}
 
             LEFT JOIN crm_mst_regional AS reg
                 ON {$regSubDivisi} = {$subSubDivisi}
@@ -143,14 +164,17 @@ class SelloutSummaryRefreshService
      */
     private function insertAamSummary(string $start, string $end): void
     {
+        $segDist = $this->utf8Key('seg.dist');
         $segSegment = $this->utf8Key('seg.segment_dist');
         $aSegment = $this->utf8Key('a.desc_cust_grp3');
+        $vpDist = $this->utf8Key('vp.dist');
         $vpProduct = $this->utf8Key('vp.pt_dist');
         $aProduct = $this->utf8Key('a.material');
         $subSegment = $this->utf8Key('sub.segment_mi');
         $segSegmentMi = $this->utf8Key('seg.segment_mi');
         $subPilar = $this->utf8Key('sub.pilar_sub');
         $vpPilar = $this->utf8Key('vp.pilar_sub');
+        $cbgDist = $this->utf8Key('cbg.dist');
         $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
         $aCbg = $this->utf8Key('a.sales_office');
         $regSubDivisi = $this->utf8Key('reg.sub_divisi');
@@ -200,10 +224,12 @@ class SelloutSummaryRefreshService
             FROM selling_out_aam AS a
 
             LEFT JOIN mst_segment AS seg
-                ON {$segSegment} = {$aSegment}
+                ON {$segDist} = 'AAM'
+                AND {$segSegment} = {$aSegment}
 
             LEFT JOIN v_pt_mstr_dist AS vp
-                ON {$vpProduct} = {$aProduct}
+                ON {$vpDist} = 'AAM'
+                AND {$vpProduct} = {$aProduct}
 
             LEFT JOIN crm_mst_sub_div AS sub
                 ON {$subSegment} = {$segSegmentMi}
@@ -211,7 +237,8 @@ class SelloutSummaryRefreshService
                 AND sub.is_active = 1
 
             LEFT JOIN mst_cbg_dist_new AS cbg
-                ON {$cbgDistId} = {$aCbg}
+                ON {$cbgDist} = 'AAM'
+                AND {$cbgDistId} = {$aCbg}
 
             LEFT JOIN crm_mst_regional AS reg
                 ON {$regSubDivisi} = {$subSubDivisi}
@@ -244,14 +271,17 @@ class SelloutSummaryRefreshService
      */
     private function insertMetdSummary(string $start, string $end): void
     {
+        $segDist = $this->utf8Key('seg.dist');
         $segSegment = $this->utf8Key('seg.segment_dist');
         $mSegment = $this->utf8Key('m.segmen');
+        $vpDist = $this->utf8Key('vp.dist');
         $vpProduct = $this->utf8Key('vp.pt_dist');
         $mProduct = $this->utf8Key('m.kode_brg_metd');
         $subSegment = $this->utf8Key('sub.segment_mi');
         $segSegmentMi = $this->utf8Key('seg.segment_mi');
         $subPilar = $this->utf8Key('sub.pilar_sub');
         $vpPilar = $this->utf8Key('vp.pilar_sub');
+        $cbgDist = $this->utf8Key('cbg.dist');
         $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
         $mCbg = $this->utf8Key('m.kode_cbg_ph');
         $regSubDivisi = $this->utf8Key('reg.sub_divisi');
@@ -301,10 +331,12 @@ class SelloutSummaryRefreshService
         FROM selling_out_metd AS m
 
         LEFT JOIN mst_segment AS seg
-            ON {$segSegment} = {$mSegment}
+            ON {$segDist} = 'METD'
+            AND {$segSegment} = {$mSegment}
 
         LEFT JOIN v_pt_mstr_dist AS vp
-            ON {$vpProduct} = {$mProduct}
+            ON {$vpDist} = 'METD'
+            AND {$vpProduct} = {$mProduct}
 
         LEFT JOIN crm_mst_sub_div AS sub
             ON {$subSegment} = {$segSegmentMi}
@@ -312,7 +344,8 @@ class SelloutSummaryRefreshService
             AND sub.is_active = 1
 
         LEFT JOIN mst_cbg_dist_new AS cbg
-            ON {$cbgDistId} = {$mCbg}
+            ON {$cbgDist} = 'METD'
+            AND {$cbgDistId} = {$mCbg}
 
         LEFT JOIN crm_mst_regional AS reg
             ON {$regSubDivisi} = {$subSubDivisi}
