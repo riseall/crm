@@ -10,7 +10,8 @@ class Outlet extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'mst_outlets';
+    protected $connection = 'db_dwh';
+    protected $table = 'crm_mst_outlets';
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -25,7 +26,8 @@ class Outlet extends Model
 
     public function coverage()
     {
-        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage');
+        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage')
+            ->where('is_active', true);
     }
 
     public function custDist()

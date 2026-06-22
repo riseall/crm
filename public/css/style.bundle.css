@@ -93791,3 +93791,22 @@ body {
         width: 90% !important;
     }
 }
+
+.gap-0 {
+    gap: 0 !important;
+}
+.gap-1 {
+    gap: 0.25rem !important;
+} /* 4px */
+.gap-2 {
+    gap: 0.5rem !important;
+} /* 8px */
+.gap-3 {
+    gap: 1rem !important;
+} /* 16px */
+.gap-4 {
+    gap: 1.5rem !important;
+} /* 24px */
+.gap-5 {
+    gap: 3rem !important;
+} /* 48px */

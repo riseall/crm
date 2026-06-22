@@ -2,7 +2,7 @@
     <!--begin::Brand-->
     <div class="brand flex-column-auto" id="kt_brand">
         <!--begin::Logo-->
-        <a href="{{ route('dashboard') }}" class="brand-logo">
+        <a href="{{ route('dashboard.index') }}" class="brand-logo">
             <img alt="Logo" class="max-w-125px" src="{{ asset('images/logo/crm-typoWht.png') }}" />
         </a>
         <!--end::Logo-->
@@ -37,107 +37,156 @@
             data-menu-dropdown-timeout="500">
             <!--begin::Menu Nav-->
             <ul class="menu-nav">
+                @hasanyrole(['Super Admin', 'Admin IT', 'Marketing Insight'])
+                    <li class="menu-item menu-item-submenu" aria-haspopup="true" data-menu-toggle="hover">
+                        <a href="javascript:;" class="menu-link menu-toggle">
+                            <span class="svg-icon menu-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                    width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                        <polygon points="0 0 24 0 24 24 0 24" />
+                                        <path
+                                            d="M12,3 C7.581722,3 4,4.34314575 4,6 C4,7.65685425 7.581722,9 12,9 C16.418278,9 20,7.65685425 20,6 C20,4.34314575 16.418278,3 12,3 Z"
+                                            fill="#000000" />
+                                        <path
+                                            d="M4,10 L4,14 C4,15.6568542 7.581722,17 12,17 C16.418278,17 20,15.6568542 20,14 L20,10 C18.3,11.3 15.3,12 12,12 C8.7,12 5.7,11.3 4,10 Z M4,16 L4,18 C4,19.6568542 7.581722,21 12,21 C16.418278,21 20,19.6568542 20,18 L20,16 C18.3,17.3 15.3,18 12,18 C8.7,18 5.7,17.3 4,16 Z"
+                                            fill="#000000" opacity="0.3" />
+                                    </g>
+                                </svg>
+                            </span>
+                            <span class="menu-text">Data Master</span>
+                            <i class="menu-arrow"></i>
+                        </a>
+                        <div class="menu-submenu">
+                            <i class="menu-arrow"></i>
+                            <ul class="menu-subnav">
+                                <li class="menu-item menu-item-parent" aria-haspopup="true">
+                                    <span class="menu-link">
+                                        <span class="menu-text">Data Master</span>
+                                    </span>
+                                </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('users.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Users</span>
+                                    </a>
+                                </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('mapping.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Mapping Coverage</span>
+                                    </a>
+                                </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('product.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Produk</span>
+                                    </a>
+                                </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('top-marketing.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Top Marketing</span>
+                                    </a>
+                                </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('outlet.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Outlet</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </li>
+                @endhasanyrole
                 <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('dashboard') }}" class="menu-link">
+                    <a href="{{ route('dashboard.index') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
-                            <!--begin::Svg Icon | path:assets/media/svg/icons/Design/Layers.svg-->
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
                                 <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
                                     <polygon points="0 0 24 0 24 24 0 24" />
                                     <path
-                                        d="M12.9336061,16.072447 L19.36,10.9564761 L19.5181585,10.8312381 C20.1676248,10.3169571 20.2772143,9.3735535 19.7629333,8.72408713 C19.6917232,8.63415859 19.6104327,8.55269514 19.5206557,8.48129411 L12.9336854,3.24257445 C12.3871201,2.80788259 11.6128799,2.80788259 11.0663146,3.24257445 L4.47482784,8.48488609 C3.82645598,9.00054628 3.71887192,9.94418071 4.23453211,10.5925526 C4.30500305,10.6811601 4.38527899,10.7615046 4.47382636,10.8320511 L4.63,10.9564761 L11.0659024,16.0730648 C11.6126744,16.5077525 12.3871218,16.5074963 12.9336061,16.072447 Z"
-                                        fill="#000000" fill-rule="nonzero" />
-                                    <path
-                                        d="M11.0563554,18.6706981 L5.33593024,14.122919 C4.94553994,13.8125559 4.37746707,13.8774308 4.06710397,14.2678211 C4.06471678,14.2708238 4.06234874,14.2738418 4.06,14.2768747 L4.06,14.2768747 C3.75257288,14.6738539 3.82516916,15.244888 4.22214834,15.5523151 C4.22358765,15.5534297 4.2250303,15.55454 4.22647627,15.555646 L11.0872776,20.8031356 C11.6250734,21.2144692 12.371757,21.2145375 12.909628,20.8033023 L19.7677785,15.559828 C20.1693192,15.2528257 20.2459576,14.6784381 19.9389553,14.2768974 C19.9376429,14.2751809 19.9363245,14.2734691 19.935,14.2717619 L19.935,14.2717619 C19.6266937,13.8743807 19.0546209,13.8021712 18.6572397,14.1104775 C18.654352,14.112718 18.6514778,14.1149757 18.6486172,14.1172508 L12.9235044,18.6705218 C12.377022,19.1051477 11.6029199,19.1052208 11.0563554,18.6706981 Z"
+                                        d="M5,13 L5,20 C5,20.5522847 5.44771525,21 6,21 L8,21 C8.55228475,21 9,20.5522847 9,20 L9,13 C9,12.4477153 8.55228475,12 8,12 L6,12 C5.44771525,12 5,12.4477153 5,13 Z M10,9 L10,20 C10,20.5522847 10.4477153,21 11,21 L13,21 C13.5522847,21 14,20.5522847 14,20 L14,9 C14,8.44771525 13.5522847,8 13,8 L11,8 C10.4477153,8 10,8.44771525 10,9 Z"
                                         fill="#000000" opacity="0.3" />
-                                </g>
-                            </svg>
-                            <!--end::Svg Icon-->
-                        </span>
-                        <span class="menu-text">Dashboard</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-submenu" aria-haspopup="true" data-menu-toggle="hover">
-                    <a href="javascript:;" class="menu-link menu-toggle">
-                        <span class="svg-icon menu-icon">
-                            <!--begin::Svg Icon | path:assets/media/svg/icons/General/Settings-1.svg-->
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <rect x="0" y="0" width="24" height="24" />
                                     <path
-                                        d="M7,3 L17,3 C19.209139,3 21,4.790861 21,7 C21,9.209139 19.209139,11 17,11 L7,11 C4.790861,11 3,9.209139 3,7 C3,4.790861 4.790861,3 7,3 Z M7,9 C8.1045695,9 9,8.1045695 9,7 C9,5.8954305 8.1045695,5 7,5 C5.8954305,5 5,5.8954305 5,7 C5,8.1045695 5.8954305,9 7,9 Z"
+                                        d="M19.2928932,4.29289322 L16,4 L16,20 C16,20.5522847 16.4477153,21 17,21 L19,21 C19.5522847,21 20,20.5522847 20,20 L20,5.70710678 C20,5.18633956 19.5951595,4.75550552 19.0761624,4.70740015 L19.2928932,4.29289322 Z M19.2928932,4.29289322 C19.6834175,3.90236893 20.3165825,3.90236893 20.7071068,4.29289322 C21.0976311,4.68341751 21.0976311,5.31658249 20.7071068,5.70710678 L17.7071068,8.70710678 C17.3165825,9.09763107 16.6834175,9.09763107 16.2928932,8.70710678 C15.9023689,8.31658249 15.9023689,7.68341751 16.2928932,7.29289322 L19.2928932,4.29289322 Z"
                                         fill="#000000" />
-                                    <path
-                                        d="M7,13 L17,13 C19.209139,13 21,14.790861 21,17 C21,19.209139 19.209139,21 17,21 L7,21 C4.790861,21 3,19.209139 3,17 C3,14.790861 4.790861,13 7,13 Z M17,19 C18.1045695,19 19,18.1045695 19,17 C19,15.8954305 18.1045695,15 17,15 C15.8954305,15 15,15.8954305 15,17 C15,18.1045695 15.8954305,19 17,19 Z"
-                                        fill="#000000" opacity="0.3" />
                                 </g>
                             </svg>
-                            <!--end::Svg Icon-->
                         </span>
-                        <span class="menu-text">Data Master</span>
-                        <i class="menu-arrow"></i>
+                        <span class="menu-text">Performance Selling Out</span>
                     </a>
-                    <div class="menu-submenu">
-                        <i class="menu-arrow"></i>
-                        <ul class="menu-subnav">
-                            <li class="menu-item menu-item-parent" aria-haspopup="true">
-                                <span class="menu-link">
-                                    <span class="menu-text">Data Master</span>
-                                </span>
-                            </li>
-                            <li class="menu-item" aria-haspopup="true">
-                                <a href="{{ route('users.index') }}" class="menu-link">
-                                    <i class="menu-bullet menu-bullet-dot">
-                                        <span></span>
-                                    </i>
-                                    <span class="menu-text">Users</span>
-                                </a>
-                            </li>
-                            <li class="menu-item" aria-haspopup="true">
-                                <a href="{{ route('mapping.index') }}" class="menu-link">
-                                    <i class="menu-bullet menu-bullet-dot">
-                                        <span></span>
-                                    </i>
-                                    <span class="menu-text">Mapping Coverage</span>
-                                </a>
-                            </li>
-                            <li class="menu-item" aria-haspopup="true">
-                                <a href="{{ route('product.index') }}" class="menu-link">
-                                    <i class="menu-bullet menu-bullet-dot">
-                                        <span></span>
-                                    </i>
-                                    <span class="menu-text">Produk</span>
-                                </a>
-                            </li>
-                            <li class="menu-item" aria-haspopup="true">
-                                <a href="{{ route('outlet.index') }}" class="menu-link">
-                                    <i class="menu-bullet menu-bullet-dot">
-                                        <span></span>
-                                    </i>
-                                    <span class="menu-text">Outlet</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
                 </li>
                 <li class="menu-item" aria-haspopup="true">
-                    <a href="{{ route('users.index') }}" class="menu-link">
+                    <a href="{{ route('outlet.history') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
-                            <!--begin::Svg Icon | path:assets/media/svg/icons/Home/Library.svg-->
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
                                 <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
                                     <polygon points="0 0 24 0 24 24 0 24" />
                                     <path
-                                        d="M6,18 L9,18 C9.66666667,18.1143819 10,18.4477153 10,19 C10,19.5522847 9.66666667,19.8856181 9,20 L4,20 L4,15 C4,14.3333333 4.33333333,14 5,14 C5.66666667,14 6,14.3333333 6,15 L6,18 Z M18,18 L18,15 C18.1143819,14.3333333 18.4477153,14 19,14 C19.5522847,14 19.8856181,14.3333333 20,15 L20,20 L15,20 C14.3333333,20 14,19.6666667 14,19 C14,18.3333333 14.3333333,18 15,18 L18,18 Z M18,6 L15,6 C14.3333333,5.88561808 14,5.55228475 14,5 C14,4.44771525 14.3333333,4.11438192 15,4 L20,4 L20,9 C20,9.66666667 19.6666667,10 19,10 C18.3333333,10 18,9.66666667 18,9 L18,6 Z M6,6 L6,9 C5.88561808,9.66666667 5.55228475,10 5,10 C4.44771525,10 4.11438192,9.66666667 4,9 L4,4 L9,4 C9.66666667,4 10,4.33333333 10,5 C10,5.66666667 9.66666667,6 9,6 L6,6 Z"
-                                        fill="#000000" fill-rule="nonzero" />
+                                        d="M4.5,11.5 L4.5,19.5 C4.5,20.3284271 5.17157288,21 6,21 L18,21 C18.8284271,21 19.5,20.3284271 19.5,19.5 L19.5,11.5 L4.5,11.5 Z"
+                                        fill="#000000" opacity="0.3" />
+                                    <path
+                                        d="M10,16 L10,21 L14,21 L14,16 C14,15.4477153 13.5522847,15 13,15 L11,15 C10.4477153,15 10,15.4477153 10,16 Z M2,11 L2,12 C2,12.5522847 2.44771525,13 3,13 L21,13 C21.5522847,13 22,12.5522847 22,12 L22,11 C22,10.4477153 21.5522847,10 21,10 L19.5,10 L17.7847771,4.57452685 C17.6302428,4.09958145 17.1877532,3.78 16.6877532,3.78 L7.31224682,3.78 C6.81224682,3.78 6.36975719,4.09958145 6.21522292,4.57452685 L4.5,10 L3,10 C2.44771525,10 2,10.4477153 2,11 Z"
+                                        fill="#000000" />
                                 </g>
                             </svg>
-                            <!--end::Svg Icon-->
                         </span>
-                        <span class="menu-text">Outlet</span>
+                        <span class="menu-text">Performance Outlet</span>
+                    </a>
+                </li>
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('selling-in.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <polygon points="0 0 24 0 24 24 0 24" />
+                                    <rect fill="#000000" opacity="0.3" x="3" y="3" width="2" height="18"
+                                        rx="1" />
+                                    <rect fill="#000000" x="6" y="5" width="14" height="3.5" rx="1" />
+                                    <rect fill="#000000" x="6" y="10.5" width="10" height="3.5"
+                                        rx="1" />
+                                    <rect fill="#000000" opacity="0.3" x="6" y="16" width="6" height="3.5"
+                                        rx="1" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Selling In</span>
+                    </a>
+                </li>
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('stock.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <polygon points="0 0 24 0 24 24 0 24" />
+                                    <path
+                                        d="M4,13 L4,18 C4,18.5522847 4.44771525,19 5,19 L19,19 C19.5522847,19 20,18.5522847 20,18 L20,13 L4,13 Z"
+                                        fill="#000000" opacity="0.3" />
+                                    <path
+                                        d="M4,5 L4,10 C4,10.5522847 4.44771525,11 5,11 L19,11 C19.5522847,11 20,10.5522847 20,10 L20,5 C20,4.44771525 19.5522847,4 19,4 L5,4 C4.44771525,4 4,4.44771525 4,5 Z"
+                                        fill="#000000" />
+                                    <rect fill="#000000" opacity="0.3" x="9" y="13" width="6" height="2"
+                                        rx="1" />
+                                    <rect fill="#000000" x="9" y="6" width="6" height="2" rx="1" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Stock GPJ vs Cabang</span>
                     </a>
                 </li>
             </ul>
@@ -150,7 +199,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const menuItems = document.querySelectorAll('.menu-item');
-        const menuLinks = document.querySelectorAll('.menu-item > .menu-link[href]');
+        const menuLinks = document.querySelectorAll('.menu-item > .menu-link[href]:not(.menu-toggle)');
         const currentUrl = window.location.origin + window.location.pathname;
 
         function resetActiveMenu() {

@@ -17,9 +17,22 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command('hrms:sync')
-            ->dailyAt('01:00')
+            ->timezone('Asia/Jakarta')
+            ->dailyAt('04:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/hrms-sync.log'));
+
+        $schedule->command('sellout:refresh-summary')
+            ->timezone('Asia/Jakarta')
+            ->dailyAt('12:00')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/sellout-summary-refresh.log'));
+
+        $schedule->command('qad:sync-stock-gpj')
+            ->timezone('Asia/Jakarta')
+            ->dailyAt('05:00')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/qad-stock-gpj-sync.log'));
     }
 
     /**

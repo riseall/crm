@@ -23,14 +23,25 @@ const KTLogin = (function () {
     const clearErrors = (formEl) => {
         formEl.find(".is-invalid").removeClass("is-invalid");
         formEl.find(".invalid-feedback.ajax-error").remove();
+        formEl
+            .find("[data-error-for]")
+            .removeClass("d-block")
+            .text("");
     };
 
     // Fungsi untuk menampilkan error dari Laravel ke bawah input
     const displayErrors = (formEl, errors) => {
         $.each(errors, function (field, messages) {
             const input = formEl.find(`[name="${field}"]`);
+            const feedback = formEl.find(`[data-error-for="${field}"]`);
+
             if (input.length) {
                 input.addClass("is-invalid");
+            }
+
+            if (feedback.length) {
+                feedback.text(messages[0]).addClass("d-block");
+            } else if (input.length) {
                 input.after(
                     `<div class="invalid-feedback text-left ajax-error">${messages[0]}</div>`,
                 );
@@ -105,7 +116,7 @@ const KTLogin = (function () {
             validation.validate().then((status) => {
                 if (status === "Valid") {
                     $.ajax({
-                        url: "/login",
+                        url: window.auth.login,
                         method: "POST",
                         data: formEl.serialize(),
                         beforeSend: function () {
@@ -113,7 +124,7 @@ const KTLogin = (function () {
                         },
                         success: (response) => {
                             window.location.href =
-                                response.redirect || "/dashboard";
+                                response.redirect || window.auth.dashboard;
                         },
                         error: (xhr) => {
                             if (xhr.status === 422 && xhr.responseJSON.errors) {
@@ -147,206 +158,12 @@ const KTLogin = (function () {
         });
     };
 
-    const handleSignUpForm = () => {
-        const formId = "kt_login_signup_form";
-        const formEl = $(`#${formId}`);
-        const formDOM = KTUtil.getById(formId);
-
-        const validation = FormValidation.formValidation(formDOM, {
-            fields: {
-                firstname: {
-                    validators: {
-                        notEmpty: { message: "First name is required" },
-                    },
-                },
-                lastname: {
-                    validators: {
-                        notEmpty: { message: "Last name is required" },
-                    },
-                },
-                username: {
-                    validators: {
-                        notEmpty: { message: "Username is required" },
-                    },
-                },
-                email: {
-                    validators: {
-                        notEmpty: { message: "Email address is required" },
-                        emailAddress: {
-                            message: "The value is not a valid email address",
-                        },
-                    },
-                },
-                password: {
-                    validators: {
-                        notEmpty: { message: "The password is required" },
-                    },
-                },
-                password_confirmation: {
-                    validators: {
-                        notEmpty: {
-                            message: "The password confirmation is required",
-                        },
-                        identical: {
-                            compare: () =>
-                                formDOM.querySelector('[name="password"]')
-                                    .value,
-                            message:
-                                "The password and its confirm are not the same",
-                        },
-                    },
-                },
-                agree: {
-                    validators: {
-                        notEmpty: {
-                            message: "You must accept the terms and conditions",
-                        },
-                    },
-                },
-            },
-            plugins: {
-                trigger: new FormValidation.plugins.Trigger(),
-                bootstrap: new FormValidation.plugins.Bootstrap(),
-            },
-        });
-
-        $("#kt_login_signup_submit").on("click", function (e) {
-            const btn = $(this);
-            e.preventDefault();
-            clearErrors(formEl);
-
-            validation.validate().then((status) => {
-                if (status === "Valid") {
-                    let formData = formEl.serializeArray();
-
-                    $.ajax({
-                        url: "/register",
-                        method: "POST",
-                        data: $.param(formData),
-                        beforeSend: function () {
-                            showLoading(btn);
-                        },
-                        success: (response) => {
-                            showAlert(
-                                "Registrasi berhasil! Silakan login.",
-                                "success",
-                                () => showForm("signin"),
-                            );
-                        },
-                        error: (xhr) => {
-                            if (xhr.status === 422 && xhr.responseJSON.errors) {
-                                displayErrors(formEl, xhr.responseJSON.errors);
-                            } else {
-                                const errorMsg =
-                                    xhr.responseJSON?.message ||
-                                    "Registrasi gagal, silakan cek data Anda.";
-                                showAlert(errorMsg, "error");
-                            }
-                        },
-                        complete: function () {
-                            hideLoading(btn);
-                        },
-                    });
-                } else {
-                    showAlert(
-                        "Sorry, looks like there are some errors detected, please try again.",
-                    );
-                }
-            });
-        });
-
-        $("#kt_login_signup_cancel").on("click", (e) => {
-            e.preventDefault();
-            showForm("signin");
-        });
-    };
-
-    const handleForgotForm = () => {
-        const formId = "kt_login_forgot_form";
-        const formEl = $(`#${formId}`);
-
-        const validation = FormValidation.formValidation(
-            KTUtil.getById(formId),
-            {
-                fields: {
-                    email: {
-                        validators: {
-                            notEmpty: { message: "Email address is required" },
-                            emailAddress: {
-                                message:
-                                    "The value is not a valid email address",
-                            },
-                        },
-                    },
-                },
-                plugins: {
-                    trigger: new FormValidation.plugins.Trigger(),
-                    bootstrap: new FormValidation.plugins.Bootstrap(),
-                },
-            },
-        );
-
-        $("#kt_login_forgot_submit").on("click", function (e) {
-            const btn = $(this);
-            e.preventDefault();
-
-            clearErrors(formEl);
-
-            validation.validate().then((status) => {
-                if (status === "Valid") {
-                    $.ajax({
-                        url: "/forgot-password",
-                        method: "POST",
-                        data: formEl.serialize(),
-                        beforeSend: function () {
-                            showLoading(btn);
-                        },
-                        success: (response) => {
-                            const successMsg =
-                                response.status ||
-                                "Tautan reset password telah dikirim ke email Anda.";
-
-                            showAlert(successMsg, "success", () => {
-                                showForm("signin");
-                                formEl[0].reset();
-                            });
-                        },
-                        error: (xhr) => {
-                            if (xhr.status === 422 && xhr.responseJSON.errors) {
-                                displayErrors(formEl, xhr.responseJSON.errors);
-                            } else {
-                                const errorMsg =
-                                    xhr.responseJSON?.message ||
-                                    "Terjadi kesalahan, silakan coba lagi.";
-                                showAlert(errorMsg, "error");
-                            }
-                        },
-                        complete: function () {
-                            hideLoading(btn);
-                        },
-                    });
-                } else {
-                    showAlert(
-                        "Sorry, looks like there are some errors detected, please try again.",
-                    );
-                }
-            });
-        });
-
-        $("#kt_login_forgot_cancel").on("click", (e) => {
-            e.preventDefault();
-            showForm("signin");
-        });
-    };
-
     // --- Public Functions ---
     return {
         init: function () {
             _login = $("#kt_login");
 
             handleSignInForm();
-            handleSignUpForm();
-            handleForgotForm();
         },
     };
 })();

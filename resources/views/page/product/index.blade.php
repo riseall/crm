@@ -67,7 +67,7 @@
                     },
                     {
                         data: 'c_ph',
-                        name: 'mst_products.pt_ph'
+                        name: 'crm_mst_products.pt_ph'
                     },
                     {
                         data: 'p_desc',
@@ -75,7 +75,7 @@
                     },
                     {
                         data: 'id_coverage',
-                        name: 'mst_products.id_coverage',
+                        name: 'crm_mst_products.id_coverage',
                         className: 'text-center'
                     },
                     {
@@ -126,7 +126,7 @@
                     // },
                     {
                         data: 'cov_pm',
-                        name: 'mst_mappings.cov_nik',
+                        name: 'crm_mst_mappings.cov_nik',
                         className: 'text-center'
                     },
                     {

@@ -9,7 +9,8 @@ class MCustDist extends Model
 {
     use HasFactory;
 
-    protected $table = 'v_cust_dist';
+    protected $connection = 'db_dwh';
+    protected $table = 'mst_cust_dist';
 
     public $incrementing = false;
     public $timestamps = false;

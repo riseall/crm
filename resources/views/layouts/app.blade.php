@@ -7,6 +7,7 @@
     <title>CRM | {{ $title }}</title>
     <meta name="description" content="Updates and statistics" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <!--begin::Fonts-->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" />
     <!--end::Fonts-->
@@ -61,6 +62,27 @@
                     <div class="d-flex flex-column-fluid">
                         <!--begin::Container-->
                         <div class="container">
+                            @php
+                                $coverageAlertService = app(\App\Services\CoverageReplacementAlertService::class);
+                                $coverageNotificationPayload = collect();
+                                $coverageAlertSignature = null;
+                                $shouldShowCoverageAlert = false;
+
+                                if (auth()->check()) {
+                                    $hasAlertRole = auth()
+                                        ->user()
+                                        ->hasAnyRole(['Super Admin', 'Admin IT', 'Marketing Insight']);
+
+                                    if ($hasAlertRole) {
+                                        $coverageNotificationPayload = $coverageAlertService->pendingAlertPayload();
+                                        $coverageAlertSignature = $coverageAlertService->alertSignature();
+                                        $shouldShowCoverageAlert =
+                                            $coverageNotificationPayload->isNotEmpty() &&
+                                            session('coverage_alert_signature') !== $coverageAlertSignature;
+                                    }
+                                }
+                            @endphp
+
                             @yield('content')
                         </div>
                         <!--end::Container-->
@@ -151,7 +173,80 @@
     <!--begin::Global Theme Bundle(used by all pages)-->
     <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
+    <script src="{{ asset('js/global-loading.js') }}?v={{ filemtime(public_path('js/global-loading.js')) }}"></script>
     <!--end::Global Theme Bundle-->
+    <script>
+        (function($) {
+            if (!$.fn || !$.fn.dataTable) {
+                return;
+            }
+
+            $.extend(true, $.fn.dataTable.defaults, {
+                autoWidth: false,
+                dom: "<'row align-items-center mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-right'f>>" +
+                    "rt" +
+                    "<'row align-items-center mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Cari...',
+                    lengthMenu: '_MENU_',
+                    info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
+                    infoEmpty: 'Menampilkan 0 - 0 dari 0 data',
+                    infoFiltered: '(disaring dari _MAX_ data)',
+                    zeroRecords: 'Tidak ada data yang cocok',
+                    paginate: {
+                        previous: 'Sebelumnya',
+                        next: 'Berikutnya',
+                    },
+                }
+            });
+
+            $.fn.dataTable.ext.errMode = 'none';
+
+        })(jQuery);
+    </script>
+    <script>
+        var indexRoute = "{{ route('mapping.index') }}";
+    </script>
+    <script>
+        (function() {
+            const coverageNotifications = @json($coverageNotificationPayload ?? []);
+            const shouldShowCoverageAlert = {{ $shouldShowCoverageAlert ? 'true' : 'false' }};
+
+            // Pastikan variabel ini ada atau beri default null agar tidak error JS
+            const coverageAlertSignature = @json($coverageAlertSignature ?? null);
+
+            if (!shouldShowCoverageAlert || !coverageNotifications.length) {
+                return;
+            }
+
+            const itemsHtml = coverageNotifications.map(function(item) {
+                return `<li class="mb-2"><strong>${item.id_coverage || '-'}</strong> - ${item.cov_desc || '-'}<br><small>${item.message || ''}</small></li>`;
+            }).join('');
+
+            Swal.fire({
+                title: `Ada ${coverageNotifications.length} coverage butuh pengganti`,
+                html: `
+                <div class="text-left">
+                    <p class="mb-3">Coverage berikut sudah nonaktif atau punya <code>valid_to</code>. Silakan siapkan coverage pengganti untuk outlet dan product terkait.</p>
+                    <ul class="pl-4 mb-0">${itemsHtml}</ul>
+                </div>
+            `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ganti Coverage',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'text-left',
+                },
+            }).then(function(result) {
+                if (result.value) {
+                    window.location.href = indexRoute;
+                }
+            });
+        })();
+    </script>
     @stack('scripts')
     <!--end::Page Scripts-->
 </body>

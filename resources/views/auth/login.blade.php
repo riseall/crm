@@ -1,6 +1,19 @@
 @extends('layouts.guest', ['title' => 'Login'])
 
 @section('content')
+  <style>
+        .login-form input.form-control:-webkit-autofill,
+        .login-form input.form-control:-webkit-autofill:hover,
+        .login-form input.form-control:-webkit-autofill:focus,
+        .login-form input.form-control:-webkit-autofill:active {
+            -webkit-text-fill-color: #ffffff !important;
+            caret-color: #ffffff;
+            box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.08) inset !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.08) inset !important;
+            border-color: transparent !important;
+            transition: background-color 9999s ease-out 0s;
+        }
+    </style>
     <div class="login login-3 login-signin-on d-flex flex-row-fluid" id="kt_login">
         <div class="d-flex flex-center bgi-size-cover bgi-no-repeat flex-row-fluid"
             style="background-image: url('{{ asset('images/bg-2.jpg') }}');">
@@ -51,27 +64,33 @@
                                 <span></span>
                             </label>
                         </div>
-                        {{-- <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.key') }}"> --}}
-                </div>
-
-                {{-- @error('cf-turnstile-response')
-                            <span class="text-danger" style="color: red; font-size: 0.875rem;">
+                        <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.key') }}">
+                        </div>
+                        <div class="invalid-feedback text-left text-danger @error('cf-turnstile-response') d-block @enderror"
+                            data-error-for="cf-turnstile-response">
+                            @error('cf-turnstile-response')
                                 {{ $message }}
-                            </span>
-                        @enderror --}}
-                <div class="form-group text-center mt-10">
-                    <button id="kt_login_signin_submit" class="btn btn-pill btn-primary opacity-90 px-15 py-3">Sign
-                        In</button>
+                            @enderror
+                        </div>
+                        <div class="form-group text-center mt-10">
+                            <button id="kt_login_signin_submit" class="btn btn-pill btn-primary opacity-90 px-15 py-3">Sign
+                                In</button>
+                        </div>
+                    </form>
                 </div>
-                </form>
+                <!--end::Login Sign in form-->
             </div>
-            <!--end::Login Sign in form-->
         </div>
-    </div>
     </div>
 @endsection
 
 @push('scripts')
+    <script>
+        window.auth = {
+            login: "{{ route('login') }}",
+            dashboard: "{{ route('dashboard.index') }}"
+        }
+    </script>
     <script>
         function togglePassword() {
             const passwordInput = document.getElementById('password');

@@ -11,6 +11,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -53,17 +54,17 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         Fortify::authenticateUsing(function (Request $request) {
-            // $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
-            //     'secret' => env('TURNSTILE_SECRET_KEY'),
-            //     'response' => $request->input('cf-turnstile-response'),
-            //     'remoteip' => $request->ip(),
-            // ]);
+            $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => env('TURNSTILE_SECRET_KEY'),
+                'response' => $request->input('cf-turnstile-response'),
+                'remoteip' => $request->ip(),
+            ]);
 
-            // if (!$turnstileResponse->json('success')) {
-            //     throw ValidationException::withMessages([
-            //         'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
-            //     ]);
-            // }
+            if (!$turnstileResponse->json('success')) {
+                throw ValidationException::withMessages([
+                    'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
+                ]);
+            }
 
             $spkUser = DB::connection('db_master')
                 ->table('mst_anggota')
@@ -119,7 +120,10 @@ class FortifyServiceProvider extends ServiceProvider
                     [
                         'name' => $spkUser->nama,
                         'email' => $spkUser->email,
-                        'jabatan' => $spkUser->ref_nama_jabatan
+                        'jabatan' => $spkUser->ref_nama_jabatan,
+                        'is_active' => $this->hrmsIsActive((array) $spkUser),
+                        'tanggal_masuk' => $this->hrmsDate((array) $spkUser, ['tanggal_masuk', 'tgl_masuk', 'date_in', 'join_date']),
+                        'tanggal_keluar' => $this->hrmsDate((array) $spkUser, ['tanggal_keluar', 'tgl_keluar', 'date_out', 'resign_date']),
                     ]
                 );
 
@@ -139,5 +143,29 @@ class FortifyServiceProvider extends ServiceProvider
 
             return null;
         });
+    }
+
+    protected function hrmsIsActive(array $anggota): int
+    {
+        if (array_key_exists('is_active', $anggota)) {
+            return (int) $anggota['is_active'] === 1 ? 1 : 0;
+        }
+
+        if (array_key_exists('status_hapus', $anggota)) {
+            return (int) $anggota['status_hapus'] === 1 ? 1 : 0;
+        }
+
+        return 1;
+    }
+
+    protected function hrmsDate(array $anggota, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (!empty($anggota[$key])) {
+                return date('Y-m-d', strtotime($anggota[$key]));
+            }
+        }
+
+        return null;
     }
 }

@@ -11,16 +11,23 @@
     <div class="offcanvas-content pr-5 mr-n5">
         <!--begin::Header-->
         <div class="d-flex align-items-center mt-5">
+            @php
+                $spkName = trim((string) session('spk_name', 'User')) ?: 'User';
+                $spkInitials = collect(preg_split('/\s+/', $spkName, -1, PREG_SPLIT_NO_EMPTY))
+                    ->take(2)
+                    ->map(fn($word) => strtoupper(substr($word, 0, 1)))
+                    ->implode('') ?: 'U';
+            @endphp
             <div class="symbol symbol-100 mr-5">
                 <span class="symbol symbol-75 symbol-info">
                     <span
-                        class="symbol-label font-size-h1 font-weight-bold">{{ collect(explode(' ', session('spk_name')))->take(2)->map(fn($word) => strtoupper($word[0]))->implode('') }}</span>
+                        class="symbol-label font-size-h1 font-weight-bold">{{ $spkInitials }}</span>
                 </span>
                 <i class="symbol-badge bg-info"></i>
             </div>
             <div class="d-flex flex-column">
                 <a href="#"
-                    class="font-weight-bold font-size-h5 text-dark-75 text-hover-primary">{{ session('spk_name') }}</a>
+                    class="font-weight-bold font-size-h5 text-dark-75 text-hover-primary">{{ $spkName }}</a>
                 <div class="text-dark-50 font-weight-bold mt-1">{{ session('spk_jabatan') }}</div>
                 <div class="navi mt-2">
                     <a href="#" class="navi-item">

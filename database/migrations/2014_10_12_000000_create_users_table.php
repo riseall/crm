@@ -17,9 +17,11 @@ class CreateUsersTable extends Migration
             $table->id();
             $table->string('nik')->unique();
             $table->string('name', 100);
-            $table->string('email', 100)->unique();
+            $table->string('email', 100);
             $table->string('jabatan', 100);
             $table->boolean('is_active')->default(true);
+            $table->date('tanggal_masuk')->nullable();
+            $table->date('tanggal_keluar')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

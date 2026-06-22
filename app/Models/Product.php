@@ -10,7 +10,8 @@ class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'mst_products';
+    protected $connection = 'db_dwh';
+    protected $table = 'crm_mst_products';
 
     protected $fillable = [
         'pt_ph',
@@ -29,6 +30,7 @@ class Product extends Model
 
     public function coverage()
     {
-        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage');
+        return $this->belongsTo(Mapping::class, 'id_coverage', 'id_coverage')
+            ->where('is_active', true);
     }
 }

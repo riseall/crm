@@ -13,7 +13,8 @@ class CreateMappingsTable extends Migration
      */
     public function up()
     {
-        Schema::create('mst_mappings', function (Blueprint $table) {
+        Schema::create('crm_mst_mappings', function (Blueprint $table) {
+            $table->id();
             $table->string('id_coverage')->primary();
             $table->string('cov_desc')->nullable();
             $table->string('cov_divisi')->nullable();
@@ -38,6 +39,6 @@ class CreateMappingsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('mst_mappings');
+        Schema::dropIfExists('crm_mst_mappings');
     }
 }

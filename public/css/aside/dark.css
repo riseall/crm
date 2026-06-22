@@ -73,7 +73,7 @@
     [fill] {
     -webkit-transition: fill 0.3s ease;
     transition: fill 0.3s ease;
-    fill: #6f7087;
+    fill: #bcbcbf;
 }
 .aside-menu
     .menu-nav
@@ -124,7 +124,7 @@
 }
 .aside-menu .menu-nav > .menu-item > .menu-heading .menu-arrow,
 .aside-menu .menu-nav > .menu-item > .menu-link .menu-arrow {
-    color: #6f7087;
+    color: #bcbcbf;
 }
 .aside-menu .menu-nav > .menu-item.menu-item-open {
     -webkit-transition: background-color 0.3s;
