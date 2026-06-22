@@ -6,6 +6,7 @@ use App\Http\Controllers\OutletController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SellingInController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\TopMarketingController;
 use App\Http\Controllers\UserController;
 use App\Notifications\CoverageNeedsReplacementNotification;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', [ProductController::class, 'show'])->name('show');
         Route::put('/{id}', [ProductController::class, 'update'])->name('update');
         Route::delete('/{id}', [ProductController::class, 'destroy'])->name('destroy');
+    });
+
+    // Top Marketing
+    Route::prefix('top-marketing')->name('top-marketing.')->group(function () {
+        Route::get('/', [TopMarketingController::class, 'index'])->name('index');
+        Route::get('/data', [TopMarketingController::class, 'data'])->name('data');
+        Route::post('/upload', [TopMarketingController::class, 'upload'])->name('upload');
     });
 
     // Outlet

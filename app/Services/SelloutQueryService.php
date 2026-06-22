@@ -668,7 +668,7 @@ class SelloutQueryService
             $query->whereIn('top.kode_ph', $request->input('product'));
         }
 
-        return (float) $query->sum('top.val_nett');
+        return (float) $query->sum('top.val_net');
     }
 
     public function topMarketingByRegion(DashboardFilterRequest $request)
@@ -702,7 +702,7 @@ class SelloutQueryService
             ->selectRaw("
                 COALESCE(NULLIF(TRIM(top.divisi), ''), 'LAINNYA') as divisi,
                 COALESCE(NULLIF(TRIM(top.region), ''), 'LAINNYA') as region,
-                SUM(top.val_nett) as top_value
+                SUM(top.val_net) as top_value
             ")
             ->groupBy('divisi', 'region')
             ->get();
