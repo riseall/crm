@@ -25,7 +25,7 @@ class DashboardService
     // Contoh pada getSummaryCards
     public function getSummaryCards(DashboardFilterRequest $request): array
     {
-        $cacheKey = $this->sellout->cacheKey('summary', $request);
+        $cacheKey = $this->sellout->cacheKey('summary_top', $request);
 
         return Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
             $range = [$request->prevStartDate(), $request->endDate()];
@@ -37,17 +37,8 @@ class DashboardService
             $summary = $this->sellout->baseChartQuery($request, $range)
                 ->selectRaw("
                     SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as total_netto,
-                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.id_outlet END) as total_outlet,
-                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.coverage_nik END) as total_anggota,
-                    COUNT(DISTINCT CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.source_id END) as total_transaksi,
                     SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
                 ", [
-                    $currentStart,
-                    $currentEnd,
-                    $currentStart,
-                    $currentEnd,
-                    $currentStart,
-                    $currentEnd,
                     $currentStart,
                     $currentEnd,
                     $prevStart,
@@ -57,15 +48,16 @@ class DashboardService
 
             $currNetto = (float) ($summary->total_netto ?? 0);
             $prevNetto = (float) ($summary->prev_netto ?? 0);
+            $topValue = $this->sellout->topMarketingTarget($request);
             $diffNetto = $prevNetto > 0
                 ? (($currNetto - $prevNetto) / $prevNetto) * 100
                 : ($currNetto > 0 ? 100 : 0);
+            $topAchievement = $topValue > 0 ? ($currNetto / $topValue) * 100 : 0;
 
             return [
                 'total_netto'     => $currNetto,
-                'total_outlet'    => (int) ($summary->total_outlet ?? 0),
-                'total_anggota'   => (int) ($summary->total_anggota ?? 0),
-                'total_transaksi' => (int) ($summary->total_transaksi ?? 0),
+                'top_value'       => $topValue,
+                'top_achievement' => round($topAchievement, 2),
                 'prev_netto'      => $prevNetto,
                 'diff_netto'      => round($diffNetto, 2)
             ];
@@ -260,6 +252,66 @@ class DashboardService
         );
     }
 
+    public function getAchievementRace(DashboardFilterRequest $request): array
+    {
+        return Cache::remember(
+            $this->sellout->cacheKey('achievement_race_v1', $request),
+            $this->sellout->cacheTtl(),
+            function () use ($request) {
+                $topRows = $this->sellout->topMarketingByRegion($request);
+                $realRows = $this->sellout->realNettoByRegion($request);
+
+                $rows = [];
+
+                foreach ($topRows as $row) {
+                    $key = $this->achievementKey($row->divisi, $row->region);
+                    $rows[$key] = [
+                        'label' => (string) $row->region,
+                        'divisi' => (string) $row->divisi,
+                        'top' => (float) $row->top_value,
+                        'real' => 0.0,
+                    ];
+                }
+
+                foreach ($realRows as $row) {
+                    $key = $this->achievementKey($row->divisi, $row->region);
+
+                    if (!isset($rows[$key])) {
+                        $rows[$key] = [
+                            'label' => (string) $row->region,
+                            'divisi' => (string) ($row->divisi ?: ''),
+                            'top' => 0.0,
+                            'real' => 0.0,
+                        ];
+                    }
+
+                    $rows[$key]['real'] += (float) $row->real_value;
+                }
+
+                $data = collect($rows)
+                    ->map(function (array $row) {
+                        $ach = $row['top'] > 0 ? ($row['real'] / $row['top']) * 100 : 0;
+
+                        return [
+                            'label' => $row['label'],
+                            'divisi' => $row['divisi'],
+                            'top' => round($row['top']),
+                            'real' => round($row['real']),
+                            'achievement' => round($ach, 2),
+                        ];
+                    })
+                    ->filter(fn(array $row) => $row['top'] > 0)
+                    ->sortByDesc('achievement')
+                    ->values();
+
+                return [
+                    'labels' => $data->pluck('label')->all(),
+                    'data' => $data->all(),
+                ];
+            }
+        );
+    }
+
     // -------------------------------------------------------
     // DRILL-DOWN
     // -------------------------------------------------------
@@ -363,6 +415,11 @@ class DashboardService
         $end = Carbon::parse($request->endDate())->locale('id')->translatedFormat('d M Y');
 
         return $start . ' - ' . $end;
+    }
+
+    private function achievementKey(?string $divisi, ?string $region): string
+    {
+        return mb_strtoupper(trim((string) $divisi)) . '|' . mb_strtoupper(trim((string) $region));
     }
 
     // -------------------------------------------------------

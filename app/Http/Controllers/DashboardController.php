@@ -76,6 +76,11 @@ class DashboardController extends Controller
         return response()->json($this->service->getChartPerCoverage($request));
     }
 
+    public function getAchievementRace(DashboardFilterRequest $request)
+    {
+        return response()->json($this->service->getAchievementRace($request));
+    }
+
     public function getDrillDown(DashboardFilterRequest $request)
     {
         abort_unless($this->coverageAccess->canViewDashboardDrilldown(Auth::user()), 403);

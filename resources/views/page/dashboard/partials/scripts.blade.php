@@ -9,6 +9,7 @@
             chartSegment: "{{ route('dashboard.chart.segment') }}",
             chartPilar: "{{ route('dashboard.chart.pilar') }}",
             chartCoverage: "{{ route('dashboard.chart.coverage') }}",
+            chartAchievementRace: "{{ route('dashboard.chart.achievement-race') }}",
             drilldown: @json(($dashboardAccess['can_view_drilldown'] ?? true) ? route('dashboard.drilldown') : null),
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
             productLookup: "{{ route('product.produk') }}",

@@ -641,6 +641,124 @@ class SelloutQueryService
         return $this->baseChartQuery($request, $yearRange);
     }
 
+    public function topMarketingTarget(DashboardFilterRequest $request): float
+    {
+        $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
+        $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
+
+        $query = DB::connection(self::CONN_DWH)
+            ->table('crm_top_marketing as top')
+            ->whereRaw(
+                "STR_TO_DATE(CONCAT(top.tahun, '-', LPAD(top.bulan, 2, '0'), '-01'), '%Y-%m-%d') BETWEEN ? AND ?",
+                [$startMonth, $endMonth]
+            );
+
+        if ($request->filled('pilar')) {
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('top.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+        }
+
+        if ($request->filled('product')) {
+            $query->whereIn('top.kode_ph', $request->input('product'));
+        }
+
+        return (float) $query->sum('top.val_nett');
+    }
+
+    public function topMarketingByRegion(DashboardFilterRequest $request)
+    {
+        $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
+        $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
+
+        $query = DB::connection(self::CONN_DWH)
+            ->table('crm_top_marketing as top')
+            ->whereRaw(
+                "STR_TO_DATE(CONCAT(top.tahun, '-', LPAD(top.bulan, 2, '0'), '-01'), '%Y-%m-%d') BETWEEN ? AND ?",
+                [$startMonth, $endMonth]
+            );
+
+        if ($request->filled('pilar')) {
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('top.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+        }
+
+        if ($request->filled('product')) {
+            $query->whereIn('top.kode_ph', $request->input('product'));
+        }
+
+        return $query
+            ->selectRaw("
+                COALESCE(NULLIF(TRIM(top.divisi), ''), 'LAINNYA') as divisi,
+                COALESCE(NULLIF(TRIM(top.region), ''), 'LAINNYA') as region,
+                SUM(top.val_nett) as top_value
+            ")
+            ->groupBy('divisi', 'region')
+            ->get();
+    }
+
+    public function realNettoByRegion(DashboardFilterRequest $request)
+    {
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+        $regionSql = "CASE
+            WHEN UPPER(TRIM(so.regional)) LIKE 'OTC%' THEN 'OTC'
+            ELSE COALESCE(NULLIF(TRIM(so.regional), ''), 'LAINNYA')
+        END";
+
+        $query = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
+                $join->on('so.code_product', '=', 'vp.pt_dist')
+                    ->on('so.dist', '=', 'vp.dist');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')
+                    ->whereNull('mo.deleted_at');
+            })
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+
+        if ($request->filled('pilar')) {
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+        }
+
+        if ($request->filled('distributor')) {
+            $query->whereIn('so.dist', $request->input('distributor'));
+        }
+
+        if ($request->filled('product')) {
+            $query->whereIn('vp.pt_ph', $request->input('product'));
+        }
+
+        return $query
+            ->selectRaw("
+                COALESCE(NULLIF(TRIM(so.divisi), ''), 'LAINNYA') as divisi,
+                {$regionSql} as region,
+                SUM(so.netto) as real_value
+            ")
+            ->groupBy('divisi', DB::raw($regionSql))
+            ->get();
+    }
+
     /**
      * Query khusus chart bulanan.
      * Tetap menghormati mapping/access filter, tapi tidak melakukan enrichment per transaksi.

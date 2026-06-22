@@ -17,6 +17,7 @@ $(document).ready(function () {
         chartSegment: routes.chartSegment,
         chartPilar: routes.chartPilar,
         chartCoverage: routes.chartCoverage,
+        chartAchievementRace: routes.chartAchievementRace,
     });
     if (canViewDrilldown) {
         Dashboard.Drilldown.init(routes.drilldown, {

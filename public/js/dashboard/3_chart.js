@@ -16,6 +16,7 @@ Dashboard.Charts = (function ($, H) {
     var chartPilar = null;
     var chartSegment = null;
     var chartCoverage = null;
+    var chartAchievementRaceEl = null;
 
     var GRID_LIGHT = { borderColor: "#f0f0f0", strokeDashArray: 4 };
     var COVERAGE_COLORS = [
@@ -38,6 +39,24 @@ Dashboard.Charts = (function ($, H) {
         initChartSegment();
         initChartPilar();
         initChartCoverage();
+        initAchievementRace();
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function formatPercent(value) {
+        var number = parseFloat(value) || 0;
+        return number.toLocaleString("id-ID", {
+            minimumFractionDigits: number % 1 === 0 ? 0 : 1,
+            maximumFractionDigits: 1,
+        }) + "%";
     }
 
     function initChartTrend() {
@@ -348,13 +367,13 @@ Dashboard.Charts = (function ($, H) {
                 },
             },
             colors: [
-                "#0EA5E9",
-                "#22C55E",
-                "#F59E0B",
-                "#EF4444",
-                "#8B5CF6",
-                "#14B8A6",
-                "#64748B",
+                "#378ADD",
+                "#1D9E75",
+                "#EF9F27",
+                "#E24B4A",
+                "#7F77DD",
+                "#0F6E56",
+                "#888780",
             ],
             dataLabels: {
                 enabled: true,
@@ -422,13 +441,12 @@ Dashboard.Charts = (function ($, H) {
                 },
             },
             colors: [
-                "#F43F5E",
-                "#F59E0B",
-                "#10B981",
-                "#3B82F6",
-                "#6366F1",
-                "#8B5CF6",
-                "#EC4899",
+                "#D85A30",
+                "#EF9F27",
+                "#1D9E75",
+                "#378ADD",
+                "#7F77DD",
+                "#D4537E",
             ],
             plotOptions: {
                 bar: {
@@ -548,6 +566,63 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
+    function initAchievementRace() {
+        chartAchievementRaceEl = document.querySelector("#achievementRaceRows");
+    }
+
+    function getAchievementTier(achievement) {
+        if (achievement >= 90) return "over";
+        if (achievement >= 70) return "near";
+        if (achievement >= 40) return "mid";
+        return "low";
+    }
+
+    function loadAchievementRace() {
+        if (!chartAchievementRaceEl || !routes.chartAchievementRace) {
+            return Promise.resolve();
+        }
+
+        chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>';
+
+        return H.apiGet("chartAchievementRace", H.getFilters()).then(function (res) {
+            var rows = res.data || [];
+
+            if (!rows.length) {
+                chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty">Data achievement belum tersedia</div>';
+                return;
+            }
+
+            chartAchievementRaceEl.innerHTML = rows.map(function (row) {
+                var achievement = Math.max(parseFloat(row.achievement) || 0, 0);
+                var width = Math.min(achievement, 100);
+                var markerLeft = Math.min(Math.max(width, 4), 100);
+                var tier = getAchievementTier(achievement);
+                var title = [
+                    "TOP: " + H.formatRupiah(row.top),
+                    "REAL: " + H.formatRupiah(row.real),
+                    "ACH: " + formatPercent(achievement),
+                ].join("\n");
+
+                return [
+                    '<div class="achievement-race__row" title="' + escapeHtml(title) + '">',
+                        '<div class="achievement-race__label">' + escapeHtml(row.label) + '</div>',
+                        '<div class="achievement-race__track">',
+                            '<div class="achievement-race__bar achievement-race__bar--' + tier + '" style="width:' + width + '%">',
+                                '<span class="achievement-race__value">' + formatPercent(achievement) + '</span>',
+                            '</div>',
+                            '<span class="achievement-race__marker achievement-race__marker--' + tier + '" style="left:' + markerLeft + '%">',
+                                '<i class="fas ' + (achievement >= 100 ? "fa-flag-checkered" : "fa-running") + '"></i>',
+                            '</span>',
+                        '</div>',
+                    '</div>',
+                ].join("");
+            }).join("");
+        }).catch(function (error) {
+            console.error(error);
+            chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>';
+        });
+    }
+
     function loadAll() {
         return Promise.all([
             loadChartTrend(),
@@ -555,6 +630,7 @@ Dashboard.Charts = (function ($, H) {
             loadChartSegment(),
             loadChartPilar(),
             loadChartCoverage(),
+            loadAchievementRace(),
         ]);
     }
 

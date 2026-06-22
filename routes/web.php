@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/chart/divisi',      [DashboardController::class, 'getChartPerDivisi'])->name('chart.divisi');
         Route::get('/chart/segment',     [DashboardController::class, 'getChartPerSegment'])->name('chart.segment');
         Route::get('/chart/coverage',    [DashboardController::class, 'getChartPerCoverage'])->name('chart.coverage');
+        Route::get('/chart/achievement-race', [DashboardController::class, 'getAchievementRace'])->name('chart.achievement-race');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');
