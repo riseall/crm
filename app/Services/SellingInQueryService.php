@@ -89,10 +89,12 @@ class SellingInQueryService
         return "(
             SELECT
                 pt_ph COLLATE utf8mb4_0900_ai_ci as pt_ph,
-                MIN(id_coverage COLLATE utf8mb4_0900_ai_ci) as id_coverage
+                id_coverage COLLATE utf8mb4_0900_ai_ci as id_coverage
             FROM {$this->dwhTable('crm_mst_products')}
             WHERE deleted_at IS NULL
-            GROUP BY pt_ph COLLATE utf8mb4_0900_ai_ci
+            GROUP BY
+                pt_ph COLLATE utf8mb4_0900_ai_ci,
+                id_coverage COLLATE utf8mb4_0900_ai_ci
         ) as {$alias}";
     }
 
@@ -302,15 +304,20 @@ class SellingInQueryService
     public function pmLookup(string $search = '', int $limit = 30): array
     {
         return DB::connection(self::CONN_AUTH)
-            ->table('users as u')
+            ->table(DB::raw($this->productCoverageTable('mp')))
             ->join(
                 DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
-                DB::raw('u.nik COLLATE utf8mb4_0900_ai_ci'),
-                '=',
-                DB::raw('mc.cov_nik COLLATE utf8mb4_0900_ai_ci')
+                fn ($join) => $join
+                    ->on('mp.id_coverage', '=', DB::raw('mc.id_coverage COLLATE utf8mb4_0900_ai_ci'))
+                    ->whereNull('mc.deleted_at')
+                    ->where('mc.is_active', true)
             )
-            ->where('mc.id_coverage', 'like', '3.%')
-            ->whereNull('mc.deleted_at')
+            ->join(
+                'users as u',
+                DB::raw('mc.cov_nik COLLATE utf8mb4_0900_ai_ci'),
+                '=',
+                DB::raw('u.nik COLLATE utf8mb4_0900_ai_ci')
+            )
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('u.name', 'like', "%{$search}%")
                    ->orWhere('u.nik', 'like', "%{$search}%");
