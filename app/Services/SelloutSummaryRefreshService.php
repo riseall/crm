@@ -86,10 +86,15 @@ class SelloutSummaryRefreshService
                 segment_dist,
                 segment_mi,
                 code_product,
+                code_prod_ph,
+                `desc`,
                 pilar_sub,
                 divisi,
                 sub_divisi,
                 regional,
+                qty,
+                hna,
+                bruto,
                 netto,
                 created_at,
                 updated_at
@@ -105,10 +110,15 @@ class SelloutSummaryRefreshService
                 k.desc_cust_grp4 AS segment_dist,
                 seg.segment_mi AS segment_mi,
                 k.material AS code_product,
+                vp.pt_ph AS code_prod_ph,
+                vp.pt_desc AS `desc`,
                 vp.pilar_sub AS pilar_sub,
                 sub.divisi AS divisi,
                 sub.sub_divisi AS sub_divisi,
                 reg.regional AS regional,
+                k.quantity AS qty,
+                k.unit_price_penjualan AS hna,
+                (k.total_penjualan + k.total_discount) AS bruto,
                 ((k.total_penjualan + k.total_discount) - (k.dis_zd02_amount + k.dis_zd04_amount)) AS netto,
                 NOW() AS created_at,
                 NOW() AS updated_at
@@ -194,10 +204,15 @@ class SelloutSummaryRefreshService
                 segment_dist,
                 segment_mi,
                 code_product,
+                code_prod_ph,
+                `desc`,
                 pilar_sub,
                 divisi,
                 sub_divisi,
                 regional,
+                qty,
+                hna,
+                bruto,
                 netto,
                 created_at,
                 updated_at
@@ -213,10 +228,15 @@ class SelloutSummaryRefreshService
                 a.desc_cust_grp3 AS segment_dist,
                 seg.segment_mi AS segment_mi,
                 a.material AS code_product,
+                vp.pt_ph AS code_prod_ph,
+                vp.pt_desc AS `desc`,
                 vp.pilar_sub AS pilar_sub,
                 sub.divisi AS divisi,
                 sub.sub_divisi AS sub_divisi,
                 reg.regional AS regional,
+                a.quantity AS qty,
+                a.unit_price_penjualan AS hna,
+                a.nilai_bruto AS bruto,
                 a.nilai_netto AS netto,
                 NOW() AS created_at,
                 NOW() AS updated_at
@@ -288,81 +308,91 @@ class SelloutSummaryRefreshService
 
         DB::connection(self::CONN_DWH)->statement(
             "INSERT INTO " . self::SUMMARY_TABLE . " (
-            source_table,
-            source_id,
-            tgl_faktur,
-            dist,
-            id_outlet,
-            id_cbg,
-            id_cbg_ph,
-            segment_dist,
-            segment_mi,
-            code_product,
-            pilar_sub,
-            divisi,
-            sub_divisi,
-            regional,
-            netto,
-            created_at,
-            updated_at
-        )
-        SELECT
-            'METD' AS source_table,
-            m.id AS source_id,
-            m.tgl_shipper AS tgl_faktur,
-            'METD' AS dist,
-            m.id_outlet AS id_outlet,
-            m.kode_cbg_ph AS id_cbg,
-            {$cbgPhFallback} AS id_cbg_ph,
-            m.segmen AS segment_dist,
-            seg.segment_mi AS segment_mi,
-            m.kode_brg_metd AS code_product,
-            vp.pilar_sub AS pilar_sub,
-            sub.divisi AS divisi,
-            sub.sub_divisi AS sub_divisi,
-            reg.regional AS regional,
-            m.netto AS netto,
-            NOW() AS created_at,
-            NOW() AS updated_at
+                source_table,
+                source_id,
+                tgl_faktur,
+                dist,
+                id_outlet,
+                id_cbg,
+                id_cbg_ph,
+                segment_dist,
+                segment_mi,
+                code_product,
+                code_prod_ph,
+                `desc`,
+                pilar_sub,
+                divisi,
+                sub_divisi,
+                regional,
+                qty,
+                hna,
+                bruto,
+                netto,
+                created_at,
+                updated_at
+            )
+            SELECT
+                'METD' AS source_table,
+                m.id AS source_id,
+                m.tgl_shipper AS tgl_faktur,
+                'METD' AS dist,
+                m.id_outlet AS id_outlet,
+                m.kode_cbg_ph AS id_cbg,
+                {$cbgPhFallback} AS id_cbg_ph,
+                m.segmen AS segment_dist,
+                seg.segment_mi AS segment_mi,
+                m.kode_brg_metd AS code_product,
+                vp.pt_ph AS code_prod_ph,
+                vp.pt_desc AS `desc`,
+                vp.pilar_sub AS pilar_sub,
+                sub.divisi AS divisi,
+                sub.sub_divisi AS sub_divisi,
+                reg.regional AS regional,
+                m.qty AS qty,
+                m.hna AS hna,
+                m.bruto AS bruto,
+                m.netto AS netto,
+                NOW() AS created_at,
+                NOW() AS updated_at
 
-        FROM selling_out_metd AS m
+            FROM selling_out_metd AS m
 
-        LEFT JOIN mst_segment AS seg
-            ON {$segSegment} = {$mSegment}
+            LEFT JOIN mst_segment AS seg
+                ON {$segSegment} = {$mSegment}
 
-        LEFT JOIN v_pt_mstr_dist AS vp
-            ON {$vpProduct} = {$mProduct}
+            LEFT JOIN v_pt_mstr_dist AS vp
+                ON {$vpProduct} = {$mProduct}
 
-        LEFT JOIN crm_mst_sub_div AS sub
-            ON {$subSegment} = {$segSegmentMi}
-            AND {$subPilar} = {$vpPilar}
-            AND sub.is_active = 1
+            LEFT JOIN crm_mst_sub_div AS sub
+                ON {$subSegment} = {$segSegmentMi}
+                AND {$subPilar} = {$vpPilar}
+                AND sub.is_active = 1
 
-        LEFT JOIN mst_cbg_dist_new AS cbg
-            ON {$cbgDistId} = {$mCbg}
+            LEFT JOIN mst_cbg_dist_new AS cbg
+                ON {$cbgDistId} = {$mCbg}
 
-        LEFT JOIN crm_mst_regional AS reg
-            ON {$regSubDivisi} = {$subSubDivisi}
-            AND {$regCbgPh} = {$cbgPhFallback}
-            AND reg.is_active = 1
+            LEFT JOIN crm_mst_regional AS reg
+                ON {$regSubDivisi} = {$subSubDivisi}
+                AND {$regCbgPh} = {$cbgPhFallback}
+                AND reg.is_active = 1
 
-        WHERE m.tgl_shipper BETWEEN ? AND ?
+            WHERE m.tgl_shipper BETWEEN ? AND ?
 
-        ON DUPLICATE KEY UPDATE
-            tgl_faktur = VALUES(tgl_faktur),
-            dist = VALUES(dist),
-            id_outlet = VALUES(id_outlet),
-            id_cbg = VALUES(id_cbg),
-            id_cbg_ph = VALUES(id_cbg_ph),
-            code_product = VALUES(code_product),
-            segment_dist = VALUES(segment_dist),
-            segment_mi = VALUES(segment_mi),
-            pilar_sub = VALUES(pilar_sub),
-            divisi = VALUES(divisi),
-            sub_divisi = VALUES(sub_divisi),
-            regional = VALUES(regional),
-            netto = VALUES(netto),
-            updated_at = NOW()",
+            ON DUPLICATE KEY UPDATE
+                dist = VALUES(dist),
+                tgl_faktur = VALUES(tgl_faktur),
+                id_outlet = VALUES(id_outlet),
+                id_cbg = VALUES(id_cbg),
+                id_cbg_ph = VALUES(id_cbg_ph),
+                code_product = VALUES(code_product),
+                segment_dist = VALUES(segment_dist),
+                segment_mi = VALUES(segment_mi),
+                pilar_sub = VALUES(pilar_sub),
+                divisi = VALUES(divisi),
+                sub_divisi = VALUES(sub_divisi),
+                regional = VALUES(regional),
+                netto = VALUES(netto),
+                updated_at = NOW()",
             [$start, $end]
         );
     }
