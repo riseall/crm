@@ -20,8 +20,8 @@
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6">
             <x-stat-card title="UPDATE TERAKHIR"
-                value="{{ $latestUpload ? \Carbon\Carbon::parse($latestUpload)->format('d/m/Y') : '-' }}"
-                subtitle="Upload" subtitleColor="text-warning" icon="fas fa-history" color="warning">
+                value="{{ $latestUpload ? \Carbon\Carbon::parse($latestUpload)->format('d/m/Y') : '-' }}" subtitle="Upload"
+                subtitleColor="text-warning" icon="fas fa-history" color="warning">
             </x-stat-card>
         </div>
     </div>
@@ -67,7 +67,8 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalUploadTopMarketingLabel">Upload Top Marketing
-                        <span class="d-block text-muted pt-2 font-size-sm">Data bulan yang dipilih akan diganti dari file upload.</span>
+                        <span class="d-block text-muted pt-2 font-size-sm">Data bulan yang dipilih akan diganti dari file
+                            upload.</span>
                     </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <i aria-hidden="true" class="ki ki-close"></i>
@@ -85,10 +86,14 @@
                         </div>
                         <div class="form-group mb-0">
                             <label>File Excel</label>
-                            <input type="file" class="form-control" name="file" id="upload_file"
-                                accept=".xlsx,.csv" required>
-                            <span class="form-text text-muted">
-                                Header wajib: pilar, kode_ph, val_net. Header lain yang didukung: divisi, region, pm, nama_prod, segment, cbg_new, unit.
+                            <input type="file" class="form-control" name="file" id="upload_file" accept=".xlsx,.csv"
+                                required>
+                            <span class="form-text text-muted mt-2">
+                                Belum punya template?
+                                <a href="{{ asset('storage/template/Template_Upload_TOP_per_Bulan.xlsx') }}" download
+                                    class="text-primary font-weight-bold">
+                                    Unduh Template Excel di sini
+                                </a>
                             </span>
                             <div class="invalid-feedback d-block" id="upload_file_error"></div>
                         </div>
@@ -253,7 +258,8 @@
                         var response = xhr.responseJSON || {};
                         var message = response.message || 'Upload top marketing gagal.';
 
-                        if (response.errors && response.errors.file && response.errors.file.length) {
+                        if (response.errors && response.errors.file && response.errors.file
+                            .length) {
                             message = response.errors.file[0];
                             $('#upload_file_error').text(message);
                         }
