@@ -31,7 +31,7 @@ class StockService
                         s.kelompok_ed,
                         SUM(s.stock) as total_stock,
                         SUM(s.value) as total_value,
-                        COUNT(DISTINCT s.pt_part) as total_sku
+                        COUNT(DISTINCT s.pt_ph) as total_sku
                     ')
                     ->groupBy('s.kelompok_ed')
                     ->get()
@@ -71,7 +71,7 @@ class StockService
             $this->query->cacheTtl(),
             function () use ($request) {
                 $results = $this->query->baseQuery($request)
-                    ->selectRaw('s.kelompok_ed, SUM(s.value) as total_value, COUNT(DISTINCT s.pt_part) as total_sku')
+                    ->selectRaw('s.kelompok_ed, SUM(s.value) as total_value, COUNT(DISTINCT s.pt_ph) as total_sku')
                     ->groupBy('s.kelompok_ed')
                     ->get()
                     ->keyBy('kelompok_ed');
@@ -151,7 +151,7 @@ class StockService
                 $total = (float) ($this->query->baseQuery($request)->sum('s.value') ?: 1);
 
                 return $this->query->baseQuery($request)
-                    ->selectRaw('s.source, SUM(s.value) as total_value, SUM(s.stock) as total_stock, COUNT(DISTINCT s.pt_part) as total_sku')
+                    ->selectRaw('s.source, SUM(s.value) as total_value, SUM(s.stock) as total_stock, COUNT(DISTINCT s.pt_ph) as total_sku')
                     ->groupBy('s.source')
                     ->orderByDesc('total_value')
                     ->get()
@@ -210,7 +210,7 @@ class StockService
                 return $this->query->baseQuery($request)
                     ->whereIn('s.kelompok_ed', ['sudah_ed', '1_3', '4_7'])
                     ->selectRaw('
-                        s.pt_part,
+                        s.pt_ph,
                         s.pt_desc,
                         s.pilar,
                         s.source,
@@ -220,13 +220,13 @@ class StockService
                         SUM(s.stock)     as total_stock,
                         SUM(s.value)     as total_value
                     ')
-                    ->groupBy('s.pt_part', 's.pt_desc', 's.pilar', 's.source', 's.cabang', 's.kelompok_ed')
+                    ->groupBy('s.pt_ph', 's.pt_desc', 's.pilar', 's.source', 's.cabang', 's.kelompok_ed')
                     ->orderByRaw("FIELD(s.kelompok_ed, 'sudah_ed', '1_3', '4_7')")
                     ->orderByDesc('total_value')
                     ->limit($limit)
                     ->get()
                     ->map(fn($r) => [
-                        'pt_part'        => $r->pt_part,
+                        'pt_ph'        => $r->pt_ph,
                         'pt_desc'        => $r->pt_desc,
                         'pilar'          => $r->pilar,
                         'source'         => $r->source,
@@ -254,7 +254,7 @@ class StockService
         $search = $request->get('search')['value'] ?? '';
 
         $base = $this->query->baseQuery($request)
-            ->selectRaw('s.source, s.pt_part, s.pt_desc, s.cabang, s.stock, s.ptprice, s.value, s.pilar, s.exp_date, s.kelompok_ed')
+            ->selectRaw('s.source, s.pt_ph, s.pt_desc, s.cabang, s.stock, s.ptprice, s.value, s.pilar, s.exp_date, s.kelompok_ed')
             ->orderByRaw("FIELD(s.kelompok_ed, 'sudah_ed', '1_3', '4_7', '8_12', '13_17', 'gt_18')")
             ->orderByDesc('s.value');
 
@@ -262,7 +262,7 @@ class StockService
 
         if ($search) {
             $base->where(function ($q) use ($search) {
-                $q->where('s.pt_part', 'like', "%{$search}%")
+                $q->where('s.pt_ph', 'like', "%{$search}%")
                     ->orWhere('s.pt_desc', 'like', "%{$search}%")
                     ->orWhere('s.cabang',  'like', "%{$search}%")
                     ->orWhere('s.pilar',   'like', "%{$search}%");

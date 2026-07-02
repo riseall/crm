@@ -481,7 +481,7 @@
                     },
                     className: "text-center",
                 },
-                { data: "pt_part", className: "font-size-sm" },
+                { data: "pt_ph", className: "font-size-sm" },
                 { data: "pt_desc" },
                 { data: "pilar" },
                 { data: "cabang" },

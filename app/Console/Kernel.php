@@ -33,6 +33,12 @@ class Kernel extends ConsoleKernel
             ->dailyAt('05:00')
             ->withoutOverlapping()
             ->appendOutputTo(storage_path('logs/qad-stock-gpj-sync.log'));
+
+        $schedule->command('stock:refresh-summary')
+            ->timezone('Asia/Jakarta')
+            ->dailyAt('09:45')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/stock-refresh-summary.log'));
     }
 
     /**
