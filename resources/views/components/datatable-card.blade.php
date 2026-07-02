@@ -135,7 +135,7 @@
                     btn.find('.toggle-text').text('Tampilkan');
                 }).on('shown.bs.collapse', function () {
                     if ($.fn.DataTable.isDataTable('#{{ $tableId }}')) {
-                        $('#{{ $tableId }}').DataTable().columns.adjust().draw();
+                        $('#{{ $tableId }}').DataTable().columns.adjust().draw(false);
                     }
                 });
             });
