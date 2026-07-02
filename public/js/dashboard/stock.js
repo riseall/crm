@@ -125,9 +125,12 @@
         return response.json();
     }
 
-    async function loadSummary(filters) {
-        const data = await apiFetch(ROUTES.summary, filters);
-        renderStockWarnings(data.warnings || []);
+    async function loadDashboard(filters) {
+        const data = await apiFetch(ROUTES.dashboard, filters);
+        renderStockWarnings((data.summary && data.summary.warnings) || []);
+        renderChartAging(data.chart_aging || {});
+        renderPerSource(data.per_source || []);
+        renderTopCabang(data.top_cabang || []);
     }
 
     function renderStockWarnings(warnings) {
@@ -235,9 +238,8 @@
         track.classList.add("is-running");
     }
 
-    async function loadChartAging(filters) {
-        const data = await apiFetch(ROUTES.chartAging, filters);
-        const agingRows = data.labels
+    function renderChartAging(data) {
+        const agingRows = (data.labels || [])
             .map((label, index) => ({
                 label,
                 value: Number(data.values[index] || 0),
@@ -329,14 +331,14 @@
         }
     }
 
-    async function loadPerSource(filters) {
-        const data = await apiFetch(ROUTES.perSource, filters);
+    function renderPerSource(data) {
+        const rows = Array.isArray(data) ? data : [];
         const max = Math.max(
             ...data.map((row) => Number(row.total_value || 0)),
             1,
         );
 
-        byId("sourceList").innerHTML = data
+        byId("sourceList").innerHTML = rows
             .map((row) => {
                 const style = SRC_STYLE[row.source] || {
                     bg: "#F8FAFC",
@@ -365,10 +367,10 @@
             .join("");
     }
 
-    async function loadTopCabang(filters) {
-        const data = await apiFetch(ROUTES.topCabang, filters);
-        const labels = data.map((row) => row.cabang || "-");
-        const values = data.map((row) => Number(row.total_value || 0));
+    function renderTopCabang(data) {
+        const rows = Array.isArray(data) ? data : [];
+        const labels = rows.map((row) => row.cabang || "-");
+        const values = rows.map((row) => Number(row.total_value || 0));
         const options = {
             chart: {
                 type: "bar",
@@ -421,7 +423,7 @@
             },
             tooltip: {
                 custom: ({ dataPointIndex }) => {
-                    const row = data[dataPointIndex] || {};
+                    const row = rows[dataPointIndex] || {};
                     return `
                         <div class="px-3 py-2">
                             <div class="font-weight-bold">${esc(row.cabang || "-")}</div>
@@ -532,23 +534,10 @@
     async function loadAll() {
         const filters = getFilters();
 
-        const results = await Promise.all(
-            [
-                loadSummary(filters),
-                loadChartAging(filters),
-                loadPerSource(filters),
-                loadTopCabang(filters),
-            ].map((job) =>
-                Promise.resolve(job).then(
-                    (value) => ({ status: "fulfilled", value }),
-                    (reason) => ({ status: "rejected", reason }),
-                ),
-            ),
-        );
-
-        const failed = results.some((result) => result.status === "rejected");
-        if (failed) {
-            console.warn("Sebagian data dashboard stock gagal dimuat");
+        try {
+            await loadDashboard(filters);
+        } catch (error) {
+            console.warn("Dashboard stock gagal dimuat", error);
         }
 
         if (dataTable) {

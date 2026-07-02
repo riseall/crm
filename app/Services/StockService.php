@@ -15,6 +15,21 @@ class StockService
         $this->query = $query;
     }
 
+    public function getQueryService(): StockQueryService
+    {
+        return $this->query;
+    }
+
+    public function getDashboardData(StockFilterRequest $request): array
+    {
+        return [
+            'summary' => $this->getSummaryCards($request),
+            'chart_aging' => $this->getChartAging($request),
+            'per_source' => $this->getPerSource($request),
+            'top_cabang' => $this->getTopCabang($request),
+        ];
+    }
+
     // -------------------------------------------------------
     // SUMMARY WARNING
     // -------------------------------------------------------
@@ -96,49 +111,6 @@ class StockService
     }
 
     // -------------------------------------------------------
-    // CHART: Aging per source (stacked bar)
-    // -------------------------------------------------------
-
-    public function getChartAgingPerSource(StockFilterRequest $request): array
-    {
-        return Cache::remember(
-            $this->query->cacheKey('chart_aging_source', $request),
-            $this->query->cacheTtl(),
-            function () use ($request) {
-                $results  = $this->query->baseQuery($request)
-                    ->selectRaw('s.source, s.kelompok_ed, SUM(s.value) as total_value')
-                    ->groupBy('s.source', 's.kelompok_ed')
-                    ->get();
-
-                $sources  = $results->pluck('source')->unique()->sort()->values();
-                $order    = StockQueryService::kelompokEdOrder();
-                $datasets = [];
-
-                foreach ($order as $key) {
-                    $data = $sources->map(function ($src) use ($results, $key) {
-                        $row = $results->first(fn($r) => $r->source === $src && $r->kelompok_ed === $key);
-                        return round((float) ($row->total_value ?? 0));
-                    })->values()->toArray();
-
-                    // Skip dataset yang semua nilainya 0
-                    if (array_sum($data) === 0) continue;
-
-                    $datasets[] = [
-                        'label' => StockQueryService::kelompokEdLabel($key),
-                        'key'   => $key,
-                        'data'  => $data,
-                    ];
-                }
-
-                return [
-                    'labels'   => $sources->values()->toArray(),
-                    'datasets' => $datasets,
-                ];
-            }
-        );
-    }
-
-    // -------------------------------------------------------
     // Per source (ringkasan kartu distributor)
     // -------------------------------------------------------
 
@@ -193,51 +165,6 @@ class StockService
                     'total_value' => round((float) $r->total_value),
                     'pct_of_max'  => round(($r->total_value / $max) * 100, 1),
                 ])->values()->toArray();
-            }
-        );
-    }
-
-    // -------------------------------------------------------
-    // Produk prioritas tindakan (sudah_ed, 1_3, 4_7)
-    // -------------------------------------------------------
-
-    public function getProdukPrioritas(StockFilterRequest $request, int $limit = 10): array
-    {
-        return Cache::remember(
-            $this->query->cacheKey('produk_prioritas', $request, (string) $limit),
-            $this->query->cacheTtl(),
-            function () use ($request, $limit) {
-                return $this->query->baseQuery($request)
-                    ->whereIn('s.kelompok_ed', ['sudah_ed', '1_3', '4_7'])
-                    ->selectRaw('
-                        s.pt_ph,
-                        s.pt_desc,
-                        s.pilar,
-                        s.source,
-                        s.cabang,
-                        s.kelompok_ed,
-                        MIN(s.exp_date)  as earliest_exp,
-                        SUM(s.stock)     as total_stock,
-                        SUM(s.value)     as total_value
-                    ')
-                    ->groupBy('s.pt_ph', 's.pt_desc', 's.pilar', 's.source', 's.cabang', 's.kelompok_ed')
-                    ->orderByRaw("FIELD(s.kelompok_ed, 'sudah_ed', '1_3', '4_7')")
-                    ->orderByDesc('total_value')
-                    ->limit($limit)
-                    ->get()
-                    ->map(fn($r) => [
-                        'pt_ph'        => $r->pt_ph,
-                        'pt_desc'        => $r->pt_desc,
-                        'pilar'          => $r->pilar,
-                        'source'         => $r->source,
-                        'cabang'         => $r->cabang,
-                        'kelompok_ed'    => $r->kelompok_ed,
-                        'kelompok_label' => StockQueryService::kelompokEdLabel($r->kelompok_ed),
-                        'earliest_exp'   => $r->earliest_exp,
-                        'total_stock'    => round((float) $r->total_stock, 2),
-                        'total_value'    => round((float) $r->total_value),
-                    ])
-                    ->values()->toArray();
             }
         );
     }

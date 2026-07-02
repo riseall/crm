@@ -128,8 +128,7 @@
             </div>
         </div>
 
-        <x-datatable-card title="Detail Stock"
-            table-id="tableStock"
+        <x-datatable-card title="Detail Stock" table-id="tableStock"
             table-class="table-separate table-head-custom table-checkable table-sm" :collapsible="true" :collapsed="true">
             <th>Dist</th>
             <th>Kode</th>
@@ -302,10 +301,7 @@
     @php
         $stockDashboardConfig = [
             'routes' => [
-                'summary' => route('stock.api.summary'),
-                'chartAging' => route('stock.api.chart.aging'),
-                'perSource' => route('stock.api.per-source'),
-                'topCabang' => route('stock.api.top-cabang'),
+                'dashboard' => route('stock.api.dashboard'),
                 'table' => route('stock.api.table'),
                 'filterOptions' => route('stock.api.filter-options'),
             ],

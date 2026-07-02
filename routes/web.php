@@ -112,12 +112,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/',  [StockController::class, 'index'])->name('index');
 
         Route::prefix('api')->name('api.')->group(function () {
-            Route::post('summary',            [StockController::class, 'getSummaryCards'])->name('summary');
-            Route::post('chart/aging',        [StockController::class, 'getChartAging'])->name('chart.aging');
-            Route::post('chart/aging-source', [StockController::class, 'getChartAgingPerSource'])->name('chart.aging-source');
-            Route::post('per-source',         [StockController::class, 'getPerSource'])->name('per-source');
-            Route::post('top-cabang',         [StockController::class, 'getTopCabang'])->name('top-cabang');
-            Route::post('produk-prioritas',   [StockController::class, 'getProdukPrioritas'])->name('produk-prioritas');
+            Route::post('dashboard',         [StockController::class, 'getDashboard'])->name('dashboard');
             Route::post('table',              [StockController::class, 'getTableDetail'])->name('table');
             Route::get('filter-options',      [StockController::class, 'getFilterOptions'])->name('filter-options');
         });
