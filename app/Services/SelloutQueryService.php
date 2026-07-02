@@ -13,7 +13,7 @@ class SelloutQueryService
     private const CONN_DWH = 'db_dwh';
     private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v10';
+    private const CACHE_VERSION = 'v11';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
     private function dwhDatabaseName(): string
@@ -51,14 +51,6 @@ class SelloutQueryService
     private function authTable(string $table): string
     {
         return $this->authDatabaseName() . '.' . $table;
-    }
-
-    private function productMasterQuery(): Builder
-    {
-        return DB::connection(self::CONN_DWH)
-            ->table('v_pt_mstr_dist')
-            ->selectRaw('pt_dist, dist, MIN(pt_ph) as pt_ph, MIN(COALESCE(pilar_sub, pilar)) as pilar')
-            ->groupBy('pt_dist', 'dist');
     }
 
     private function customerOutletNameQuery(): Builder
@@ -111,56 +103,44 @@ class SelloutQueryService
     // -------------------------------------------------------
     // STANDARD JOINS - Query langsung dari summary table
     // -------------------------------------------------------
-    private function applyStandardJoins($query, bool $isHierarchical = false)
+    private function applyStandardJoins($query)
     {
         return $query
-            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
             ->leftJoin(DB::raw($this->dwhTable('mst_cust_dist') . ' as vcd'), function ($join) {
                 $join->on('so.id_outlet', '=', 'vcd.id_outlet')
                     ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
             })
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) use ($isHierarchical) {
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
                     ->whereNull('mo.deleted_at');
 
-                if (!$isHierarchical) {
-                    $join->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
-                    });
-                }
+                $join->whereExists(function ($exists) {
+                    $exists->select(DB::raw(1))
+                        ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
+                        ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                        ->whereNull('mx.deleted_at')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
+                });
             });
     }
 
     /**
      * Join minimal untuk chart - tanpa users join
      */
-    private function applyChartJoins($query, bool $isHierarchical = false)
+    private function applyChartJoins($query)
     {
         return $query
-            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) use ($isHierarchical) {
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
                     ->whereNull('mo.deleted_at');
 
-                if (!$isHierarchical) {
-                    $join->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
-                    });
-                }
+                $join->whereExists(function ($exists) {
+                    $exists->select(DB::raw(1))
+                        ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
+                        ->whereColumn('mx.id_coverage', 'mo.id_coverage')
+                        ->whereNull('mx.deleted_at')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
+                });
             });
     }
 
@@ -172,35 +152,23 @@ class SelloutQueryService
         ];
     }
 
-    private function mappingJoinCallback(bool $isHierarchical, ?string $targetLevelNum = null): \Closure
-    {
-        return function ($join) use ($isHierarchical, $targetLevelNum) {
-            if ($isHierarchical) {
-                $join->on(DB::raw('mo.id_coverage'), 'like', DB::raw("CONCAT(mc.id_coverage, '%')"));
-            } else {
-                $join->on('mo.id_coverage', '=', 'mc.id_coverage');
-            }
+    private function mappingJoinCallback(): \Closure
+{
+    return function ($join) {
+        $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+            ->whereNull('mc.deleted_at')
+            ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
 
-            if ($targetLevelNum !== null) {
-                $join->where('mc.cov_level', $targetLevelNum);
-            }
-
-            $join->whereNull('mc.deleted_at');
-
-            if (!$isHierarchical) {
-                $join->whereRaw($this->pilarMatchSql('vp.pilar', 'mc.cov_pilar'));
-            }
-
-            $join->where(function ($q) {
-                $q->whereNull('mc.valid_from')
-                    ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-            })
-                ->where(function ($q) {
-                    $q->whereNull('mc.valid_to')
-                        ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                });
-        };
-    }
+        $join->where(function ($q) {
+            $q->whereNull('mc.valid_from')
+                ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+        })
+        ->where(function ($q) {
+            $q->whereNull('mc.valid_to')
+                ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+        });
+    };
+}
 
     private function applyMappingValidity($query, string $alias): void
     {
@@ -225,7 +193,7 @@ class SelloutQueryService
                 ->from(DB::raw($this->dwhTable('crm_mst_mappings') . " as {$alias}"))
                 ->whereColumn("{$alias}.id_coverage", "{$outletAlias}.id_coverage")
                 ->whereNull("{$alias}.deleted_at")
-                ->whereRaw($this->pilarMatchSql('vp.pilar', "{$alias}.cov_pilar"));
+                ->whereRaw($this->pilarMatchSql('so.pilar_sub', "{$alias}.cov_pilar"));
 
             if ($levelNum !== null) {
                 $exists->where("{$alias}.cov_level", $levelNum);
@@ -312,51 +280,8 @@ class SelloutQueryService
         });
     }
 
-    private function applyHistorySearch(Builder $query, string $search): void
-    {
-        $search = trim($search);
-
-        if ($search === '') {
-            return;
-        }
-
-        $like = '%' . $search . '%';
-
-        $query->where(function ($q) use ($like) {
-            $q->where('so.dist', 'like', $like)
-                ->orWhere('so.id_outlet', 'like', $like)
-                ->orWhere('vcd.nama_outlet', 'like', $like)
-                ->orWhere('mc.cov_nik', 'like', $like)
-                ->orWhere('ma.name', 'like', $like)
-                ->orWhere('vp.pilar', 'like', $like)
-                ->orWhereRaw("(CASE mc.cov_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
-        });
-    }
-
-    private function applyHistoryAggregateSearch(Builder $query, string $search): void
-    {
-        $search = trim($search);
-
-        if ($search === '') {
-            return;
-        }
-
-        $like = '%' . $search . '%';
-
-        $query->where(function ($q) use ($like) {
-            $q->where('so.dist', 'like', $like)
-                ->orWhere('so.id_outlet', 'like', $like)
-                ->orWhere('vcd.outlet_name', 'like', $like)
-                ->orWhere('so.coverage_nik', 'like', $like)
-                ->orWhere('ma.name', 'like', $like)
-                ->orWhere('so.product_pilar', 'like', $like)
-                ->orWhereRaw("(CASE so.coverage_level WHEN 1 THEN 'GM' WHEN 2 THEN 'RM' WHEN 3 THEN 'SAM' WHEN 4 THEN 'AM' WHEN 5 THEN 'MR' ELSE 'Unmapped' END) like ?", [$like]);
-        });
-    }
-
     private function enrichedSummaryQuery(
         DashboardFilterRequest $request,
-        bool $isHierarchical,
         array $dateRange,
         bool $includeUser = true,
         bool $includeOutletName = true,
@@ -370,16 +295,12 @@ class SelloutQueryService
             ->table(self::SUMMARY_TABLE . ' as so');
 
         $query = $forChart
-            ? $this->applyChartJoins($query, $isHierarchical)
-            : $this->applyStandardJoins($query, $isHierarchical);
-
-        $targetLevelNum = $isHierarchical
-            ? $this->levelToNum($request->get('level', 'GM'))
-            : null;
+            ? $this->applyChartJoins($query)
+            : $this->applyStandardJoins($query);
 
         $query->leftJoin(
             DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
-            $this->mappingJoinCallback($isHierarchical, $targetLevelNum)
+            $this->mappingJoinCallback()
         );
 
         if ($includeUser) {
@@ -418,13 +339,13 @@ class SelloutQueryService
 
         $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
-        if (!$isHierarchical && $request->filled('level')) {
+        if ($request->filled('level')) {
             $query->where('mc.cov_level', $this->levelToNum($request->get('level')));
         }
 
         if ($request->filled('pilar')) {
             $query->whereIn(
-                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
                 collect($request->input('pilar'))
                     ->map(fn($pilar) => $this->normalizePilarValue($pilar))
                     ->unique()
@@ -438,43 +359,41 @@ class SelloutQueryService
         }
 
         if ($request->filled('product')) {
-            $query->whereIn('vp.pt_ph', $request->input('product'));
+            $query->whereIn('so.code_prod_ph', $request->input('product'));
         }
 
         $selects = [
             'so.id',
-            DB::raw('MAX(so.source_table) as source_table'),
-            DB::raw('MAX(so.source_id) as source_id'),
-            DB::raw('MAX(so.tgl_faktur) as tgl_faktur'),
-            DB::raw('MAX(so.dist) as dist'),
-            DB::raw('MAX(so.id_outlet) as id_outlet'),
-            DB::raw('MAX(so.id_cbg) as id_cbg'),
-            DB::raw('MAX(so.code_product) as code_product'),
-            DB::raw('MAX(so.segment_mi) as segment_mi'),
-            DB::raw('MAX(so.netto) as netto'),
-            DB::raw('MAX(vp.pilar) as product_pilar'),
-            DB::raw('MAX(mc.id_coverage) as coverage_id'),
-            DB::raw('MAX(mc.cov_desc) as coverage_desc'),
-            DB::raw('MAX(mc.cov_nik) as coverage_nik'),
-            DB::raw('MAX(mc.cov_level) as coverage_level'),
-            DB::raw('MAX(mc.cov_pilar) as coverage_pilar'),
-            DB::raw('MAX(mc.cov_divisi) as coverage_divisi'),
-            DB::raw('MAX(mc.valid_from) as coverage_valid_from'),
-            DB::raw('MAX(mc.valid_to) as coverage_valid_to'),
+            'so.source_table',
+            'so.source_id',
+            'so.tgl_faktur',
+            'so.dist',
+            'so.id_outlet',
+            'so.id_cbg',
+            'so.code_product',
+            'so.segment_mi',
+            'so.netto',
+            'so.pilar_sub as product_pilar',
+            'mc.id_coverage as coverage_id',
+            'mc.cov_desc as coverage_desc',
+            'mc.cov_nik as coverage_nik',
+            'mc.cov_level as coverage_level',
+            'mc.cov_pilar as coverage_pilar',
+            'mc.cov_divisi as coverage_divisi',
+            'mc.valid_from as coverage_valid_from',
+            'mc.valid_to as coverage_valid_to',
         ];
 
         if ($includeOutletName) {
-            $selects[] = DB::raw("MAX(COALESCE(vcd.nama_outlet, so.id_outlet)) as outlet_name");
+            $selects[] = DB::raw("COALESCE(vcd.nama_outlet, so.id_outlet) as outlet_name");
         } else {
-            $selects[] = DB::raw('MAX(so.id_outlet) as outlet_name');
+            $selects[] = 'so.id_outlet as outlet_name';
         }
 
         $selects[] = $includeUser
-            ? DB::raw('MAX(ma.name) as user_name')
+            ? 'ma.name as user_name'
             : DB::raw('NULL as user_name');
-
-        return $query->select($selects)
-            ->groupBy('so.id');
+        return $query->select($selects);
     }
 
     private function wrapAsSellout(Builder $query): Builder
@@ -490,7 +409,6 @@ class SelloutQueryService
      */
     public function baseQuery(
         DashboardFilterRequest $request,
-        bool $isHierarchical = false,
         ?array $dateRange = null,
         ?array $months = null,
         ?string $coverageId = null
@@ -498,7 +416,7 @@ class SelloutQueryService
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
 
         return $this->wrapAsSellout(
-            $this->enrichedSummaryQuery($request, $isHierarchical, $range, true, true, false, $months, $coverageId)
+            $this->enrichedSummaryQuery($request, $range, true, true, false, $months, $coverageId)
         );
     }
 
@@ -514,10 +432,6 @@ class SelloutQueryService
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
                     ->whereNull('mo.deleted_at')
@@ -526,7 +440,7 @@ class SelloutQueryService
                             ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
                             ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                             ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->pilarMatchSql('vp.pilar', 'mx.cov_pilar'));
+                            ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
 
                         $this->applyMappingValidity($exists, 'mx');
                     });
@@ -562,7 +476,7 @@ class SelloutQueryService
 
         if ($request->filled('pilar')) {
             $query->whereIn(
-                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
                 collect($request->input('pilar'))
                     ->map(fn($pilar) => $this->normalizePilarValue($pilar))
                     ->unique()
@@ -576,7 +490,7 @@ class SelloutQueryService
         }
 
         if ($request->filled('product')) {
-            $query->whereIn('vp.pt_ph', $request->input('product'));
+            $query->whereIn('so.code_prod_ph', $request->input('product'));
         }
 
         return $query->selectRaw("
@@ -609,7 +523,7 @@ class SelloutQueryService
             Carbon::create($year, 12, 31, 23, 59, 59)->toDateString(),
         ];
 
-        return $this->baseQuery($request, false, $yearRange);
+        return $this->baseQuery($request, $yearRange);
     }
 
     /**
@@ -623,7 +537,7 @@ class SelloutQueryService
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
 
         return $this->wrapAsSellout(
-            $this->enrichedSummaryQuery($request, false, $range, false, false, true)
+            $this->enrichedSummaryQuery($request, $range, false, false, true)
         );
     }
 
@@ -718,10 +632,6 @@ class SelloutQueryService
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
                     ->whereNull('mo.deleted_at');
@@ -732,7 +642,7 @@ class SelloutQueryService
 
         if ($request->filled('pilar')) {
             $query->whereIn(
-                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
                 collect($request->input('pilar'))
                     ->map(fn($pilar) => $this->normalizePilarValue($pilar))
                     ->unique()
@@ -746,7 +656,7 @@ class SelloutQueryService
         }
 
         if ($request->filled('product')) {
-            $query->whereIn('vp.pt_ph', $request->input('product'));
+            $query->whereIn('so.code_prod_ph', $request->input('product'));
         }
 
         return $query
@@ -768,10 +678,6 @@ class SelloutQueryService
         [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoinSub($this->productMasterQuery(), 'vp', function ($join) {
-                $join->on('so.code_product', '=', 'vp.pt_dist')
-                    ->on('so.dist', '=', 'vp.dist');
-            })
             ->whereBetween('so.tgl_faktur', [$start, $end]);
 
         if ($this->monthlyChartNeedsOutletFilter($request)) {
@@ -780,7 +686,7 @@ class SelloutQueryService
 
         if ($request->filled('pilar')) {
             $query->whereIn(
-                DB::raw($this->normalizedPilarSql('vp.pilar')),
+                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
                 collect($request->input('pilar'))
                     ->map(fn($pilar) => $this->normalizePilarValue($pilar))
                     ->unique()
@@ -794,7 +700,7 @@ class SelloutQueryService
         }
 
         if ($request->filled('product')) {
-            $query->whereIn('vp.pt_ph', $request->input('product'));
+            $query->whereIn('so.code_prod_ph', $request->input('product'));
         }
 
         return $query
@@ -815,12 +721,12 @@ class SelloutQueryService
             $firstMonth = min($months);
             $lastMonth = max($months);
 
-            $query = $this->baseQuery($request, false, [
+            $query = $this->baseQuery($request, [
                 Carbon::create($year, $firstMonth, 1)->startOfMonth()->toDateString(),
                 Carbon::create($year, $lastMonth, 1)->endOfMonth()->toDateString(),
             ], $months, $coverageId);
         } else {
-            $query = $this->baseQuery($request, false, null, null, $coverageId);
+            $query = $this->baseQuery($request, null, null, $coverageId);
         }
 
         return $query;
@@ -834,7 +740,6 @@ class SelloutQueryService
 
         $transactions = $this->enrichedSummaryQuery(
             $request,
-            false,
             [$start, $end],
             $hasSearch,
             $hasSearch,

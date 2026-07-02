@@ -6,9 +6,26 @@ var Dashboard = Dashboard || {};
 
 Dashboard.Tables = (function ($, H) {
     var tblAnggota = null;
+    var currentRoutes = null;
+    var isInitialized = false;
 
     function init(routes) {
+        currentRoutes = routes;
         if (!$("#tblAnggota").length) return;
+
+        var collapseEl = $("#tblAnggota_collapse");
+        if (collapseEl.length && !collapseEl.hasClass("show")) {
+            collapseEl.one("show.bs.collapse", function () {
+                initTable();
+            });
+        } else {
+            initTable();
+        }
+    }
+
+    function initTable() {
+        if (isInitialized) return;
+        isInitialized = true;
 
         tblAnggota = $("#tblAnggota").DataTable({
             processing: true,
@@ -16,7 +33,7 @@ Dashboard.Tables = (function ($, H) {
             responsive: true,
             autoWidth: false,
             ajax: {
-                url: routes.tableAnggota,
+                url: currentRoutes.tableAnggota,
                 data: function (d) {
                     return $.extend({}, d, H.getFilters());
                 },
@@ -41,18 +58,7 @@ Dashboard.Tables = (function ($, H) {
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
                 { data: "cov_desc", defaultContent: "-" },
-                // {
-                //     data: "total_outlet",
-                //     render: function (v) {
-                //         return H.formatInt(v);
-                //     },
-                // },
-                // {
-                //     data: "total_transaksi",
-                //     render: function (v) {
-                //         return H.formatInt(v);
-                //     },
-                // },
+
                 {
                     data: "total_netto",
                     render: function (v) {

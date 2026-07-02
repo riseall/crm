@@ -6,6 +6,7 @@ var Dashboard = Dashboard || {};
 
 Dashboard.Charts = (function ($, H) {
     var routes = {};
+    var consolidatedData = null;
     var chartMode = "hari";
     var chartTrend = null;
     var chartDivisi = null;
@@ -15,22 +16,9 @@ Dashboard.Charts = (function ($, H) {
     var chartDivisiLastWidth = 0;
     var chartPilar = null;
     var chartSegment = null;
-    var chartCoverage = null;
     var chartAchievementRaceEl = null;
 
     var GRID_LIGHT = { borderColor: "#f0f0f0", strokeDashArray: 4 };
-    var COVERAGE_COLORS = [
-        "#6366F1",
-        "#8B5CF6",
-        "#EC4899",
-        "#F43F5E",
-        "#F59E0B",
-        "#10B981",
-        "#3B82F6",
-        "#14B8A6",
-        "#F97316",
-        "#84CC16",
-    ];
 
     function init(appRoutes) {
         routes = appRoutes || {};
@@ -38,7 +26,6 @@ Dashboard.Charts = (function ($, H) {
         initChartDivisi();
         initChartSegment();
         initChartPilar();
-        initChartCoverage();
         initAchievementRace();
     }
 
@@ -162,23 +149,23 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartTrend() {
-        if (!chartTrend) return Promise.resolve();
+        if (!chartTrend || !consolidatedData) return Promise.resolve();
 
-        var routeKey = chartMode === "hari" ? "chartHari" : "chartBulan";
-        return H.apiGet(routeKey, H.getFilters()).then(function (res) {
-            var title =
-                res.mode === "hari"
-                    ? "Netto per Hari - " + res.period
-                    : "Netto per Bulan - " + res.period;
-            $("#chartTrendTitle").text(title);
+        var res = chartMode === "hari" ? consolidatedData.chart_hari : consolidatedData.chart_bulan;
+        if (!res) return Promise.resolve();
 
-            var showLabel = res.data.length <= 31;
-            return Promise.resolve(chartTrend.updateOptions({
-                xaxis: { categories: res.labels },
-                dataLabels: { enabled: showLabel },
-            })).then(function () {
-                return chartTrend.updateSeries([{ name: "Netto", data: res.data }]);
-            });
+        var title =
+            res.mode === "hari"
+                ? "Netto per Hari - " + res.period
+                : "Netto per Bulan - " + res.period;
+        $("#chartTrendTitle").text(title);
+
+        var showLabel = res.data.length <= 31;
+        return Promise.resolve(chartTrend.updateOptions({
+            xaxis: { categories: res.labels },
+            dataLabels: { enabled: showLabel },
+        })).then(function () {
+            return chartTrend.updateSeries([{ name: "Netto", data: res.data }]);
         });
     }
 
@@ -318,12 +305,11 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartDivisi() {
-        if (!chartDivisi) return Promise.resolve();
+        if (!chartDivisi || !consolidatedData || !consolidatedData.chart_divisi) return Promise.resolve();
+        var res = consolidatedData.chart_divisi;
 
-        return H.apiGet("chartDivisi", H.getFilters()).then(function (res) {
-            return Promise.resolve(chartDivisi.updateOptions({ labels: res.labels })).then(function () {
-                return chartDivisi.updateSeries(res.data);
-            });
+        return Promise.resolve(chartDivisi.updateOptions({ labels: res.labels })).then(function () {
+            return chartDivisi.updateSeries(res.data);
         });
     }
 
@@ -397,23 +383,22 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartSegment() {
-        if (!chartSegment) return Promise.resolve();
+        if (!chartSegment || !consolidatedData || !consolidatedData.chart_segment) return Promise.resolve();
+        var res = consolidatedData.chart_segment;
 
-        return H.apiGet("chartSegment", H.getFilters()).then(function (res) {
-            var values = (res.data || []).map(function (value) {
-                return Number(value) || 0;
-            });
-            var maxValue = values.length ? Math.max.apply(null, values) : 0;
-            var axisMax = maxValue > 0 ? maxValue * 1.25 : undefined;
+        var values = (res.data || []).map(function (value) {
+            return Number(value) || 0;
+        });
+        var maxValue = values.length ? Math.max.apply(null, values) : 0;
+        var axisMax = maxValue > 0 ? maxValue * 1.25 : undefined;
 
-            return Promise.resolve(chartSegment.updateOptions({
-                xaxis: {
-                    categories: res.labels,
-                    max: axisMax,
-                },
-            })).then(function () {
-                return chartSegment.updateSeries([{ name: "Netto", data: res.data }]);
-            });
+        return Promise.resolve(chartSegment.updateOptions({
+            xaxis: {
+                categories: res.labels,
+                max: axisMax,
+            },
+        })).then(function () {
+            return chartSegment.updateSeries([{ name: "Netto", data: res.data }]);
         });
     }
 
@@ -494,77 +479,14 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadChartPilar() {
-        if (!chartPilar) return Promise.resolve();
+        if (!chartPilar || !consolidatedData || !consolidatedData.chart_pilar) return Promise.resolve();
+        var res = consolidatedData.chart_pilar;
 
-        return H.apiGet("chartPilar", H.getFilters()).then(function (res) {
-            return Promise.resolve(chartPilar.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
-                return chartPilar.updateSeries([{ name: "Netto", data: res.data }]);
-            });
+        return Promise.resolve(chartPilar.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
+            return chartPilar.updateSeries([{ name: "Netto", data: res.data }]);
         });
     }
 
-    function initChartCoverage() {
-        var el = document.querySelector("#chartPerCoverage");
-        if (!el) return;
-
-        chartCoverage = new ApexCharts(el, {
-            chart: {
-                type: "bar",
-                height: 360,
-                toolbar: { show: false },
-                animations: { enabled: true, speed: 600 },
-            },
-            plotOptions: {
-                bar: {
-                    horizontal: true,
-                    borderRadius: 5,
-                    distributed: true,
-                    barHeight: "62%",
-                    dataLabels: { position: "center" },
-                },
-            },
-            series: [{ name: "Netto", data: [] }],
-            xaxis: {
-                categories: [],
-                labels: {
-                    formatter: function (v) {
-                        return H.formatShort(v);
-                    },
-                },
-            },
-            yaxis: { labels: { style: { fontSize: "11px" } } },
-            colors: COVERAGE_COLORS,
-            legend: { show: false },
-            dataLabels: {
-                enabled: true,
-                formatter: function (v) {
-                    return v > 0 ? H.formatShort(v) : "";
-                },
-                style: { fontSize: "11px", fontWeight: 700, colors: ["#fff"] },
-                dropShadow: { enabled: true, blur: 2, opacity: 0.3 },
-            },
-            tooltip: {
-                y: {
-                    formatter: function (v) {
-                        return H.formatRupiah(v);
-                    },
-                },
-                theme: "dark",
-            },
-            grid: { borderColor: "#f3f3f3", strokeDashArray: 4 },
-        });
-        chartCoverage.render();
-    }
-
-    function loadChartCoverage() {
-        if (!chartCoverage) return Promise.resolve();
-
-        return H.apiGet("chartCoverage", H.getFilters()).then(function (res) {
-            return Promise.resolve(chartCoverage.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
-                return chartCoverage.updateSeries([{ name: "Netto", data: res.data }]);
-            });
-        });
-    }
 
     function initAchievementRace() {
         chartAchievementRaceEl = document.querySelector("#achievementRaceRows");
@@ -578,49 +500,44 @@ Dashboard.Charts = (function ($, H) {
     }
 
     function loadAchievementRace() {
-        if (!chartAchievementRaceEl || !routes.chartAchievementRace) {
+        if (!chartAchievementRaceEl || !consolidatedData || !consolidatedData.achievement_race) {
+            return Promise.resolve();
+        }
+        var res = consolidatedData.achievement_race;
+        var rows = res.data || [];
+
+        if (!rows.length) {
+            chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty">Data achievement belum tersedia</div>';
             return Promise.resolve();
         }
 
-        chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>';
+        chartAchievementRaceEl.innerHTML = rows.map(function (row) {
+            var achievement = Math.max(parseFloat(row.achievement) || 0, 0);
+            var width = Math.min(achievement, 100);
+            var markerLeft = Math.min(Math.max(width, 4), 100);
+            var tier = getAchievementTier(achievement);
+            var title = [
+                "TOP: " + H.formatRupiah(row.top),
+                "REAL: " + H.formatRupiah(row.real),
+                "ACH: " + formatPercent(achievement),
+            ].join("\n");
 
-        return H.apiGet("chartAchievementRace", H.getFilters()).then(function (res) {
-            var rows = res.data || [];
-
-            if (!rows.length) {
-                chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty">Data achievement belum tersedia</div>';
-                return;
-            }
-
-            chartAchievementRaceEl.innerHTML = rows.map(function (row) {
-                var achievement = Math.max(parseFloat(row.achievement) || 0, 0);
-                var width = Math.min(achievement, 100);
-                var markerLeft = Math.min(Math.max(width, 4), 100);
-                var tier = getAchievementTier(achievement);
-                var title = [
-                    "TOP: " + H.formatRupiah(row.top),
-                    "REAL: " + H.formatRupiah(row.real),
-                    "ACH: " + formatPercent(achievement),
-                ].join("\n");
-
-                return [
-                    '<div class="achievement-race__row" title="' + escapeHtml(title) + '">',
-                        '<div class="achievement-race__label">' + escapeHtml(row.label) + '</div>',
-                        '<div class="achievement-race__track">',
-                            '<div class="achievement-race__bar achievement-race__bar--' + tier + '" style="width:' + width + '%">',
-                                '<span class="achievement-race__value">' + formatPercent(achievement) + '</span>',
-                            '</div>',
-                            '<span class="achievement-race__marker achievement-race__marker--' + tier + '" style="left:' + markerLeft + '%">',
-                                '<i class="fas ' + (achievement >= 100 ? "fa-flag-checkered" : "fa-running") + '"></i>',
-                            '</span>',
+            return [
+                '<div class="achievement-race__row" title="' + escapeHtml(title) + '">',
+                    '<div class="achievement-race__label">' + escapeHtml(row.label) + '</div>',
+                    '<div class="achievement-race__track">',
+                        '<div class="achievement-race__bar achievement-race__bar--' + tier + '" style="width:' + width + '%">',
+                            '<span class="achievement-race__value">' + formatPercent(achievement) + '</span>',
                         '</div>',
+                        '<span class="achievement-race__marker achievement-race__marker--' + tier + '" style="left:' + markerLeft + '%">',
+                            '<i class="fas ' + (achievement >= 100 ? "fa-flag-checkered" : "fa-running") + '"></i>',
+                        '</span>',
                     '</div>',
-                ].join("");
-            }).join("");
-        }).catch(function (error) {
-            console.error(error);
-            chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>';
-        });
+                '</div>',
+            ].join("");
+        }).join("");
+
+        return Promise.resolve();
     }
 
     function loadAll() {
@@ -629,13 +546,18 @@ Dashboard.Charts = (function ($, H) {
             loadChartDivisi(),
             loadChartSegment(),
             loadChartPilar(),
-            loadChartCoverage(),
             loadAchievementRace(),
         ]);
+    }
+
+    function renderAll(data) {
+        consolidatedData = data;
+        return loadAll();
     }
 
     return {
         init: init,
         loadAll: loadAll,
+        renderAll: renderAll,
     };
 })(jQuery, Dashboard.Helpers);

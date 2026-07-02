@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DashboardFilterRequest;
 use App\Services\CoverageAccessService;
 use App\Services\DashboardService;
+use App\Services\SelloutQueryService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -41,44 +43,23 @@ class DashboardController extends Controller
     // -------------------------------------------------------
     // API Endpoints — semua return JSON
     // -------------------------------------------------------
-    public function getSummaryCards(DashboardFilterRequest $request)
+    public function getConsolidatedData(DashboardFilterRequest $request, SelloutQueryService $selloutQuery)
     {
-        return response()->json($this->service->getSummaryCards($request));
-    }
+        $cacheKey = $selloutQuery->cacheKey('consolidated_data', $request);
 
-    public function getChartPerBulan(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerBulan($request));
-    }
+        $data = Cache::remember($cacheKey, $selloutQuery->cacheTtl(), function () use ($request) {
+            return [
+                'summary'          => $this->service->getSummaryCards($request),
+                'chart_hari'       => $this->service->getChartPerHari($request),
+                'chart_bulan'      => $this->service->getChartPerBulan($request),
+                'chart_pilar'      => $this->service->getChartPerPilar($request),
+                'chart_divisi'     => $this->service->getChartPerDivisi($request),
+                'chart_segment'    => $this->service->getChartPerSegment($request),
+                'achievement_race' => $this->service->getAchievementRace($request),
+            ];
+        });
 
-    public function getChartPerHari(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerHari($request));
-    }
-
-    public function getChartPerPilar(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerPilar($request));
-    }
-
-    public function getChartPerDivisi(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerDivisi($request));
-    }
-
-    public function getChartPerSegment(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerSegment($request));
-    }
-
-    public function getChartPerCoverage(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getChartPerCoverage($request));
-    }
-
-    public function getAchievementRace(DashboardFilterRequest $request)
-    {
-        return response()->json($this->service->getAchievementRace($request));
+        return response()->json($data);
     }
 
     public function getDrillDown(DashboardFilterRequest $request)

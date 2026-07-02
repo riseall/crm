@@ -34,14 +34,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(function () {
         Route::get('/',                  [DashboardController::class, 'index'])->name('index');
-        Route::get('/summary',           [DashboardController::class, 'getSummaryCards'])->name('summary');
-        Route::get('/chart/bulan',       [DashboardController::class, 'getChartPerBulan'])->name('chart.bulan');
-        Route::get('/chart/hari',        [DashboardController::class, 'getChartPerHari'])->name('chart.hari');
-        Route::get('/chart/pilar',       [DashboardController::class, 'getChartPerPilar'])->name('chart.pilar');
-        Route::get('/chart/divisi',      [DashboardController::class, 'getChartPerDivisi'])->name('chart.divisi');
-        Route::get('/chart/segment',     [DashboardController::class, 'getChartPerSegment'])->name('chart.segment');
-        Route::get('/chart/coverage',    [DashboardController::class, 'getChartPerCoverage'])->name('chart.coverage');
-        Route::get('/chart/achievement-race', [DashboardController::class, 'getAchievementRace'])->name('chart.achievement-race');
+        Route::get('/consolidated-data', [DashboardController::class, 'getConsolidatedData'])->name('consolidated');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');

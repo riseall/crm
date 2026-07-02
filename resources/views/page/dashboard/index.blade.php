@@ -457,26 +457,6 @@
         </div>
     </div>
 
-    {{-- ===== ROW 3: Top 10 Coverage ===== --}}
-    {{-- <div class="row mb-5">
-        <div class="col-md-12">
-            <div class="card card-custom">
-                <div class="card-header">
-                    <div class="card-title">
-                        <h3 class="card-label">Top 10 Coverage by Netto</h3>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="chartPerCoverage"></div>
-                </div>
-            </div>
-        </div>
-    </div> --}}
-
-    {{-- ===== ROW 4: Drill-Down Hierarki ===== --}}
-    {{-- @if ($dashboardAccess['can_view_drilldown'] ?? true)
-        @include('page.dashboard.partials.drilldown')
-    @endif --}}
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
     <x-datatable-card title="Detail Performance per Anggota"

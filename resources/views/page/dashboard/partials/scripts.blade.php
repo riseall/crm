@@ -2,14 +2,7 @@
     window.DashboardPage = {
         access: @json($dashboardAccess ?? []),
         routes: {
-            summary: "{{ route('dashboard.summary') }}",
-            chartHari: "{{ route('dashboard.chart.hari') }}",
-            chartBulan: "{{ route('dashboard.chart.bulan') }}",
-            chartDivisi: "{{ route('dashboard.chart.divisi') }}",
-            chartSegment: "{{ route('dashboard.chart.segment') }}",
-            chartPilar: "{{ route('dashboard.chart.pilar') }}",
-            chartCoverage: "{{ route('dashboard.chart.coverage') }}",
-            chartAchievementRace: "{{ route('dashboard.chart.achievement-race') }}",
+            consolidatedData: "{{ route('dashboard.consolidated') }}",
             drilldown: @json(($dashboardAccess['can_view_drilldown'] ?? true) ? route('dashboard.drilldown') : null),
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
             productLookup: "{{ route('product.produk') }}",
