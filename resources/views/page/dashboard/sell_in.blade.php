@@ -2,9 +2,9 @@
 
 @section('content')
     <x-filter-bar :months="$months" :years="$years" :pilars="$pilars" title="Monitoring Selling In"
-        subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line"
-        :show-bulan="false" :show-tahun="false" :show-period="true" id-start-date="filterStartDate"
-        id-end-date="filterEndDate" id-pilar="filterPilar" id-apply="btnApply">
+        subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line" :show-bulan="false"
+        :show-tahun="false" :show-period="true" id-start-date="filterStartDate" id-end-date="filterEndDate" id-pilar="filterPilar"
+        id-apply="btnApply" :show-reset="true" id-reset="btnResetSellingIn">
         <div class="col-12 col-sm-8 col-lg-4 mb-4">
             <label class="small text-muted mb-1">Produk</label>
             <select id="filterProduct" class="form-control select2-product" style="width: 100%;" multiple></select>
@@ -95,7 +95,8 @@
         </div>
     </div>
 
-    <x-datatable-card title="Detail transaksi" subtitle="" table-id="tableDetail" table-class="table-sm" :collapsible="true" :collapsed="true">
+    <x-datatable-card title="Detail transaksi" subtitle="" table-id="tableDetail" table-class="table-sm"
+        :collapsible="true" :collapsed="true">
         <th>No</th>
         <th>Tanggal</th>
         <th>Kode</th>
@@ -123,9 +124,9 @@
                 'chartPilar' => route('selling-in.chart.pilar'),
                 'topPm' => route('selling-in.top-pm'),
                 'topProduk' => route('selling-in.top-produk'),
-                'table'         => route('selling-in.table'),
+                'table' => route('selling-in.table'),
                 'productLookup' => route('product.produk'),
-                'pmLookup'      => route('selling-in.pm-lookup'),
+                'pmLookup' => route('selling-in.pm-lookup'),
             ],
             'csrf' => csrf_token(),
         ];

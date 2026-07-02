@@ -6,8 +6,11 @@ $(document).ready(function () {
     var routes = (window.DashboardPage && window.DashboardPage.routes) || {};
     var access = (window.DashboardPage && window.DashboardPage.access) || {};
     var initialLoad = true;
-    var defaultDrilldownLevel = access.default_drilldown_level || 'GM';
-    var canViewDrilldown = access.can_view_drilldown !== false && !!routes.drilldown && $('#drilldownTable').length > 0;
+    var defaultDrilldownLevel = access.default_drilldown_level || "GM";
+    var canViewDrilldown =
+        access.can_view_drilldown !== false &&
+        !!routes.drilldown &&
+        $("#drilldownTable").length > 0;
 
     Dashboard.Cards.init(routes.summary);
     Dashboard.Charts.init({
@@ -29,19 +32,19 @@ $(document).ready(function () {
     });
 
     function initProductFilter() {
-        var productFilter = $('#filter_product');
+        var productFilter = $("#filter_product");
         if (!productFilter.length || !routes.productLookup) return;
 
         productFilter.select2({
-            placeholder: 'Semua produk',
+            placeholder: "Semua produk",
             closeOnSelect: false,
-            width: '100%',
+            width: "100%",
             ajax: {
                 url: routes.productLookup,
-                dataType: 'json',
+                dataType: "json",
                 delay: 250,
                 data: function (params) {
-                    return { q: params.term || '' };
+                    return { q: params.term || "" };
                 },
                 processResults: function (data) {
                     return data;
@@ -52,12 +55,17 @@ $(document).ready(function () {
     }
 
     function loadAll() {
-        var raceEl = $('#achievementRaceRows');
+        var raceEl = $("#achievementRaceRows");
         if (raceEl.length) {
-            raceEl.html('<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>');
+            raceEl.html(
+                '<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>',
+            );
         }
 
-        var consolidatedJob = $.get(routes.consolidatedData, Dashboard.Helpers.getFilters())
+        var consolidatedJob = $.get(
+            routes.consolidatedData,
+            Dashboard.Helpers.getFilters(),
+        )
             .then(function (res) {
                 Dashboard.Cards.render(res.summary);
                 return Dashboard.Charts.renderAll(res);
@@ -65,11 +73,16 @@ $(document).ready(function () {
             .catch(function (error) {
                 console.error("Gagal memuat data dashboard:", error);
                 if (raceEl.length) {
-                    raceEl.html('<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>');
+                    raceEl.html(
+                        '<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>',
+                    );
                 }
             });
 
-        if (window.CrmLoading && typeof window.CrmLoading.track === 'function') {
+        if (
+            window.CrmLoading &&
+            typeof window.CrmLoading.track === "function"
+        ) {
             window.CrmLoading.track(consolidatedJob);
         }
 
@@ -84,7 +97,16 @@ $(document).ready(function () {
         initialLoad = false;
     }
 
-    $('#btnApplyFilter').on('click', loadAll);
+    $("#btnApplyFilter").on("click", loadAll);
     initProductFilter();
     loadAll();
+
+    window.addEventListener("filter:reset", function (event) {
+        if (event.detail && event.detail.id !== "btnResetSellingOut") return;
+        if (window.$ && $.fn && $.fn.select2) {
+            $("#filter_product").val(null).trigger("change");
+            $("#filter_distributor").val(null).trigger("change");
+        }
+        loadAll();
+    });
 });

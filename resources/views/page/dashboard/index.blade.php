@@ -121,16 +121,16 @@
         }
 
         /* .achievement-race__icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            background: #E6F1FB;
-            color: #185FA5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 17px;
-        } */
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                background: #E6F1FB;
+                color: #185FA5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 17px;
+            } */
 
         .achievement-race__title {
             color: #181C32;
@@ -341,7 +341,8 @@
 @section('content')
     {{-- ===== FILTER BAR ===== --}}
     <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
-        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true">
+        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true" :show-reset="true"
+        id-reset="btnResetSellingOut">
         <div class="col-12 col-sm-8 col-lg-4 mb-4">
             <label class="small text-muted mb-1">Produk</label>
             <select id="filter_product" class="form-control select2-product" style="width: 100%;" multiple></select>
@@ -428,7 +429,7 @@
         </div>
     </div>
 
-        {{-- ===== ACHIEVEMENT RACE ===== --}}
+    {{-- ===== ACHIEVEMENT RACE ===== --}}
     <div class="row mb-5">
         <div class="col-md-12">
             <div class="card card-custom">
@@ -459,8 +460,8 @@
 
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
-    <x-datatable-card title="Detail Performance per Anggota"
-        table-id="tblAnggota" table-class="table-sm" :load-assets="false" :collapsible="true" :collapsed="true">
+    <x-datatable-card title="Detail Performance per Anggota" table-id="tblAnggota" table-class="table-sm" :load-assets="false"
+        :collapsible="true" :collapsed="true">
         <th>No</th>
         <th>NIK</th>
         <th>Nama</th>
@@ -469,7 +470,7 @@
         <th>Divisi</th>
         <th>Coverage</th>
         <!-- <th>Outlet</th>
-        <th>Transaksi</th> -->
+            <th>Transaksi</th> -->
         <th>Netto</th>
     </x-datatable-card>
 @endsection

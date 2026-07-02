@@ -553,6 +553,16 @@
 
         initDataTable();
         byId("btnApply").addEventListener("click", loadAll);
+        window.addEventListener("filter:reset", (event) => {
+            if (event.detail && event.detail.id && event.detail.id !== "btnResetStock") return;
+            if (window.$ && $.fn && $.fn.selectpicker) {
+                $("#filterSource, #filterPilar, #filterCabang, #filterKelEd").selectpicker("deselectAll");
+            }
+            if (dataTable) {
+                dataTable.search("").columns().search("").draw();
+            }
+            loadAll();
+        });
         loadFilterOptions().then(loadAll);
     });
 })();

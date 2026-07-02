@@ -3,7 +3,7 @@
 @section('content')
     <x-filter-bar title="Monitoring Stock GPJ vs Cabang"
         subtitle="Pantau stock GPJ dan distributor cabang berdasarkan aging ED" icon="fa-database" :show-bulan="false"
-        :show-tahun="false" :show-pilar="false" id-apply="btnApply" btn-icon="fa-sync-alt">
+        :show-tahun="false" :show-pilar="false" id-apply="btnApply" :show-reset="true" id-reset="btnResetStock">
         <div class="col-6 col-sm-4 col-lg-3 mb-4">
             <label class="small text-muted mb-1">Distributor</label>
             <select class="form-control selectpicker" id="filterSource" data-width="100%" multiple data-actions-box="true"

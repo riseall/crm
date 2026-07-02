@@ -33,6 +33,10 @@
     'idStartDate' => 'filter_start_date',
     'idEndDate' => 'filter_end_date',
     'idApply' => 'btnApplyFilter',
+    'showReset' => false,
+    'btnResetText' => 'Reset',
+    'btnResetIcon' => 'fa-undo',
+    'idReset' => 'btnResetFilter',
 ])
 
 @php
@@ -96,7 +100,8 @@
                             <label class="small text-muted mb-1">Bulan</label>
                             <select id="{{ $idBulan }}"
                                 class="form-control {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
-                                data-width="100%" style="width: 100%;" @if ($bulanMultiple) multiple @endif>
+                                data-width="100%" style="width: 100%;"
+                                @if ($bulanMultiple) multiple @endif>
                                 @foreach ($months as $num => $name)
                                     <option value="{{ $num }}"
                                         {{ in_array((string) (int) $num, $activeMonths, true) ? 'selected' : '' }}>
@@ -112,7 +117,8 @@
                             <label class="small text-muted mb-1">Tahun</label>
                             <select id="{{ $idTahun }}" class="form-control selectpicker" data-width="100%">
                                 @foreach ($yearOptions as $y)
-                                    <option value="{{ $y }}" {{ (int) $y === $activeYear ? 'selected' : '' }}>
+                                    <option value="{{ $y }}"
+                                        {{ (int) $y === $activeYear ? 'selected' : '' }}>
                                         {{ $y }}
                                     </option>
                                 @endforeach
@@ -123,8 +129,8 @@
                     @if ($showPilar)
                         <div class="{{ $controlColumnClass }} mb-4">
                             <label class="small text-muted mb-1">Pilar</label>
-                            <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%" multiple
-                                data-actions-box="true" data-selected-text-format="count > 1"
+                            <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%"
+                                multiple data-actions-box="true" data-selected-text-format="count > 1"
                                 data-none-selected-text="Semua pilar" data-select-all-text="Pilih semua"
                                 data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
                                 @foreach ($pilars as $p)
@@ -171,12 +177,82 @@
 
                     <div class="col-6 col-sm-4 col-lg-auto mb-4 text-right">
                         <label class="small text-muted mb-1 d-block invisible">Aksi</label>
-                        <button class="btn btn-primary font-weight-bolder text-nowrap" id="{{ $idApply }}">
-                            <i class="fas {{ $btnIcon }} mr-1"></i> {{ $btnText }}
-                        </button>
+                        <div class="d-flex justify-content-end" style="gap: 8px;">
+                            <button class="btn btn-primary font-weight-bolder text-nowrap" id="{{ $idApply }}">
+                                <i class="fas {{ $btnIcon }} mr-1"></i> {{ $btnText }}
+                            </button>
+                            @if ($showReset)
+                                <button type="button" class="btn btn-light-danger font-weight-bolder text-nowrap"
+                                    id="{{ $idReset }}">
+                                    <i class="fas {{ $btnResetIcon }} mr-1"></i> {{ $btnResetText }}
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@once
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const resetBtn = document.getElementById(@json($idReset));
+                if (!resetBtn) return;
+                resetBtn.addEventListener('click', function() {
+                    const root = resetBtn.closest('.card');
+                    if (!root) return;
+
+                    root.querySelectorAll('input[type="text"], input[type="search"], input[type="hidden"]')
+                        .forEach(function(el) {
+                            if (el.dataset.skipReset === 'true') return;
+                            if (el.type === 'hidden') {
+                                if (el.id === @json($idStartDate)) {
+                                    el.value = @json($activeStartDate);
+                                } else if (el.id === @json($idEndDate)) {
+                                    el.value = @json($activeEndDate);
+                                } else {
+                                    el.value = '';
+                                }
+                            } else {
+                                el.value = '';
+                            }
+                        });
+
+                    root.querySelectorAll('select').forEach(function(el) {
+                        if (el.dataset.skipReset === 'true') return;
+                        if (el.multiple) {
+                            Array.from(el.options).forEach(function(opt) {
+                                opt.selected = false;
+                            });
+                        } else {
+                            el.selectedIndex = 0;
+                        }
+                    });
+
+                    ['.selectpicker', '.select2-product', '.select2-pm', '.select2-coverage', '.select2-outlet',
+                        '.select2-month'
+                    ]
+                    .forEach(function(selector) {
+                        const $el = window.jQuery && window.jQuery(root.querySelector(selector));
+                        if ($el && $el.length) {
+                            if ($el.hasClass('select2-initialized')) {
+                                $el.val(null).trigger('change');
+                            } else {
+                                $el.selectpicker && $el.selectpicker('refresh');
+                            }
+                        }
+                    });
+
+                    window.dispatchEvent(new CustomEvent('filter:reset', {
+                        detail: {
+                            id: @json($idReset)
+                        }
+                    }));
+                });
+            });
+        </script>
+    @endpush
+@endonce
