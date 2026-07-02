@@ -34,14 +34,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(function () {
         Route::get('/',                  [DashboardController::class, 'index'])->name('index');
-        Route::get('/summary',           [DashboardController::class, 'getSummaryCards'])->name('summary');
-        Route::get('/chart/bulan',       [DashboardController::class, 'getChartPerBulan'])->name('chart.bulan');
-        Route::get('/chart/hari',        [DashboardController::class, 'getChartPerHari'])->name('chart.hari');
-        Route::get('/chart/pilar',       [DashboardController::class, 'getChartPerPilar'])->name('chart.pilar');
-        Route::get('/chart/divisi',      [DashboardController::class, 'getChartPerDivisi'])->name('chart.divisi');
-        Route::get('/chart/segment',     [DashboardController::class, 'getChartPerSegment'])->name('chart.segment');
-        Route::get('/chart/coverage',    [DashboardController::class, 'getChartPerCoverage'])->name('chart.coverage');
-        Route::get('/chart/achievement-race', [DashboardController::class, 'getAchievementRace'])->name('chart.achievement-race');
+        Route::get('/consolidated-data', [DashboardController::class, 'getConsolidatedData'])->name('consolidated');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');
@@ -119,12 +112,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/',  [StockController::class, 'index'])->name('index');
 
         Route::prefix('api')->name('api.')->group(function () {
-            Route::post('summary',            [StockController::class, 'getSummaryCards'])->name('summary');
-            Route::post('chart/aging',        [StockController::class, 'getChartAging'])->name('chart.aging');
-            Route::post('chart/aging-source', [StockController::class, 'getChartAgingPerSource'])->name('chart.aging-source');
-            Route::post('per-source',         [StockController::class, 'getPerSource'])->name('per-source');
-            Route::post('top-cabang',         [StockController::class, 'getTopCabang'])->name('top-cabang');
-            Route::post('produk-prioritas',   [StockController::class, 'getProdukPrioritas'])->name('produk-prioritas');
+            Route::post('dashboard',         [StockController::class, 'getDashboard'])->name('dashboard');
             Route::post('table',              [StockController::class, 'getTableDetail'])->name('table');
             Route::get('filter-options',      [StockController::class, 'getFilterOptions'])->name('filter-options');
         });

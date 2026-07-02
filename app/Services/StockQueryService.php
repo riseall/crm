@@ -6,16 +6,6 @@ use App\Http\Requests\StockFilterRequest;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
-/**
- * StockQueryService
- *
- * Query langsung ke view v_stock_ph di DB DWH.
- * Tidak ada temp table — data kecil (~7.850 row) cukup query langsung.
- *
- * Kolom v_stock_ph:
- *   source, pt_part, pt_desc, cabang, stock, ptprice, value,
- *   pilar, exp_date, kelompok_ed
- */
 class StockQueryService
 {
     private const CACHE_TTL = 300;
@@ -28,7 +18,7 @@ class StockQueryService
     public function baseQuery(StockFilterRequest $request): Builder
     {
         $query = DB::connection(self::DB_DWH)
-            ->table('v_stock_ph as s');
+            ->table('crm_stock_summary as s');
 
         if ($request->filled('source')) {
             $query->whereIn('s.source', $request->input('source'));

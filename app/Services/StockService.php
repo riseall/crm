@@ -15,6 +15,21 @@ class StockService
         $this->query = $query;
     }
 
+    public function getQueryService(): StockQueryService
+    {
+        return $this->query;
+    }
+
+    public function getDashboardData(StockFilterRequest $request): array
+    {
+        return [
+            'summary' => $this->getSummaryCards($request),
+            'chart_aging' => $this->getChartAging($request),
+            'per_source' => $this->getPerSource($request),
+            'top_cabang' => $this->getTopCabang($request),
+        ];
+    }
+
     // -------------------------------------------------------
     // SUMMARY WARNING
     // -------------------------------------------------------
@@ -31,7 +46,7 @@ class StockService
                         s.kelompok_ed,
                         SUM(s.stock) as total_stock,
                         SUM(s.value) as total_value,
-                        COUNT(DISTINCT s.pt_part) as total_sku
+                        COUNT(DISTINCT s.pt_ph) as total_sku
                     ')
                     ->groupBy('s.kelompok_ed')
                     ->get()
@@ -71,7 +86,7 @@ class StockService
             $this->query->cacheTtl(),
             function () use ($request) {
                 $results = $this->query->baseQuery($request)
-                    ->selectRaw('s.kelompok_ed, SUM(s.value) as total_value, COUNT(DISTINCT s.pt_part) as total_sku')
+                    ->selectRaw('s.kelompok_ed, SUM(s.value) as total_value, COUNT(DISTINCT s.pt_ph) as total_sku')
                     ->groupBy('s.kelompok_ed')
                     ->get()
                     ->keyBy('kelompok_ed');
@@ -96,49 +111,6 @@ class StockService
     }
 
     // -------------------------------------------------------
-    // CHART: Aging per source (stacked bar)
-    // -------------------------------------------------------
-
-    public function getChartAgingPerSource(StockFilterRequest $request): array
-    {
-        return Cache::remember(
-            $this->query->cacheKey('chart_aging_source', $request),
-            $this->query->cacheTtl(),
-            function () use ($request) {
-                $results  = $this->query->baseQuery($request)
-                    ->selectRaw('s.source, s.kelompok_ed, SUM(s.value) as total_value')
-                    ->groupBy('s.source', 's.kelompok_ed')
-                    ->get();
-
-                $sources  = $results->pluck('source')->unique()->sort()->values();
-                $order    = StockQueryService::kelompokEdOrder();
-                $datasets = [];
-
-                foreach ($order as $key) {
-                    $data = $sources->map(function ($src) use ($results, $key) {
-                        $row = $results->first(fn($r) => $r->source === $src && $r->kelompok_ed === $key);
-                        return round((float) ($row->total_value ?? 0));
-                    })->values()->toArray();
-
-                    // Skip dataset yang semua nilainya 0
-                    if (array_sum($data) === 0) continue;
-
-                    $datasets[] = [
-                        'label' => StockQueryService::kelompokEdLabel($key),
-                        'key'   => $key,
-                        'data'  => $data,
-                    ];
-                }
-
-                return [
-                    'labels'   => $sources->values()->toArray(),
-                    'datasets' => $datasets,
-                ];
-            }
-        );
-    }
-
-    // -------------------------------------------------------
     // Per source (ringkasan kartu distributor)
     // -------------------------------------------------------
 
@@ -151,7 +123,7 @@ class StockService
                 $total = (float) ($this->query->baseQuery($request)->sum('s.value') ?: 1);
 
                 return $this->query->baseQuery($request)
-                    ->selectRaw('s.source, SUM(s.value) as total_value, SUM(s.stock) as total_stock, COUNT(DISTINCT s.pt_part) as total_sku')
+                    ->selectRaw('s.source, SUM(s.value) as total_value, SUM(s.stock) as total_stock, COUNT(DISTINCT s.pt_ph) as total_sku')
                     ->groupBy('s.source')
                     ->orderByDesc('total_value')
                     ->get()
@@ -198,51 +170,6 @@ class StockService
     }
 
     // -------------------------------------------------------
-    // Produk prioritas tindakan (sudah_ed, 1_3, 4_7)
-    // -------------------------------------------------------
-
-    public function getProdukPrioritas(StockFilterRequest $request, int $limit = 10): array
-    {
-        return Cache::remember(
-            $this->query->cacheKey('produk_prioritas', $request, (string) $limit),
-            $this->query->cacheTtl(),
-            function () use ($request, $limit) {
-                return $this->query->baseQuery($request)
-                    ->whereIn('s.kelompok_ed', ['sudah_ed', '1_3', '4_7'])
-                    ->selectRaw('
-                        s.pt_part,
-                        s.pt_desc,
-                        s.pilar,
-                        s.source,
-                        s.cabang,
-                        s.kelompok_ed,
-                        MIN(s.exp_date)  as earliest_exp,
-                        SUM(s.stock)     as total_stock,
-                        SUM(s.value)     as total_value
-                    ')
-                    ->groupBy('s.pt_part', 's.pt_desc', 's.pilar', 's.source', 's.cabang', 's.kelompok_ed')
-                    ->orderByRaw("FIELD(s.kelompok_ed, 'sudah_ed', '1_3', '4_7')")
-                    ->orderByDesc('total_value')
-                    ->limit($limit)
-                    ->get()
-                    ->map(fn($r) => [
-                        'pt_part'        => $r->pt_part,
-                        'pt_desc'        => $r->pt_desc,
-                        'pilar'          => $r->pilar,
-                        'source'         => $r->source,
-                        'cabang'         => $r->cabang,
-                        'kelompok_ed'    => $r->kelompok_ed,
-                        'kelompok_label' => StockQueryService::kelompokEdLabel($r->kelompok_ed),
-                        'earliest_exp'   => $r->earliest_exp,
-                        'total_stock'    => round((float) $r->total_stock, 2),
-                        'total_value'    => round((float) $r->total_value),
-                    ])
-                    ->values()->toArray();
-            }
-        );
-    }
-
-    // -------------------------------------------------------
     // TABEL DETAIL — DataTables server-side
     // -------------------------------------------------------
 
@@ -254,7 +181,7 @@ class StockService
         $search = $request->get('search')['value'] ?? '';
 
         $base = $this->query->baseQuery($request)
-            ->selectRaw('s.source, s.pt_part, s.pt_desc, s.cabang, s.stock, s.ptprice, s.value, s.pilar, s.exp_date, s.kelompok_ed')
+            ->selectRaw('s.source, s.pt_ph, s.pt_desc, s.cabang, s.stock, s.ptprice, s.value, s.pilar, s.exp_date, s.kelompok_ed')
             ->orderByRaw("FIELD(s.kelompok_ed, 'sudah_ed', '1_3', '4_7', '8_12', '13_17', 'gt_18')")
             ->orderByDesc('s.value');
 
@@ -262,7 +189,7 @@ class StockService
 
         if ($search) {
             $base->where(function ($q) use ($search) {
-                $q->where('s.pt_part', 'like', "%{$search}%")
+                $q->where('s.pt_ph', 'like', "%{$search}%")
                     ->orWhere('s.pt_desc', 'like', "%{$search}%")
                     ->orWhere('s.cabang',  'like', "%{$search}%")
                     ->orWhere('s.pilar',   'like', "%{$search}%");
@@ -294,7 +221,7 @@ class StockService
     public function getFilterOptions(): array
     {
         return Cache::remember('stock:filter_options', $this->query->cacheTtl(), function () {
-            $base = DB::connection(StockQueryService::DB_DWH)->table('v_stock_ph as s');
+            $base = DB::connection(StockQueryService::DB_DWH)->table('crm_stock_summary as s');
             return [
                 'cabangs' => (clone $base)->distinct()->orderBy('s.cabang')->pluck('s.cabang')->filter()->values(),
                 'pilars'  => (clone $base)->distinct()->orderBy('s.pilar')->pluck('s.pilar')->filter()->values(),

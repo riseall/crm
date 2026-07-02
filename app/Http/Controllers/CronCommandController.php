@@ -42,6 +42,7 @@ class CronCommandController extends Controller
             'hrms-sync' => 'hrms:sync',
             'sellout-refresh-summary' => 'sellout:refresh-summary',
             'qad-sync-stock-gpj' => 'qad:sync-stock-gpj',
+            'stock-refresh-summary' => 'stock:refresh-summary',
         ];
     }
 

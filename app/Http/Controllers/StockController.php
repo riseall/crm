@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StockFilterRequest;
 use App\Services\StockService;
+use Illuminate\Support\Facades\Cache;
 
 class StockController extends Controller
 {
@@ -20,34 +21,14 @@ class StockController extends Controller
         return view('page.dashboard.stock');
     }
 
-    public function getSummaryCards(StockFilterRequest $request)
+    public function getDashboard(StockFilterRequest $request)
     {
-        return response()->json($this->service->getSummaryCards($request));
-    }
+        $cacheKey = $this->service->getQueryService()->cacheKey('dashboard', $request);
+        $payload = Cache::remember($cacheKey, $this->service->getQueryService()->cacheTtl(), function () use ($request) {
+            return $this->service->getDashboardData($request);
+        });
 
-    public function getChartAging(StockFilterRequest $request)
-    {
-        return response()->json($this->service->getChartAging($request));
-    }
-
-    public function getChartAgingPerSource(StockFilterRequest $request)
-    {
-        return response()->json($this->service->getChartAgingPerSource($request));
-    }
-
-    public function getPerSource(StockFilterRequest $request)
-    {
-        return response()->json($this->service->getPerSource($request));
-    }
-
-    public function getTopCabang(StockFilterRequest $request)
-    {
-        return response()->json($this->service->getTopCabang($request));
-    }
-
-    public function getProdukPrioritas(StockFilterRequest $request)
-    {
-        return response()->json($this->service->getProdukPrioritas($request));
+        return response()->json($payload);
     }
 
     public function getTableDetail(StockFilterRequest $request)

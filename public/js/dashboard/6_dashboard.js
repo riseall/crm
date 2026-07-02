@@ -52,17 +52,25 @@ $(document).ready(function () {
     }
 
     function loadAll() {
-        var chartAndCardJob = Promise.all([
-            Dashboard.Cards.load(),
-            Dashboard.Charts.loadAll(),
-        ].map(function (job) {
-            return Promise.resolve(job).catch(function (error) {
-                console.error(error);
+        var raceEl = $('#achievementRaceRows');
+        if (raceEl.length) {
+            raceEl.html('<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>');
+        }
+
+        var consolidatedJob = $.get(routes.consolidatedData, Dashboard.Helpers.getFilters())
+            .then(function (res) {
+                Dashboard.Cards.render(res.summary);
+                return Dashboard.Charts.renderAll(res);
+            })
+            .catch(function (error) {
+                console.error("Gagal memuat data dashboard:", error);
+                if (raceEl.length) {
+                    raceEl.html('<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>');
+                }
             });
-        }));
 
         if (window.CrmLoading && typeof window.CrmLoading.track === 'function') {
-            window.CrmLoading.track(chartAndCardJob);
+            window.CrmLoading.track(consolidatedJob);
         }
 
         if (canViewDrilldown) {
