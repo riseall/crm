@@ -23,9 +23,9 @@ class TopMarketingImportService
         'kode_ph' => ['kode_ph', 'kode ph', 'kode produk', 'kode_produk', 'pt_ph', 'ph'],
         'nama_prod' => ['nama_prod', 'nama prod', 'nama_produk', 'nama produk', 'produk', 'product'],
         'segment' => ['segment', 'segmen'],
-        'cbg_new' => ['cbg_new', 'cbg new', 'cabang', 'branch'],
+        'cbg_new' => ['cbg_new', 'id_cbg'],
         'unit' => ['unit', 'qty', 'quantity'],
-        'val_net' => ['val_net', 'val nett', 'nett', 'netto', 'value nett', 'value_nett', 'nilai'],
+        'val_net' => ['val_net', 'val nett'],
     ];
 
     public function import(UploadedFile $file, int $month, int $year): array
