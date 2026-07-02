@@ -221,7 +221,7 @@ class StockService
     public function getFilterOptions(): array
     {
         return Cache::remember('stock:filter_options', $this->query->cacheTtl(), function () {
-            $base = DB::connection(StockQueryService::DB_DWH)->table('v_stock_ph as s');
+            $base = DB::connection(StockQueryService::DB_DWH)->table('crm_stock_summary as s');
             return [
                 'cabangs' => (clone $base)->distinct()->orderBy('s.cabang')->pluck('s.cabang')->filter()->values(),
                 'pilars'  => (clone $base)->distinct()->orderBy('s.pilar')->pluck('s.pilar')->filter()->values(),
