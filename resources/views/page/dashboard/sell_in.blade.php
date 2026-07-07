@@ -15,7 +15,7 @@
         </div>
     </x-filter-bar>
 
-    @php
+    {{-- @php
         $sellingInKpis = [
             ['id' => 'kpiNetto', 'label' => 'Total Selling In', 'icon' => 'fa-money-bill-wave'],
             ['id' => 'kpiYtd', 'label' => 'Selling In YTD', 'icon' => 'fa-calendar-check'],
@@ -31,6 +31,21 @@
                     color="success" />
             </div>
         @endforeach
+    </div> --}}
+
+    <div class="row mb-5">
+        <div class="col-lg-12 col-md-12 mb-4">
+            <x-stat-card title="Total Selling In" value="" valueId="kpiNetto" subtitle="-" subtitleId="kpiNettoSub"
+                subtitleColor="metric-growth" icon="fas fa-money-bill-wave" color="success" />
+        </div>
+        <div class="col-lg-6 col-md-12 mb-4">
+            <x-stat-card title="Selling In YTD" value="" valueId="kpiYtd" subtitle="-" subtitleId="kpiYtdSub"
+                subtitleColor="metric-growth" icon="fas fa-calendar-check" color="primary" />
+        </div>
+        <div class="col-lg-6 col-md-12 mb-4">
+            <x-stat-card title="Growth YTD" value="" valueId="kpiYtdGrowth" subtitle="-"
+                subtitleId="kpiYtdGrowthSub" subtitleColor="metric-growth" icon="fas fa-chart-line" color="warning" />
+        </div>
     </div>
 
     <div class="card card-custom mb-4">
@@ -51,7 +66,7 @@
     </div>
 
     <div class="row g-3 mb-4 h-auto">
-        <div class="col-md-4 mb-4">
+        <div class="col-lg-12 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -67,7 +82,7 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4 ">
+        <div class="col-lg-6 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -81,7 +96,7 @@
             </div>
         </div>
 
-        <div class="col-md-4 mb-4">
+        <div class="col-lg-6 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">

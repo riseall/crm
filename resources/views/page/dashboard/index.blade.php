@@ -121,16 +121,16 @@
         }
 
         /* .achievement-race__icon {
-                                            width: 34px;
-                                            height: 34px;
-                                            border-radius: 10px;
-                                            background: #E6F1FB;
-                                            color: #185FA5;
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                            font-size: 17px;
-                                        } */
+                                                        width: 34px;
+                                                        height: 34px;
+                                                        border-radius: 10px;
+                                                        background: #E6F1FB;
+                                                        color: #185FA5;
+                                                        display: flex;
+                                                        align-items: center;
+                                                        justify-content: center;
+                                                        font-size: 17px;
+                                                    } */
 
         .achievement-race__title {
             color: #181C32;
@@ -351,14 +351,14 @@
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row mb-5">
-        <div class="col-xl-4 col-lg-12 col-md-12 mb-4">
+        <div class="col-lg-12 col-md-12 mb-4">
             <x-stat-card title="Total Netto" value="" valueId="card_netto" subtitle="-" subtitleId="card_growth"
                 subtitleColor="metric-growth" icon="fas fa-coins" color="success" />
         </div>
-        <div class="col-xl-4 col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-6 col-md-12 mb-4">
             <x-stat-card title="TOP" value="" valueId="card_top" icon="fas fa-bullseye" color="primary" />
         </div>
-        <div class="col-xl-4 col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-6 col-md-12 mb-4">
             <x-stat-card title="Achievement TOP" value="" valueId="card_top_achievement" subtitle="-"
                 subtitleId="card_top_gap" subtitleColor="text-muted" icon="fas fa-chart-line" color="warning" />
         </div>
@@ -388,7 +388,7 @@
 
     {{-- ===== ROW 2: Divisi + Segment + Pilar ===== --}}
     <div class="row mb-5">
-        <div class="col-xl-4 col-lg-12 col-md-12 mb-4">
+        <div class="col-lg-12 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -400,7 +400,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-6 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -412,7 +412,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-4 col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-6 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
@@ -467,7 +467,7 @@
         <th>Divisi</th>
         <th>Coverage</th>
         <!-- <th>Outlet</th>
-                                        <th>Transaksi</th> -->
+                                                    <th>Transaksi</th> -->
         <th>Netto</th>
     </x-datatable-card>
 @endsection
