@@ -118,7 +118,6 @@
                     <div class="card-header">
                         <div class="card-title">
                             <h3 class="card-label">Top cabang</h3>
-                            <span class="d-block text-muted pt-2 font-size-sm">Nilai gabungan AAM, KFTD, METD</span>
                         </div>
                     </div>
                     <div class="card-body p-3">
@@ -170,7 +169,7 @@
             display: flex;
             min-height: 280px;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: start;
         }
 
         .sk-list-stack .sk-list-item:last-child {
