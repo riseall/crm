@@ -313,7 +313,7 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
-    function initChartSegment() {
+   function initChartSegment() {
         var el = document.querySelector("#chartPerSegment");
         if (!el) return;
 
@@ -329,14 +329,14 @@ Dashboard.Charts = (function ($, H) {
                     horizontal: true,
                     borderRadius: 5,
                     distributed: true,
-                    barHeight: "52%",
+                    barHeight: "58%",
                     dataLabels: { position: "top" },
                 },
             },
             grid: {
                 borderColor: "#eef0f5",
                 strokeDashArray: 4,
-                padding: { right: 78, left: 4 },
+                padding: { right: 110, left: 8 },
             },
             series: [{ name: "Netto", data: [] }],
             xaxis: {
@@ -345,11 +345,15 @@ Dashboard.Charts = (function ($, H) {
                     formatter: function (v) {
                         return H.formatShort(v);
                     },
+                    style: { fontSize: "11px", colors: "#6b7280" },
                 },
+                axisBorder: { show: false },
+                axisTicks: { show: false },
             },
             yaxis: {
                 labels: {
-                    style: { fontSize: "11px", fontWeight: 600 },
+                    style: { fontSize: "11px", fontWeight: 600, colors: "#374151" },
+                    offsetX: 0,
                 },
             },
             colors: [
@@ -360,6 +364,9 @@ Dashboard.Charts = (function ($, H) {
                 "#7F77DD",
                 "#0F6E56",
                 "#888780",
+                "#D4537E",
+                "#0D9488",
+                "#A16207",
             ],
             dataLabels: {
                 enabled: true,
@@ -367,8 +374,12 @@ Dashboard.Charts = (function ($, H) {
                     return v > 0 ? H.formatShort(v) : "";
                 },
                 textAnchor: "start",
+                offsetX: 4,
                 style: { fontSize: "10px", fontWeight: 700, colors: ["#111827"] },
                 dropShadow: { enabled: false },
+                background: {
+                    enabled: false,
+                },
             },
             legend: { show: false },
             tooltip: {
