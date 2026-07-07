@@ -71,22 +71,7 @@ class OutletController extends Controller
 
     public function history()
     {
-        $now = now();
-        $user = auth()->user();
-
-        $years = collect(range($now->year - 5, $now->year))
-            ->reverse()
-            ->values()
-            ->all();
-
-        $months = collect(range(1, 12))
-            ->mapWithKeys(fn($m) => [$m => date('F', mktime(0, 0, 0, $m, 1))])
-            ->toArray();
-
-        return view('page.outlet.history', compact('years', 'months') + [
-            'currentMonth' => (int) $now->month,
-            'currentYear' => (int) $now->year,
-        ]);
+        return view('page.outlet.history');
     }
 
     public function data(Request $request)

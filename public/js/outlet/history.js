@@ -6,8 +6,8 @@ $(document).ready(function () {
     var page = window.OutletHistoryPage || {};
     var routes = page.routes || {};
 
-    var $bulan = $("#filter_bulan");
-    var $tahun = $("#filter_tahun");
+    var $startDate = $("#filter_start_date");
+    var $endDate = $("#filter_end_date");
     var $coverage = $("#filter_coverage_id");
     var $outlet = $("#filter_outlet_id");
     var selectedCoverageNik = "";
@@ -16,19 +16,7 @@ $(document).ready(function () {
         return;
     }
 
-    var defaultMonth = page.defaultMonth
-        ? String(page.defaultMonth)
-        : $bulan.val();
-    $bulan.val(Array.isArray(defaultMonth) ? defaultMonth : [defaultMonth]);
-    $tahun.val(page.defaultYear || $tahun.val());
-
     if ($.fn.select2) {
-        $bulan.select2({
-            placeholder: "Pilih bulan...",
-            closeOnSelect: false,
-            width: "100%",
-        });
-
         $coverage
             .select2({
                 placeholder: "Cari NIK atau Nama...",
@@ -93,8 +81,8 @@ $(document).ready(function () {
             url: routes.data,
             data: function (d) {
                 return $.extend({}, d, {
-                    bulan: $bulan.val(),
-                    tahun: $tahun.val(),
+                    start_date: $startDate.val(),
+                    end_date: $endDate.val(),
                     coverage_id: $coverage.val(),
                     coverage_nik: selectedCoverageNik,
                     outlet_id: $outlet.val(),
@@ -194,7 +182,21 @@ $(document).ready(function () {
         table.ajax.reload(null, false);
     });
 
-    $("#btnAllOutlets").on("click", function () {
-        window.location.href = routes.index;
+    window.addEventListener("filter:reset", (event) => {
+        if (
+            event.detail &&
+            event.detail.id &&
+            event.detail.id !== "btnResetHistoryFilter"
+        )
+            return;
+
+        // Reset select2 coverage & outlet ke nilai kosong, lalu reload tabel.
+        selectedCoverageNik = "";
+        if ($.fn.select2) {
+            $coverage.val(null).trigger("change");
+            $outlet.val(null).trigger("change");
+        }
+        table.search("").columns().search("").draw();
+        table.ajax.reload(null, false);
     });
 });

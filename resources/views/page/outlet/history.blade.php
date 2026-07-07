@@ -1,11 +1,11 @@
 @extends('layouts.app', ['title' => 'History Outlet'])
 
 @section('content')
-    <x-filter-bar :months="$months" :years="$years" :show-pilar="false" :show-coverage="true" :show-outlet="true" :bulan-multiple="true"
-        :selected-month="$currentMonth" :selected-year="$currentYear" title="History Outlet"
-        subtitle="Riwayat outlet berdasarkan bulan, tahun, dan coverage" icon="fa-store" btn-text="Tampilkan"
-        id-bulan="filter_bulan" id-tahun="filter_tahun" id-coverage="filter_coverage_id" id-outlet="filter_outlet_id"
-        id-apply="btnApplyHistoryFilter" />
+    <x-filter-bar :show-pilar="false" :show-coverage="true" :show-outlet="true" :show-period="true" :show-bulan="false"
+        :show-tahun="false" title="History Outlet" subtitle="Riwayat outlet berdasarkan periode, coverage, dan outlet"
+        icon="fa-store" id-coverage="filter_coverage_id" id-outlet="filter_outlet_id" id-period="filter_period"
+        id-start-date="filter_start_date" id-end-date="filter_end_date" id-apply="btnApplyHistoryFilter" :show-reset="true"
+        id-reset="btnResetHistoryFilter" />
 
     <x-datatable-card title="History Outlet"
         subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet"
@@ -30,8 +30,6 @@
 @push('scripts')
     <script>
         window.OutletHistoryPage = {
-            defaultMonth: @json($currentMonth),
-            defaultYear: @json($currentYear),
             routes: {
                 index: "{{ route('outlet.history') }}",
                 data: "{{ route('outlet.history.data') }}",
@@ -39,6 +37,9 @@
                 outlet: "{{ route('outlet.outlet') }}",
             }
         };
+    </script>
+    <script
+        src="{{ asset('js/dashboard/date-range-filter.js') }}?v={{ filemtime(public_path('js/dashboard/date-range-filter.js')) }}">
     </script>
     <script src="{{ asset('js/outlet/history.js') }}"></script>
 @endpush
