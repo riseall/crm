@@ -57,7 +57,7 @@ Dashboard.Tables = (function ($, H) {
                 },
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
-                { data: "cov_desc", defaultContent: "-" },
+                // { data: "cov_desc", defaultContent: "-" },
 
                 {
                     data: "total_netto",
@@ -65,8 +65,29 @@ Dashboard.Tables = (function ($, H) {
                         return "<strong>" + H.formatRupiah(v) + "</strong>";
                     },
                 },
+                {
+                    data: "nik",
+                    orderable: false,
+                    searchable: false,
+                    className: "text-center",
+                    render: function (data, type, row) {
+                        if (row.is_unmapped === 0 && row.nik) {
+                            let detailUrl =
+                                window.DashboardPage.routes.detailAnggota.replace(
+                                    ":nik",
+                                    row.nik,
+                                );
+
+                            return `<a href="${detailUrl}" class="btn btn-sm btn-light-primary font-weight-bolder" title="Lihat Detail Outlet">
+                        <i class="fas fa-eye"></i>
+                    </a>`;
+                        }
+
+                        return '<span class="text-muted small">N/A</span>';
+                    },
+                },
             ],
-            order: [[7, "desc"]],
+            order: [[6, "desc"]],
         });
     }
 

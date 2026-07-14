@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Http\Requests\DashboardFilterRequest;
+use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -497,8 +500,8 @@ class DashboardService
         };
 
         $records = ($orderDir === 'asc'
-                ? $filteredRows->sortBy($sortValue)
-                : $filteredRows->sortByDesc($sortValue))
+            ? $filteredRows->sortBy($sortValue)
+            : $filteredRows->sortByDesc($sortValue))
             ->slice($start, $length)
             ->values();
 
@@ -508,6 +511,193 @@ class DashboardService
             'recordsFiltered' => $filtered,
             'data'            => $records,
         ];
+    }
 
+    private function normalizedPilarSql(string $column): string
+    {
+        return "CASE
+            WHEN UPPER(TRIM({$column})) = 'ETHICOM' THEN 'ETHICOM'
+            WHEN UPPER(TRIM({$column})) = 'ETHIPROM' THEN 'ETHIPROM'
+            WHEN UPPER(TRIM({$column})) IN ('OGB', 'GENERIK') THEN 'OGB'
+            WHEN UPPER(TRIM({$column})) = 'OTC' THEN 'OTC'
+            ELSE UPPER(TRIM({$column}))
+        END";
+    }
+
+    private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
+    {
+        $prod = $this->normalizedPilarSql($productPilarCol);
+        $map = $this->normalizedPilarSql($mappingPilarCol);
+
+        return "({$prod} = {$map} OR ({$map} = 'ETHICAL' AND {$prod} IN ('ETHICOM', 'ETHIPROM')))";
+    }
+    // -------------------------------------------------------
+    // DETAIL ANGGOTA (profil + Pareto A/B/C per outlet)
+    // -------------------------------------------------------
+    public function getAnggotaDetail(string $nik, Request $request): array
+    {
+        $nik = trim($nik);
+        if ($nik === '') {
+            return ['anggota' => null, 'outlets' => [], 'trend' => [], 'outlets_json' => []];
+        }
+
+        $start = $request->filled('start_date')
+            ? Carbon::parse($request->input('start_date'))->startOfDay()
+            : Carbon::now()->startOfYear();
+        $end = $request->filled('end_date')
+            ? Carbon::parse($request->input('end_date'))->endOfDay()
+            : Carbon::now()->endOfDay();
+
+        $cacheKey = 'anggota_detail:' . md5($nik . '|' . $start->toDateTimeString() . '|' . $end->toDateTimeString());
+
+        return Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($nik, $start, $end) {
+            $user = User::where('nik', $nik)->first();
+            $mapping = DB::connection('db_dwh')
+                ->table('crm_mst_mappings')
+                ->where('cov_nik', $nik)
+                ->whereNull('deleted_at')
+                ->orderByDesc('is_active')
+                ->orderByDesc('valid_from')
+                ->first();
+
+            if (!$user && !$mapping) {
+                return ['anggota' => null, 'outlets' => [], 'trend' => [], 'outlets_json' => []];
+            }
+
+            $anggota = (object) [
+                'nik'      => $nik,
+                'name'     => $user->name ?? ($mapping->cov_desc ?? 'Unknown'),
+                'level'    => $mapping ? $this->sellout->numToLevel((string) $mapping->cov_level) : 'MR',
+                'pilar'    => $mapping->cov_pilar ?? '-',
+                'divisi'   => $mapping->cov_divisi ?? '-',
+                'cov_desc' => $mapping->cov_desc ?? '-',
+            ];
+
+            $rows = DB::connection('db_dwh')
+                ->table('crm_sellout_summary as so')
+                ->leftJoin(DB::raw('(SELECT id_outlet, id_cbg_dist, MAX(nama_outlet) as nama_outlet FROM mst_cust_dist GROUP BY id_outlet, id_cbg_dist) as vcd'), function ($join) {
+                    $join->on('so.id_outlet', '=', 'vcd.id_outlet')
+                        ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+                })
+                ->leftJoin(DB::raw('crm_mst_outlets as mo'), function ($join) {
+                    $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
+                })
+                ->leftJoin(DB::raw('crm_mst_mappings as mc'), function ($join) use ($start, $end) {
+                    $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                        ->whereNull('mc.deleted_at')
+                        ->where(function ($q) {
+                            $q->whereNull('mc.valid_from')->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('mc.valid_to')->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+                        })->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
+                })
+                ->where('mc.cov_nik', $nik)
+                ->whereBetween('so.tgl_faktur', [$start, $end])
+                ->selectRaw('
+                    so.id_outlet as id_outlet,
+                    COALESCE(vcd.nama_outlet, so.id_outlet) as outlet_name,
+                    COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
+                    COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
+                    SUM(so.netto) as netto
+                ')
+                ->groupBy('so.id_outlet', 'vcd.nama_outlet', 'sku', 'product_name')
+                ->orderByDesc('netto')
+                ->get();
+
+            $byOutlet = [];
+            foreach ($rows as $r) {
+                $key = $r->id_outlet;
+                if (!isset($byOutlet[$key])) {
+                    $byOutlet[$key] = (object) [
+                        'id_outlet'   => $r->id_outlet,
+                        'outlet_name' => $r->outlet_name,
+                        'total_netto' => 0.0,
+                        'products'    => [],
+                    ];
+                }
+                $byOutlet[$key]->total_netto += (float) $r->netto;
+                $byOutlet[$key]->products[] = (object) [
+                    'sku'          => $r->sku,
+                    'product_name' => $r->product_name,
+                    'netto'        => (float) $r->netto,
+                ];
+            }
+
+            $grandTotal = array_sum(array_map(fn($o) => $o->total_netto, $byOutlet));
+            $outlets = [];
+            foreach ($byOutlet as $outlet) {
+                usort($outlet->products, fn($a, $b) => $b->netto <=> $a->netto);
+                $localCum = 0.0;
+                $productRows = [];
+                foreach ($outlet->products as $p) {
+                    $share = $grandTotal > 0 ? ($p->netto / $grandTotal) * 100 : 0.0;
+                    $localCum += $share;
+                    $productRows[] = (object) [
+                        'product_name'            => $p->product_name,
+                        'sku'                     => $p->sku,
+                        'netto'                   => $p->netto,
+                        'contribution_percentage' => $share,
+                        'pareto_group'            => $localCum <= 80 ? 'A' : ($localCum <= 95 ? 'B' : 'C'),
+                    ];
+                }
+                $outlet->products = $productRows;
+                $outlets[] = $outlet;
+            }
+
+            usort($outlets, fn($a, $b) => $b->total_netto <=> $a->total_netto);
+            $anggota->total_netto = $grandTotal;
+
+            $trend = DB::connection('db_dwh')
+                ->table('crm_sellout_summary as so')
+                ->leftJoin(DB::raw('crm_mst_outlets as mo'), function ($join) {
+                    $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
+                })
+                ->leftJoin(DB::raw('crm_mst_mappings as mc'), function ($join) use ($start, $end) {
+                    $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                        ->whereNull('mc.deleted_at')
+                        ->where(function ($q) {
+                            $q->whereNull('mc.valid_from')->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('mc.valid_to')->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+                        });
+                })
+                ->where('mc.cov_nik', $nik)
+                ->whereBetween('so.tgl_faktur', [$start, $end])
+                ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
+                ->groupBy('periode')
+                ->orderBy('periode')
+                ->pluck('total_netto', 'periode');
+
+            $trendLabels = [];
+            $trendData   = [];
+            $period = CarbonPeriod::create($start->copy()->startOfMonth(), '1 month', $end->copy()->startOfMonth());
+            foreach ($period as $month) {
+                $key = $month->format('Y-m');
+                $trendLabels[] = $month->locale('id')->translatedFormat('M y');
+                $trendData[]   = (float) ($trend[$key] ?? 0);
+            }
+
+            return [
+                'anggota' => $anggota,
+                'outlets' => $outlets,
+                'trend'   => [
+                    'labels' => $trendLabels,
+                    'data'   => $trendData,
+                ],
+                'outlets_json' => collect($outlets)->map(function ($o) {
+                    return [
+                        'id_outlet' => $o->id_outlet,
+                        'products' => collect($o->products)->map(function ($p) {
+                            return [
+                                'name'  => $p->product_name,
+                                'netto' => (float) $p->netto,
+                            ];
+                        })->values()->all(),
+                    ];
+                })->values()->all(),
+            ];
+        });
     }
 }

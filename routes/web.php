@@ -8,6 +8,7 @@ use App\Http\Controllers\SellingInController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TopMarketingController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VisitController;
 use App\Notifications\CoverageNeedsReplacementNotification;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');
+        Route::get('/anggota/{nik}',     [DashboardController::class, 'detailAnggota'])
+            ->name('anggota.detail');
     });
 
     // Users
@@ -117,6 +120,9 @@ Route::middleware('auth')->group(function () {
             Route::get('filter-options',      [StockController::class, 'getFilterOptions'])->name('filter-options');
         });
     });
+
+    //Visit
+    Route::get('/visits', [VisitController::class, 'getVisitData']);
 
     Route::post('/notifications/coverage/read', function () {
         $user = request()->user();

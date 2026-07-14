@@ -12,11 +12,11 @@
     'collapsed' => false,
 ])
 
-@if ($loadAssets)
+{{-- @if ($loadAssets)
     @push('styles')
         <link href="{{ asset('css/datatables.bundle.css') }}" rel="stylesheet" type="text/css" />
     @endpush
-@endif
+@endif --}}
 
 <div class="card card-custom gutter-b">
     <div class="card-header flex-wrap border-0 pt-6 pb-6">
@@ -30,7 +30,8 @@
 
         <div class="card-toolbar">
             @if ($collapsible)
-                <button type="button" class="btn btn-sm btn-light-primary font-weight-bolder mr-2" data-toggle="collapse" data-target="#{{ $tableId }}_collapse" aria-expanded="{{ $collapsed ? 'false' : 'true' }}">
+                <button type="button" class="btn btn-sm btn-light-primary font-weight-bolder mr-2" data-toggle="collapse"
+                    data-target="#{{ $tableId }}_collapse" aria-expanded="{{ $collapsed ? 'false' : 'true' }}">
                     <i class="fas {{ $collapsed ? 'fa-eye' : 'fa-eye-slash' }} mr-1"></i>
                     <span class="toggle-text">{{ $collapsed ? 'Tampilkan' : 'Sembunyikan' }}</span>
                 </button>
@@ -115,25 +116,25 @@
     </div>
 </div>
 
-@if ($loadAssets)
+{{-- @if ($loadAssets)
     @push('scripts')
         <script src="{{ asset('js/datatables.bundle.js') }}"></script>
     @endpush
-@endif
+@endif --}}
 
 @if ($collapsible)
     @push('scripts')
         <script>
             $(document).ready(function() {
-                $('#{{ $tableId }}_collapse').on('show.bs.collapse', function () {
+                $('#{{ $tableId }}_collapse').on('show.bs.collapse', function() {
                     let btn = $('[data-target="#{{ $tableId }}_collapse"]');
                     btn.find('i').removeClass('fa-eye').addClass('fa-eye-slash');
                     btn.find('.toggle-text').text('Sembunyikan');
-                }).on('hide.bs.collapse', function () {
+                }).on('hide.bs.collapse', function() {
                     let btn = $('[data-target="#{{ $tableId }}_collapse"]');
                     btn.find('i').removeClass('fa-eye-slash').addClass('fa-eye');
                     btn.find('.toggle-text').text('Tampilkan');
-                }).on('shown.bs.collapse', function () {
+                }).on('shown.bs.collapse', function() {
                     if ($.fn.DataTable.isDataTable('#{{ $tableId }}')) {
                         $('#{{ $tableId }}').DataTable().columns.adjust().draw(false);
                     }

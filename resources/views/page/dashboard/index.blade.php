@@ -121,16 +121,16 @@
         }
 
         /* .achievement-race__icon {
-                                                        width: 34px;
-                                                        height: 34px;
-                                                        border-radius: 10px;
-                                                        background: #E6F1FB;
-                                                        color: #185FA5;
-                                                        display: flex;
-                                                        align-items: center;
-                                                        justify-content: center;
-                                                        font-size: 17px;
-                                                    } */
+                                                                width: 34px;
+                                                                height: 34px;
+                                                                border-radius: 10px;
+                                                                background: #E6F1FB;
+                                                                color: #185FA5;
+                                                                display: flex;
+                                                                align-items: center;
+                                                                justify-content: center;
+                                                                font-size: 17px;
+                                                            } */
 
         .achievement-race__title {
             color: #181C32;
@@ -465,10 +465,11 @@
         <th>Level</th>
         <th>Pilar</th>
         <th>Divisi</th>
-        <th>Coverage</th>
-        <!-- <th>Outlet</th>
-                                                    <th>Transaksi</th> -->
+        {{-- <th>Coverage</th>
+        <th>Outlet</th>
+        <th>Transaksi</th> --}}
         <th>Netto</th>
+        <th>Aksi</th>
     </x-datatable-card>
 @endsection
 

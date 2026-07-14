@@ -6,6 +6,7 @@ use App\Http\Requests\DashboardFilterRequest;
 use App\Services\CoverageAccessService;
 use App\Services\DashboardService;
 use App\Services\SelloutQueryService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
@@ -72,5 +73,23 @@ class DashboardController extends Controller
     public function getTableAnggota(DashboardFilterRequest $request)
     {
         return response()->json($this->service->getTableAnggota($request));
+    }
+
+    public function detailAnggota(Request $request, $nik)
+    {
+        abort_unless($this->coverageAccess->canViewDashboardDrilldown(Auth::user()) ?? true, 403);
+
+        $data = $this->service->getAnggotaDetail((string) $nik, $request);
+
+        if (!$data['anggota']) {
+            abort(404, 'Data anggota dengan NIK ' . $nik . ' tidak ditemukan.');
+        }
+
+        return view('page.dashboard.partials.detail-anggota', [
+            'anggota'      => $data['anggota'],
+            'outlets'      => $data['outlets'],
+            'trend'        => $data['trend'],
+            'outletsJson'  => json_encode($data['outlets_json']),
+        ]);
     }
 }

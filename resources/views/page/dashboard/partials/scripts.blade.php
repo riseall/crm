@@ -3,9 +3,10 @@
         access: @json($dashboardAccess ?? []),
         routes: {
             consolidatedData: "{{ route('dashboard.consolidated') }}",
-            drilldown: @json(($dashboardAccess['can_view_drilldown'] ?? true) ? route('dashboard.drilldown') : null),
+            drilldown: @json($dashboardAccess['can_view_drilldown'] ?? true ? route('dashboard.drilldown') : null),
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
             productLookup: "{{ route('product.produk') }}",
+            detailAnggota: "{{ route('dashboard.anggota.detail', ':nik') }}",
         }
     };
 </script>

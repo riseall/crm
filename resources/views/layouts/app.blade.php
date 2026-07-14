@@ -23,6 +23,7 @@
     <link href="{{ asset('css/aside/dark.css') }}" rel="stylesheet" type="text/css" />
     <!--end::Layout Themes-->
     <link rel="shortcut icon" href="{{ asset('images/logo/crm-favicon.png') }}" />
+    <link href="{{ asset('css/datatables.bundle.css') }}" rel="stylesheet" type="text/css" />
 
     @stack('styles')
 </head>
@@ -174,6 +175,7 @@
     <script src="{{ asset('plugins/plugins.bundle.js') }}"></script>
     <script src="{{ asset('js/scripts.bundle.js') }}"></script>
     <script src="{{ asset('js/global-loading.js') }}?v={{ filemtime(public_path('js/global-loading.js')) }}"></script>
+    <script src="{{ asset('js/datatables.bundle.js') }}"></script>
     <!--end::Global Theme Bundle-->
     <script>
         (function($) {
