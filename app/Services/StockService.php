@@ -143,7 +143,7 @@ class StockService
     // Top cabang by nilai
     // -------------------------------------------------------
 
-    public function getTopCabang(StockFilterRequest $request, int $limit = 10): array
+    public function getTopCabang(StockFilterRequest $request, int $limit = 15): array
     {
         return Cache::remember(
             $this->query->cacheKey('top_cabang', $request, (string) $limit),

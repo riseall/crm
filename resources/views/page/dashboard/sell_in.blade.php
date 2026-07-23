@@ -5,53 +5,35 @@
         subtitle="Pantau performa selling in berdasarkan data transaksi terbaru" icon="fa-chart-line" :show-bulan="false"
         :show-tahun="false" :show-period="true" id-start-date="filterStartDate" id-end-date="filterEndDate" id-pilar="filterPilar"
         id-apply="btnApply" :show-reset="true" id-reset="btnResetSellingIn">
-        <div class="col-12 col-sm-8 col-lg-4 mb-4">
-            <label class="small text-muted mb-1">Produk</label>
-            <select id="filterProduct" class="form-control select2-product" style="width: 100%;" multiple></select>
+        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 150px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Produk</label>
+            <select id="filterProduct" class="form-control form-control-sm select2-product" style="width: 100%;" multiple></select>
         </div>
-        <div class="col-12 col-sm-8 col-lg-4 mb-4">
-            <label class="small text-muted mb-1">PM</label>
-            <select id="filterPm" class="form-control select2-pm" style="width: 100%;" multiple></select>
+        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 130px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">PM</label>
+            <select id="filterPm" class="form-control form-control-sm select2-pm" style="width: 100%;" multiple></select>
         </div>
     </x-filter-bar>
 
-    {{-- @php
-        $sellingInKpis = [
-            ['id' => 'kpiNetto', 'label' => 'Total Selling In', 'icon' => 'fa-money-bill-wave'],
-            ['id' => 'kpiYtd', 'label' => 'Selling In YTD', 'icon' => 'fa-calendar-check'],
-            ['id' => 'kpiYtdGrowth', 'label' => 'Growth YTD', 'icon' => 'fa-chart-line'],
-        ];
-    @endphp
-
-    <div class="row g-3 mb-4" id="kpiCards">
-        @foreach ($sellingInKpis as $card)
-            <div class="col-12 col-sm-6 col-xl-4">
-                <x-stat-card title="{{ $card['label'] }}" value="" valueId="{{ $card['id'] }}" subtitle="-"
-                    subtitleId="{{ $card['id'] }}Sub" subtitleColor="metric-growth" icon="fas {{ $card['icon'] }}"
-                    color="success" />
-            </div>
-        @endforeach
-    </div> --}}
-
-    <div class="row mb-5">
-        <div class="col-lg-12 col-md-12 mb-4">
+    <div class="row mb-3">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="Total Selling In" value="" valueId="kpiNetto" subtitle="-" subtitleId="kpiNettoSub"
                 subtitleColor="metric-growth" icon="fas fa-money-bill-wave" color="success" />
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="Selling In YTD" value="" valueId="kpiYtd" subtitle="-" subtitleId="kpiYtdSub"
                 subtitleColor="metric-growth" icon="fas fa-calendar-check" color="primary" />
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="Growth YTD" value="" valueId="kpiYtdGrowth" subtitle="-"
                 subtitleId="kpiYtdGrowthSub" subtitleColor="metric-growth" icon="fas fa-chart-line" color="warning" />
         </div>
     </div>
 
-    <div class="card card-custom mb-4">
+    <div class="card card-custom mb-3">
         <div class="card-header">
             <div class="card-title">
-                <h3 class="card-label">Tren Selling In</h3>
+                <h3 class="card-label font-size-h5">Tren Selling In</h3>
             </div>
             <div class="card-toolbar">
                 <div class="btn-group" id="chartModeToggle">
@@ -60,21 +42,21 @@
                 </div>
             </div>
         </div>
-        <div class="card-body p-3">
+        <div class="card-body p-2 p-xl-3">
             <div id="chartTrend" style="height:220px"></div>
         </div>
     </div>
 
-    <div class="row g-3 mb-4 h-auto">
-        <div class="col-lg-12 col-md-12 mb-4">
+    <div class="row mb-3">
+        <div class="col-lg-4 col-md-12 mb-3">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">by PM</h3>
+                        <h3 class="card-label font-size-h5">by PM</h3>
                     </div>
                 </div>
-                <div class="card-body p-3 si-chart-card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="card-body p-2 p-xl-3 si-chart-card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="text-muted small" id="topPmPeriod"></span>
                     </div>
                     <div id="chartTopPm" class="si-chart-fill"></div>
@@ -82,28 +64,28 @@
             </div>
         </div>
 
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">by Pilar</h3>
+                        <h3 class="card-label font-size-h5">by Pilar</h3>
                     </div>
                 </div>
-                <div class="card-body p-3 si-chart-card-body">
-                    <div id="chartPilar" class="mb-3"></div>
-                    <div id="legendPilar" class="row no-gutters" style="gap: 8px 0;"></div>
+                <div class="card-body p-2 p-xl-3 si-chart-card-body">
+                    <div id="chartPilar" class="mb-2"></div>
+                    <div id="legendPilar" class="row no-gutters" style="gap: 6px 0;"></div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">by Produk</h3>
+                        <h3 class="card-label font-size-h5">by Produk</h3>
                     </div>
                 </div>
-                <div class="card-body p-3 si-chart-card-body">
+                <div class="card-body p-2 p-xl-3 si-chart-card-body">
                     <div id="chartTopProduk" class="si-funnel-wrap"></div>
                 </div>
             </div>

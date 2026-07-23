@@ -244,7 +244,6 @@ class OutletController extends Controller
             ->orderColumn('status_label', function ($query, $order) {
                 $query->orderByRaw("(CASE WHEN so.coverage_id IS NULL OR so.coverage_nik IS NULL OR so.coverage_nik = '' THEN 0 WHEN so.coverage_valid_to IS NULL OR so.coverage_valid_to >= CURDATE() THEN 2 ELSE 1 END) {$order}");
             })
-            ->orderColumn('total_transaksi', 'COUNT(so.source_id) $1')
             ->orderColumn('total_netto', 'SUM(so.netto) $1')
             ->addColumn('bulan', function ($row) {
                 $months = [
@@ -267,10 +266,14 @@ class OutletController extends Controller
                 return ($months[(int) $date->month] ?? $date->format('F')) . ' ' . $date->year;
             })
             ->editColumn('coverage_nik', function ($row) {
-                return empty($row->coverage_nik) || $row->coverage_nik === '-' ? 'Unmapped' : $row->coverage_nik;
+                return empty($row->coverage_nik) || in_array(trim((string) $row->coverage_nik), ['-', 'N/A', 'Unmapped'], true) ? 'Unmapped' : $row->coverage_nik;
+            })
+            ->editColumn('user_name', function ($row) {
+                return empty($row->user_name) || in_array(trim((string) $row->user_name), ['-', 'N/A', 'Unmapped'], true) ? 'Unmapped' : $row->user_name;
             })
             ->editColumn('coverage_level', function ($row) {
-                return $this->sellout->numToLevel($row->coverage_level);
+                $level = $this->sellout->numToLevel($row->coverage_level);
+                return empty($level) || in_array(trim((string) $level), ['-', 'N/A', 'Unmapped'], true) ? 'Unmapped' : $level;
             })
             ->editColumn('status_label', function ($row) {
                 if (empty($row->coverage_id) || empty($row->coverage_nik) || $row->coverage_nik === '-') {
@@ -290,14 +293,7 @@ class OutletController extends Controller
 
                 return $isExpired ? 'badge-danger' : 'badge-success';
             })
-            ->editColumn('user_name', function ($row) {
-                if (empty($row->coverage_nik) || $row->coverage_nik === '-') {
-                    return '<span class="font-size-sm">Unmapped</span>';
-                }
-
-                return $row->user_name ?: '-';
-            })
-            ->rawColumns(['user_name', 'status_label'])
+            ->rawColumns(['status_label'])
             ->addIndexColumn();
 
         return $datatable->make(true);

@@ -244,25 +244,24 @@ Dashboard.Charts = (function ($, H) {
     function getDivisiChartOptions(el) {
         var width = el && el.parentElement ? el.parentElement.clientWidth : window.innerWidth;
         var isMobile = width < 576;
-        var isTablet = width >= 576 && width < 992;
 
         return {
             chart: {
-                height: isMobile ? 340 : isTablet ? 320 : 300,
+                height: isMobile ? 320 : 310,
             },
             legend: {
-                position: isMobile ? "bottom" : "right",
+                position: "bottom",
                 horizontalAlign: "center",
-                fontSize: isMobile ? "11px" : "12px",
+                fontSize: "11px",
                 itemMargin: {
-                    horizontal: isMobile ? 8 : 10,
-                    vertical: isMobile ? 2 : 4,
+                    horizontal: 6,
+                    vertical: 3,
                 },
             },
             plotOptions: {
                 pie: {
                     donut: {
-                        size: isMobile ? "58%" : "65%",
+                        size: "68%",
                     },
                 },
             },
@@ -313,46 +312,43 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
-   function initChartSegment() {
+    function initChartSegment() {
         var el = document.querySelector("#chartPerSegment");
         if (!el) return;
 
         chartSegment = new ApexCharts(el, {
             chart: {
                 type: "bar",
-                height: 360,
+                height: 310,
                 toolbar: { show: false },
                 animations: { enabled: true, easing: "easeinout", speed: 500 },
             },
             plotOptions: {
                 bar: {
                     horizontal: true,
-                    borderRadius: 5,
+                    borderRadius: 4,
                     distributed: true,
-                    barHeight: "58%",
+                    barHeight: "62%",
                     dataLabels: { position: "top" },
                 },
             },
             grid: {
                 borderColor: "#eef0f5",
                 strokeDashArray: 4,
-                padding: { right: 110, left: 8 },
+                padding: { right: 75, left: -5, top: -10, bottom: -10 },
             },
             series: [{ name: "Netto", data: [] }],
             xaxis: {
                 categories: [],
                 labels: {
-                    formatter: function (v) {
-                        return H.formatShort(v);
-                    },
-                    style: { fontSize: "11px", colors: "#6b7280" },
+                    show: false,
                 },
                 axisBorder: { show: false },
                 axisTicks: { show: false },
             },
             yaxis: {
                 labels: {
-                    style: { fontSize: "11px", fontWeight: 600, colors: "#374151" },
+                    style: { fontSize: "10px", fontWeight: 600, colors: "#4B5563" },
                     offsetX: 0,
                 },
             },
@@ -375,7 +371,7 @@ Dashboard.Charts = (function ($, H) {
                 },
                 textAnchor: "start",
                 offsetX: 4,
-                style: { fontSize: "10px", fontWeight: 700, colors: ["#111827"] },
+                style: { fontSize: "10px", fontWeight: 700, colors: ["#1F2937"] },
                 dropShadow: { enabled: false },
                 background: {
                     enabled: false,
@@ -401,12 +397,15 @@ Dashboard.Charts = (function ($, H) {
             return Number(value) || 0;
         });
         var maxValue = values.length ? Math.max.apply(null, values) : 0;
-        var axisMax = maxValue > 0 ? maxValue * 1.25 : undefined;
+        var axisMax = maxValue > 0 ? maxValue * 1.35 : undefined;
 
         return Promise.resolve(chartSegment.updateOptions({
             xaxis: {
                 categories: res.labels,
                 max: axisMax,
+                labels: {
+                    show: false,
+                },
             },
         })).then(function () {
             return chartSegment.updateSeries([{ name: "Netto", data: res.data }]);
@@ -420,20 +419,24 @@ Dashboard.Charts = (function ($, H) {
         chartPilar = new ApexCharts(el, {
             chart: {
                 type: "bar",
-                height: 300,
+                height: 310,
                 toolbar: { show: false },
                 animations: { enabled: true, easing: "easeinout", speed: 500 },
             },
             series: [{ name: "Netto", data: [] }],
             xaxis: {
                 categories: [],
-                labels: { style: { fontSize: "12px", fontWeight: 600 } },
+                labels: {
+                    rotate: -30,
+                    style: { fontSize: "10px", fontWeight: 600, colors: "#4B5563" },
+                },
             },
             yaxis: {
                 labels: {
                     formatter: function (v) {
                         return H.formatShort(v);
                     },
+                    style: { fontSize: "10px", colors: "#6B7280" },
                 },
             },
             colors: [
@@ -446,8 +449,8 @@ Dashboard.Charts = (function ($, H) {
             ],
             plotOptions: {
                 bar: {
-                    borderRadius: 6,
-                    columnWidth: "45%",
+                    borderRadius: 4,
+                    columnWidth: "38%",
                     distributed: true,
                     dataLabels: { position: "top" },
                 },
@@ -458,11 +461,11 @@ Dashboard.Charts = (function ($, H) {
                     return v > 0 ? H.formatShort(v) : "";
                 },
                 style: {
-                    fontSize: "11px",
-                    colors: ["#3F4254"],
+                    fontSize: "10px",
+                    colors: ["#1F2937"],
                     fontWeight: 700,
                 },
-                offsetY: -22,
+                offsetY: -18,
             },
             legend: { show: false },
             tooltip: {
@@ -484,7 +487,11 @@ Dashboard.Charts = (function ($, H) {
                     stops: [50, 0, 100],
                 },
             },
-            grid: GRID_LIGHT,
+            grid: {
+                borderColor: "#eef0f5",
+                strokeDashArray: 4,
+                padding: { top: 10, right: 10, bottom: 0, left: 10 },
+            },
         });
         chartPilar.render();
     }
@@ -493,7 +500,30 @@ Dashboard.Charts = (function ($, H) {
         if (!chartPilar || !consolidatedData || !consolidatedData.chart_pilar) return Promise.resolve();
         var res = consolidatedData.chart_pilar;
 
-        return Promise.resolve(chartPilar.updateOptions({ xaxis: { categories: res.labels } })).then(function () {
+        var values = (res.data || []).map(function (value) {
+            return Number(value) || 0;
+        });
+        var maxValue = values.length ? Math.max.apply(null, values) : 0;
+        var axisMax = maxValue > 0 ? maxValue * 1.3 : undefined;
+
+        return Promise.resolve(chartPilar.updateOptions({
+            xaxis: {
+                categories: res.labels,
+                labels: {
+                    rotate: -30,
+                    style: { fontSize: "10px", fontWeight: 600, colors: "#4B5563" },
+                },
+            },
+            yaxis: {
+                max: axisMax,
+                labels: {
+                    formatter: function (v) {
+                        return H.formatShort(v);
+                    },
+                    style: { fontSize: "10px", colors: "#6B7280" },
+                },
+            },
+        })).then(function () {
             return chartPilar.updateSeries([{ name: "Netto", data: res.data }]);
         });
     }

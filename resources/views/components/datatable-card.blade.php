@@ -18,12 +18,12 @@
     @endpush
 @endif --}}
 
-<div class="card card-custom gutter-b">
-    <div class="card-header flex-wrap border-0 pt-6 pb-6">
+<div class="card card-custom gutter-b datatable-card-responsive">
+    <div class="card-header flex-wrap border-0 pt-4 pb-3 pt-xl-5 pb-xl-5 px-4 px-xl-6">
         <div class="card-title">
-            <h3 class="card-label">{{ $title }}
+            <h3 class="card-label font-size-h5 font-size-xl-h4">{{ $title }}
                 @if ($subtitle)
-                    <span class="d-block text-muted pt-2 font-size-sm">{{ $subtitle }}</span>
+                    <span class="d-block text-muted pt-1 font-size-xs font-size-xl-sm">{{ $subtitle }}</span>
                 @endif
             </h3>
         </div>
@@ -38,7 +38,7 @@
             @endif
             @if ($showExport)
                 <div class="dropdown dropdown-inline mr-2">
-                    <button type="button" class="btn btn-light-primary font-weight-bolder dropdown-toggle"
+                    <button type="button" class="btn btn-sm btn-xl-md btn-light-primary font-weight-bolder dropdown-toggle"
                         data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                         <span class="svg-icon svg-icon-md">
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -60,18 +60,18 @@
                             <li class="navi-header font-weight-bolder text-uppercase font-size-sm text-primary pb-2">
                                 Choose an option:</li>
                             <li class="navi-item"><a href="#" class="navi-link"><span class="navi-icon"><i
-                                            class="fas fa-print"></i></span><span class="navi-text">Print</span></a>
+                                             class="fas fa-print"></i></span><span class="navi-text">Print</span></a>
                             </li>
                             <li class="navi-item"><a href="#" class="navi-link"><span class="navi-icon"><i
-                                            class="fas fa-copy"></i></span><span class="navi-text">Copy</span></a></li>
+                                             class="fas fa-copy"></i></span><span class="navi-text">Copy</span></a></li>
                             <li class="navi-item"><a href="#" class="navi-link"><span class="navi-icon"><i
-                                            class="fas fa-file-excel"></i></span><span
+                                             class="fas fa-file-excel"></i></span><span
                                         class="navi-text">Excel</span></a></li>
                             <li class="navi-item"><a href="#" class="navi-link"><span class="navi-icon"><i
-                                            class="fas fa-file-csv"></i></span><span class="navi-text">CSV</span></a>
+                                             class="fas fa-file-csv"></i></span><span class="navi-text">CSV</span></a>
                             </li>
                             <li class="navi-item"><a href="#" class="navi-link"><span class="navi-icon"><i
-                                            class="fas fa-file-pdf"></i></span><span class="navi-text">PDF</span></a>
+                                             class="fas fa-file-pdf"></i></span><span class="navi-text">PDF</span></a>
                             </li>
                         </ul>
                     </div>
@@ -79,7 +79,7 @@
             @endif
 
             @if ($showCreate)
-                <a href="{{ $createUrl }}" class="btn btn-primary font-weight-bolder" id="btnTambah">
+                <a href="{{ $createUrl }}" class="btn btn-sm btn-xl-md btn-primary font-weight-bolder" id="btnTambah">
                     <span class="svg-icon svg-icon-md">
                         <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                             width="24px" height="24px" viewBox="0 0 24 24" version="1.1">

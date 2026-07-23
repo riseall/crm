@@ -19,7 +19,7 @@ $(document).ready(function () {
     if ($.fn.select2) {
         $coverage
             .select2({
-                placeholder: "Cari NIK atau Nama...",
+                placeholder: "Cari PIC...",
                 allowClear: true,
                 ajax: {
                     url: routes.coverage,
@@ -48,7 +48,7 @@ $(document).ready(function () {
             });
 
         $outlet.select2({
-            placeholder: "Cari kode atau nama outlet...",
+            placeholder: "Cari Outlet...",
             allowClear: true,
             ajax: {
                 url: routes.outlet,
@@ -68,6 +68,11 @@ $(document).ready(function () {
             minimumInputLength: 2,
             width: "100%",
         });
+    }
+
+    function isUnmappedValue(val) {
+        var str = String(val || "").trim().toLowerCase();
+        return !str || str === "-" || str === "n/a" || str === "unmapped" || str === "null";
     }
 
     var table = $("#tblHistoryOutlet").DataTable({
@@ -111,15 +116,20 @@ $(document).ready(function () {
                 searchable: false,
                 className: "text-center",
                 render: function (data) {
-                    return data || "Unmapped";
+                    return isUnmappedValue(data)
+                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
+                        : data;
                 },
             },
             {
                 data: "user_name",
                 name: "so.user_name",
                 searchable: false,
+                className: "text-center",
                 render: function (data) {
-                    return data || "-";
+                    return isUnmappedValue(data)
+                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
+                        : data;
                 },
             },
             {
@@ -128,11 +138,9 @@ $(document).ready(function () {
                 searchable: false,
                 className: "text-center",
                 render: function (v) {
-                    return (
-                        '<span class="badge badge-light-primary">' +
-                        (v || "-") +
-                        "</span>"
-                    );
+                    return isUnmappedValue(v)
+                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
+                        : '<span class="badge badge-light-primary font-weight-bold">' + v + '</span>';
                 },
             },
             {
@@ -141,41 +149,20 @@ $(document).ready(function () {
                 searchable: false,
                 className: "text-center",
             },
-            // {
-            //     data: "status_label",
-            //     name: "status_label",
-            //     searchable: false,
-            //     render: function (v, t, r) {
-            //         return (
-            //             '<span class="badge ' +
-            //             (r.status_class || "badge-secondary") +
-            //             '">' +
-            //             (v || "Aktif") +
-            //             "</span>"
-            //         );
-            //     },
-            //     className: "text-center",
-            // },
-            {
-                data: "total_transaksi",
-                name: "total_transaksi",
-                searchable: false,
-                render: $.fn.dataTable.render.number(".", ",", 0),
-            },
             {
                 data: "total_netto",
                 name: "total_netto",
                 searchable: false,
+                className: "text-right font-weight-bolder",
                 render: function (data) {
                     return (
-                        "<strong>Rp " +
-                        parseFloat(data || 0).toLocaleString("id-ID") +
-                        "</strong>"
+                        "Rp " +
+                        parseFloat(data || 0).toLocaleString("id-ID")
                     );
                 },
             },
         ],
-        order: [[10, "desc"]],
+        order: [[9, "desc"]],
     });
 
     $("#btnApplyHistoryFilter").on("click", function () {

@@ -4,9 +4,9 @@
     <x-filter-bar title="Monitoring Stock GPJ vs Cabang"
         subtitle="Pantau stock GPJ dan distributor cabang berdasarkan aging ED" icon="fa-database" :show-bulan="false"
         :show-tahun="false" :show-pilar="false" id-apply="btnApply" :show-reset="true" id-reset="btnResetStock">
-        <div class="col-6 col-sm-4 col-lg-3 mb-4">
-            <label class="small text-muted mb-1">Distributor</label>
-            <select class="form-control selectpicker" id="filterSource" data-width="100%" multiple data-actions-box="true"
+        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 140px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Distributor</label>
+            <select class="form-control form-control-sm selectpicker" id="filterSource" data-width="100%" multiple data-actions-box="true"
                 data-selected-text-format="count > 1" data-none-selected-text="Semua distributor"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih">
@@ -17,25 +17,25 @@
             </select>
         </div>
 
-        <div class="col-6 col-sm-4 col-lg-3 mb-4">
-            <label class="small text-muted mb-1">Pilar</label>
-            <select class="form-control selectpicker" id="filterPilar" data-width="100%" multiple data-actions-box="true"
+        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 130px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Pilar</label>
+            <select class="form-control form-control-sm selectpicker" id="filterPilar" data-width="100%" multiple data-actions-box="true"
                 data-selected-text-format="count > 1" data-none-selected-text="Semua pilar"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih"></select>
         </div>
 
-        <div class="col-6 col-sm-4 col-lg-3 mb-4">
-            <label class="small text-muted mb-1">Cabang</label>
-            <select class="form-control selectpicker" id="filterCabang" data-width="100%" data-live-search="true" multiple
+        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 135px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Cabang</label>
+            <select class="form-control form-control-sm selectpicker" id="filterCabang" data-width="100%" data-live-search="true" multiple
                 data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua cabang"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih"></select>
         </div>
 
-        <div class="col-6 col-sm-4 col-lg-3 mb-4">
-            <label class="small text-muted mb-1">Aging</label>
-            <select class="form-control selectpicker" id="filterKelEd" data-width="100%" multiple data-actions-box="true"
+        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 125px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Aging</label>
+            <select class="form-control form-control-sm selectpicker" id="filterKelEd" data-width="100%" multiple data-actions-box="true"
                 data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih">
@@ -47,28 +47,27 @@
                 <option value="gt_18">&gt;18 Bulan</option>
             </select>
         </div>
-
     </x-filter-bar>
 
     <div class="sk-page">
         <div role="status" aria-live="polite"
             style="
                 display:flex; align-items:stretch;
-                border-radius:10px; overflow:hidden;
+                border-radius:8px; overflow:hidden;
                 border:0.5px solid #FBBF24;
                 background:#ffffff;
-                margin-bottom:1rem;
-                box-shadow:0 1px 3px rgba(0,0,0,0.06);
+                margin-bottom:0.85rem;
+                box-shadow:0 1px 3px rgba(0,0,0,0.05);
             ">
             {{-- Label kiri --}}
             <div
                 style="
                     display:flex; flex-direction:column; align-items:center; justify-content:center;
                     gap:4px; background:#F59E0B; color:#451a03;
-                    padding:12px 16px; min-width:80px; text-align:center; flex-shrink:0;
+                    padding:8px 12px; min-width:75px; text-align:center; flex-shrink:0;
                 ">
-                <i class="fas fa-exclamation-triangle text-dark" style="font-size:18px"></i>
-                <span style="font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">
+                <i class="fas fa-exclamation-triangle text-dark" style="font-size:15px"></i>
+                <span style="font-size:9.5px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase;">
                     Stok ED
                 </span>
             </div>
@@ -78,7 +77,7 @@
                 <div class="sk-warning-track" id="stockWarningTrack">
                     <div class="sk-warning-group"
                         style="display:inline-flex; align-items:center; padding:0 16px; height:100%;">
-                        <span style="font-size:13px; color:#64748b;">
+                        <span style="font-size:12px; color:#64748b;">
                             Memuat peringatan stok&hellip;
                         </span>
                     </div>
@@ -86,41 +85,41 @@
             </div>
         </div>
 
-        <div class="row g-3 mb-4">
-            <div class="col-lg-6 col-md-4 mb-4">
+        <div class="row mb-3">
+            <div class="col-lg-4 col-md-12 mb-3">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label">Per distributor</h3>
+                            <h3 class="card-label font-size-h5">Per distributor</h3>
                         </div>
                     </div>
-                    <div class="card-body p-3">
+                    <div class="card-body p-2 p-xl-3">
                         <div id="sourceList" class="sk-list-stack"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-6 col-md-4 mb-4">
+            <div class="col-lg-4 col-md-12 mb-3">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label">Aging stock keseluruhan</h3>
+                            <h3 class="card-label font-size-h5">Aging stock</h3>
                         </div>
                     </div>
-                    <div class="card-body p-3">
+                    <div class="card-body p-2 p-xl-3">
                         <div id="chartAging" class="sk-chart"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-12 col-md-4 mb-4">
+            <div class="col-lg-4 col-md-12 mb-3">
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label">Top cabang</h3>
+                            <h3 class="card-label font-size-h5">Top cabang</h3>
                         </div>
                     </div>
-                    <div class="card-body p-3">
+                    <div class="card-body p-2 p-xl-3">
                         <div id="chartTopCabang" class="sk-chart"></div>
                     </div>
                 </div>

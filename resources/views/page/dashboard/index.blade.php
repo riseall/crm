@@ -121,16 +121,16 @@
         }
 
         /* .achievement-race__icon {
-                                                                width: 34px;
-                                                                height: 34px;
-                                                                border-radius: 10px;
-                                                                background: #E6F1FB;
-                                                                color: #185FA5;
-                                                                display: flex;
-                                                                align-items: center;
-                                                                justify-content: center;
-                                                                font-size: 17px;
-                                                            } */
+                                                                        width: 34px;
+                                                                        height: 34px;
+                                                                        border-radius: 10px;
+                                                                        background: #E6F1FB;
+                                                                        color: #185FA5;
+                                                                        display: flex;
+                                                                        align-items: center;
+                                                                        justify-content: center;
+                                                                        font-size: 17px;
+                                                                    } */
 
         .achievement-race__title {
             color: #181C32;
@@ -343,22 +343,22 @@
     <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
         :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true" :show-reset="true"
         id-reset="btnResetSellingOut">
-        <div class="col-12 col-sm-8 col-lg-4 mb-4">
-            <label class="small text-muted mb-1">Produk</label>
-            <select id="filter_product" class="form-control select2-product" style="width: 100%;" multiple></select>
+        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 160px;">
+            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Produk</label>
+            <select id="filter_product" class="form-control form-control-sm select2-product" style="width: 100%;" multiple></select>
         </div>
     </x-filter-bar>
 
     {{-- ===== SUMMARY CARDS ===== --}}
-    <div class="row mb-5">
-        <div class="col-lg-12 col-md-12 mb-4">
+    <div class="row mb-3">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="Total Netto" value="" valueId="card_netto" subtitle="-" subtitleId="card_growth"
                 subtitleColor="metric-growth" icon="fas fa-coins" color="success" />
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="TOP" value="" valueId="card_top" icon="fas fa-bullseye" color="primary" />
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-3">
             <x-stat-card title="Achievement TOP" value="" valueId="card_top_achievement" subtitle="-"
                 subtitleId="card_top_gap" subtitleColor="text-muted" icon="fas fa-chart-line" color="warning" />
         </div>
@@ -386,40 +386,40 @@
         </div>
     </div>
 
-    {{-- ===== ROW 2: Divisi + Segment + Pilar ===== --}}
+    {{-- ===== ROW 2: Segment + Divisi + Pilar ===== --}}
     <div class="row mb-5">
-        <div class="col-lg-12 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">Netto per Segment</h3>
+                        <h3 class="card-label font-size-h5 font-size-xl-h4">Netto per Segment</h3>
                     </div>
                 </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
+                <div class="card-body d-flex align-items-center justify-content-center p-2 p-xl-3">
                     <div id="chartPerSegment" style="width:100%"></div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">Netto per Divisi</h3>
+                        <h3 class="card-label font-size-h5 font-size-xl-h4">Netto per Divisi</h3>
                     </div>
                 </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
+                <div class="card-body d-flex align-items-center justify-content-center p-2 p-xl-3">
                     <div id="chartPerDivisi" class="dashboard-donut-chart"></div>
                 </div>
             </div>
         </div>
-        <div class="col-lg-6 col-md-12 mb-4">
+        <div class="col-lg-4 col-md-12 mb-4">
             <div class="card card-custom h-100">
                 <div class="card-header">
                     <div class="card-title">
-                        <h3 class="card-label">Netto per Pilar</h3>
+                        <h3 class="card-label font-size-h5 font-size-xl-h4">Netto per Pilar</h3>
                     </div>
                 </div>
-                <div class="card-body d-flex align-items-center justify-content-center">
+                <div class="card-body d-flex align-items-center justify-content-center p-2 p-xl-3">
                     <div id="chartPerPilar" style="width:100%"></div>
                 </div>
             </div>
@@ -465,9 +465,7 @@
         <th>Level</th>
         <th>Pilar</th>
         <th>Divisi</th>
-        {{-- <th>Coverage</th>
-        <th>Outlet</th>
-        <th>Transaksi</th> --}}
+        <th>Kunjungan</th>
         <th>Netto</th>
         <th>Aksi</th>
     </x-datatable-card>

@@ -251,6 +251,8 @@
         const labels = agingRows.map((row) => row.label);
         const values = agingRows.map((row) => row.value);
         const colors = agingRows.map((row) => row.color);
+        const maxValue = values.length ? Math.max(...values) : 0;
+
         const options = {
             chart: {
                 type: "bar",
@@ -263,9 +265,9 @@
             series: [{ name: "Nilai", data: values }],
             xaxis: {
                 categories: labels,
+                max: maxValue > 0 ? maxValue * 1.25 : undefined,
                 labels: {
-                    formatter: (value) => fmtVal(value),
-                    style: { fontSize: "10px" },
+                    show: false,
                 },
             },
             yaxis: {
@@ -276,7 +278,7 @@
                             ? `${label.slice(0, 12)}...`
                             : label;
                     },
-                    style: { fontSize: "10px", fontWeight: 600 },
+                    style: { fontSize: "9.5px", fontWeight: 600, colors: "#4B5563" },
                 },
             },
             colors,
@@ -286,9 +288,9 @@
                     const row = agingRows[opts.dataPointIndex];
                     return row?.pct ? `${row.pct}%` : "";
                 },
-                offsetY: -18,
+                offsetX: 6,
                 style: {
-                    fontSize: "10px",
+                    fontSize: "9.5px",
                     fontWeight: 700,
                     colors: ["#3F4254"],
                 },
@@ -299,8 +301,8 @@
                     horizontal: true,
                     distributed: true,
                     borderRadius: 4,
-                    barHeight: "56%",
-                    dataLabels: { position: "center" },
+                    barHeight: "52%",
+                    dataLabels: { position: "top" },
                 },
             },
             grid: {
@@ -308,9 +310,9 @@
                 strokeDashArray: 4,
                 padding: {
                     top: 0,
-                    right: 8,
-                    bottom: 0,
-                    left: 8,
+                    right: 28,
+                    bottom: -10,
+                    left: 4,
                 },
             },
             tooltip: {
@@ -349,17 +351,17 @@
                 );
 
                 return `
-                <div class="sk-list-item d-flex align-items-center p-3 mb-2">
-                    <div class="sk-src-badge mr-3" style="background:${style.bg};color:${style.tc}">${esc(row.source)}</div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between font-size-sm mb-1">
-                            <span class="text-muted">${fmtInt(row.total_sku)} SKU, ${fmtInt(row.total_stock)} unit</span>
-                            <span class="font-weight-bold">${fmtVal(row.total_value)}</span>
+                <div class="sk-list-item d-flex align-items-center p-2 px-3 mb-2">
+                    <div class="sk-src-badge mr-2" style="background:${style.bg};color:${style.tc};width:34px;height:34px;font-size:10px">${esc(row.source)}</div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex justify-content-between font-size-xs mb-1">
+                            <span class="text-muted text-truncate">${fmtInt(row.total_sku)} SKU, ${fmtInt(row.total_stock)} unit</span>
+                            <span class="font-weight-bolder text-dark-75 ml-1">${fmtVal(row.total_value)}</span>
                         </div>
-                        <div class="sk-bar-track">
+                        <div class="sk-bar-track" style="height:6px">
                             <div class="sk-bar-fill" style="width:${pct}%;background:${SRC_COLOR[row.source] || "#94A3B8"}"></div>
                         </div>
-                        <div class="text-muted font-size-xs mt-1">${row.pct}% dari total</div>
+                        <div class="text-muted font-size-xs mt-1" style="font-size:10px">${row.pct}% dari total</div>
                     </div>
                 </div>
             `;
@@ -371,6 +373,8 @@
         const rows = Array.isArray(data) ? data : [];
         const labels = rows.map((row) => row.cabang || "-");
         const values = rows.map((row) => Number(row.total_value || 0));
+        const maxValue = values.length ? Math.max(...values) : 0;
+
         const options = {
             chart: {
                 type: "bar",
@@ -384,30 +388,37 @@
             xaxis: {
                 categories: labels,
                 labels: {
-                    rotate: -35,
+                    rotate: -45,
                     trim: true,
                     formatter: (value) => {
                         const label = String(value || "");
-                        return label.length > 12
-                            ? `${label.slice(0, 12)}...`
+                        return label.length > 8
+                            ? `${label.slice(0, 8)}..`
                             : label;
                     },
-                    style: { fontSize: "10px", fontWeight: 600 },
+                    style: { fontSize: "8.5px", fontWeight: 600, colors: "#4B5563" },
                 },
             },
             yaxis: {
+                max: maxValue > 0 ? maxValue * 1.3 : undefined,
                 labels: {
                     formatter: (value) => fmtVal(value),
-                    style: { fontSize: "10px" },
+                    style: { fontSize: "9px", colors: "#6B7280" },
                 },
             },
             colors: ["#e54690"],
             dataLabels: {
-                enabled: true,
-                formatter: (value) => fmtVal(value),
-                offsetY: -18,
+                enabled: values.length <= 10,
+                formatter: (val) => {
+                    const n = Number(val) || 0;
+                    if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+                    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+                    if (n >= 1e3) return (n / 1e3).toFixed(0) + "K";
+                    return n ? n.toString() : "";
+                },
+                offsetY: -14,
                 style: {
-                    fontSize: "10px",
+                    fontSize: "8px",
                     fontWeight: 700,
                     colors: ["#3F4254"],
                 },
@@ -417,7 +428,7 @@
                 bar: {
                     horizontal: false,
                     borderRadius: 4,
-                    columnWidth: "52%",
+                    columnWidth: "46%",
                     dataLabels: { position: "top" },
                 },
             },
@@ -428,7 +439,7 @@
                         <div class="px-3 py-2">
                             <div class="font-weight-bold">${esc(row.cabang || "-")}</div>
                             <div class="text-muted font-size-xs">${esc(row.sources || "AAM, KFTD, METD")}</div>
-                            <div class="mt-1">${fmtVal(row.total_value)}</div>
+                            <div class="mt-1 font-weight-bolder text-primary">${fmtVal(row.total_value)}</div>
                         </div>
                     `;
                 },
@@ -437,10 +448,10 @@
                 borderColor: "#E5E7EB",
                 strokeDashArray: 4,
                 padding: {
-                    top: 16,
-                    right: 12,
+                    top: 10,
+                    right: 8,
                     bottom: 0,
-                    left: 8,
+                    left: 4,
                 },
             },
             noData: {

@@ -57,8 +57,16 @@ Dashboard.Tables = (function ($, H) {
                 },
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
-                // { data: "cov_desc", defaultContent: "-" },
-
+                {
+                    data: "total_visit",
+                    className: "text-center",
+                    render: function (v, t, row) {
+                        let visitsUrl = "/visits?nik=" + (row.nik || "");
+                        return `<a href="${visitsUrl}" class="btn btn-sm btn-light-info font-weight-bolder" title="Lihat detail kunjungan ${row.name || ''}">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </a>`;
+                    },
+                },
                 {
                     data: "total_netto",
                     render: function (v) {
@@ -78,8 +86,8 @@ Dashboard.Tables = (function ($, H) {
                                     row.nik,
                                 );
 
-                            return `<a href="${detailUrl}" class="btn btn-sm btn-light-primary font-weight-bolder" title="Lihat Detail Outlet">
-                        <i class="fas fa-eye"></i>
+                            return `<a href="${detailUrl}" target="_blank" class="btn btn-sm btn-light-primary font-weight-bolder" title="Lihat Detail Outlet">
+                        <i class="fas fa-store-alt"></i>
                     </a>`;
                         }
 
@@ -87,7 +95,7 @@ Dashboard.Tables = (function ($, H) {
                     },
                 },
             ],
-            order: [[6, "desc"]],
+            order: [[7, "desc"]],
         });
     }
 

@@ -1,23 +1,23 @@
 @extends('layouts.app', ['title' => 'Outlet'])
 
 @section('content')
-    <div class="row">
-        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+    <div class="row mb-3">
+        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-3">
             <x-stat-card title="total outlet" value="{{ $totalData }}" subtitle="Entitas" subtitleColor="text-primary"
                 icon="far fa-folder-open" color="primary">
             </x-stat-card>
         </div>
-        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-3">
             <x-stat-card title="outlet tercoverage" value="{{ $totalTercoverage }}" subtitle="Entitas"
                 subtitleColor="text-info" icon="far fa-file-alt" color="info">
             </x-stat-card>
         </div>
-        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-3">
             <x-stat-card title="outlet belum tercoverage" value="{{ $totalBelumCoverage }}" subtitle="Entitas"
                 subtitleColor="text-danger" icon="far fa-file-excel" color="danger">
             </x-stat-card>
         </div>
-        <div class="col-xl col-lg-6 col-md-6 col-sm-6">
+        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-3">
             <x-stat-card title="butuh pengganti coverage" value="{{ $totalButuhPengganti }}" subtitle="Entitas"
                 subtitleColor="text-warning" icon="fas fa-history" color="warning">
             </x-stat-card>

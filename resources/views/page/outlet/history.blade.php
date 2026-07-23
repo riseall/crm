@@ -9,21 +9,17 @@
 
     <x-datatable-card title="History Outlet"
         subtitle="Riwayat outlet beserta status coverage dan total netto pada periode tersebut" table-id="tblHistoryOutlet"
-        table-class="table-separate table-head-custom table-checkable text-nowrap">
+        table-class="table-separate table-head-custom table-checkable text-nowrap table-sm">
         <th>No</th>
         <th>Bulan</th>
         <th>Dist</th>
         <th>Kode Outlet</th>
         <th>Nama Outlet</th>
-        {{-- <th>Coverage</th>
-        <th>Coverage Desc</th> --}}
-        <th>NIK</th>
-        <th>Nama</th>
-        <th>Level</th>
-        <th>Pilar</th>
-        {{-- <th>Status</th> --}}
-        <th>Transaksi</th>
-        <th>Netto</th>
+        <th class="text-center">NIK</th>
+        <th class="text-center">Nama</th>
+        <th class="text-center">Level</th>
+        <th class="text-center">Pilar</th>
+        <th class="text-right">Netto</th>
     </x-datatable-card>
 @endsection
 
