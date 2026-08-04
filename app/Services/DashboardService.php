@@ -26,11 +26,18 @@ class DashboardService
     // -------------------------------------------------------
 
     // Contoh pada getSummaryCards
+    private function cached(string $key, DashboardFilterRequest $request, \Closure $callback, string $extra = '')
+    {
+        return Cache::remember(
+            $this->sellout->cacheKey($key, $request, $extra),
+            $this->sellout->cacheTtl(),
+            $callback
+        );
+    }
+
     public function getSummaryCards(DashboardFilterRequest $request): array
     {
-        $cacheKey = $this->sellout->cacheKey('summary_top', $request);
-
-        return Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
+        return $this->cached('summary_top', $request, function () use ($request) {
             $range = [$request->prevStartDate(), $request->endDate()];
             $currentStart = $request->startDate();
             $currentEnd = $request->endDate();
@@ -72,11 +79,10 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerBulan(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_bulan', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
-                $results = $this->sellout->monthlyChartQuery($request)
+        return $this->cached('chart_bulan', $request, function () use ($request) {
+                $results = $this->sellout->baseChartQuery($request)
+                    ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
+                    ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')")
                     ->get()
                     ->keyBy('periode');
 
@@ -110,10 +116,7 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerHari(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_hari', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
+        return $this->cached('chart_hari', $request, function () use ($request) {
                 // Gunakan baseQuery (bukan clone manual)
                 $results = $this->sellout->baseChartQuery($request)
                     ->selectRaw('DATE(so.tgl_faktur) as tanggal, SUM(so.netto) as total_netto')
@@ -150,10 +153,7 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerPilar(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_pilar', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
+        return $this->cached('chart_pilar', $request, function () use ($request) {
                 $results = $this->sellout->baseChartQuery($request)
                     // GUNAKAN product_pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
                     ->selectRaw('COALESCE(so.product_pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
@@ -173,10 +173,7 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerDivisi(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_divisi', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
+        return $this->cached('chart_divisi', $request, function () use ($request) {
                 $results = $this->sellout->drilldownAggregateQuery(
                     $request,
                     $this->sellout->levelToNum('GM')
@@ -212,10 +209,7 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerSegment(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_segment', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
+        return $this->cached('chart_segment', $request, function () use ($request) {
                 $results = $this->sellout->baseChartQuery($request)
                     ->selectRaw("COALESCE(NULLIF(TRIM(so.segment_mi), ''), 'UNMAPPED') as segment_name, SUM(so.netto) as total_netto")
                     ->groupBy('segment_name')
@@ -230,37 +224,11 @@ class DashboardService
         );
     }
 
-    // -------------------------------------------------------
-    // CHART: Top 10 Coverage by Netto (bar horizontal)
-    // -------------------------------------------------------
-    public function getChartPerCoverage(DashboardFilterRequest $request): array
-    {
-        return Cache::remember(
-            $this->sellout->cacheKey('chart_coverage', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
-                $results = (clone $this->sellout->baseChartQuery($request))
-                    ->selectRaw('so.coverage_id, so.coverage_desc, so.coverage_level, SUM(so.netto) as total_netto')
-                    ->groupBy('so.coverage_id', 'so.coverage_desc', 'so.coverage_level')
-                    ->orderByDesc('total_netto')
-                    ->limit(10)
-                    ->get();
 
-                return [
-                    'labels' => $results->map(fn($r) => $r->coverage_desc ?: $r->coverage_id)->values(),
-                    'data'   => $results->pluck('total_netto')->map(fn($v) => (float)$v)->values(),
-                    'levels' => $results->pluck('coverage_level')->map(fn($v) => $this->sellout->numToLevel($v))->values(),
-                ];
-            }
-        );
-    }
 
     public function getAchievementRace(DashboardFilterRequest $request): array
     {
-        return Cache::remember(
-            $this->sellout->cacheKey('achievement_race_v1', $request),
-            $this->sellout->cacheTtl(),
-            function () use ($request) {
+        return $this->cached('achievement_race_v1', $request, function () use ($request) {
                 $topRows = $this->sellout->topMarketingByRegion($request);
                 $realRows = $this->sellout->realNettoByRegion($request);
 
@@ -335,8 +303,7 @@ class DashboardService
         $levelNum   = $this->sellout->levelToNum($levelName);
 
         $nextLevel = $this->sellout->nextLevel($levelName);
-        $cacheKey = $this->sellout->cacheKey('drilldown_rows', $request, $levelName . '|' . ($parentId ?? ''));
-        $rows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request, $levelNum, $parentId) {
+        $rows = $this->cached('drilldown_rows', $request, function () use ($request, $levelNum, $parentId) {
             return $this->sellout->drilldownAggregateQuery($request, $levelNum, $parentId)
                 ->get()
                 ->map(function ($row) {
@@ -344,7 +311,7 @@ class DashboardService
                     $row->is_unmapped = (int)$row->is_unmapped;
                     return $row;
                 });
-        });
+        }, $levelName . '|' . ($parentId ?? ''));
 
         if ($draw > 0) {
             $recordsTotal = $rows->count();
@@ -435,8 +402,7 @@ class DashboardService
         $length = (int) $request->get('length', 10);
         $search = $request->get('search')['value'] ?? '';
 
-        $cacheKey = $this->sellout->cacheKey('anggota_rows', $request, 'MR');
-        $rows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
+        $rows = $this->cached('anggota_rows', $request, function () use ($request) {
             return $this->sellout->drilldownAggregateQuery($request, $this->sellout->levelToNum('MR'))
                 ->get()
                 ->map(function ($row) {
@@ -458,7 +424,7 @@ class DashboardService
                         'is_unmapped' => $isUnmapped ? 1 : 0,
                     ];
                 });
-        });
+        }, 'MR');
 
         $total = $rows->count();
         $filteredRows = $rows;
@@ -482,13 +448,10 @@ class DashboardService
             3 => 'level_name',
             4 => 'pilar',
             5 => 'divisi',
-            6 => 'cov_desc',
-            7 => 'total_outlet',
-            8 => 'total_transaksi',
-            9 => 'total_netto',
+            6 => 'total_netto',
         ];
         $order = $request->get('order')[0] ?? null;
-        $orderColumn = $orderColumns[(int) ($order['column'] ?? 9)] ?? 'total_netto';
+        $orderColumn = $orderColumns[(int) ($order['column'] ?? 6)] ?? 'total_netto';
         $orderDir = strtolower($order['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $numericOrderColumns = ['total_outlet', 'total_transaksi', 'total_netto'];
 
@@ -514,24 +477,7 @@ class DashboardService
         ];
     }
 
-    private function normalizedPilarSql(string $column): string
-    {
-        return "CASE
-            WHEN UPPER(TRIM({$column})) = 'ETHICOM' THEN 'ETHICOM'
-            WHEN UPPER(TRIM({$column})) = 'ETHIPROM' THEN 'ETHIPROM'
-            WHEN UPPER(TRIM({$column})) IN ('OGB', 'GENERIK') THEN 'OGB'
-            WHEN UPPER(TRIM({$column})) = 'OTC' THEN 'OTC'
-            ELSE UPPER(TRIM({$column}))
-        END";
-    }
 
-    private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
-    {
-        $prod = $this->normalizedPilarSql($productPilarCol);
-        $map = $this->normalizedPilarSql($mappingPilarCol);
-
-        return "({$prod} = {$map} OR ({$map} = 'ETHICAL' AND {$prod} IN ('ETHICOM', 'ETHIPROM')))";
-    }
     // -------------------------------------------------------
     // DETAIL ANGGOTA (profil + Pareto A/B/C per outlet)
     // -------------------------------------------------------
@@ -568,44 +514,21 @@ class DashboardService
             $anggota = (object) [
                 'nik'      => $nik,
                 'name'     => $user->name ?? ($mapping->cov_desc ?? 'Unknown'),
-                'level'    => $mapping ? $this->sellout->numToLevel((string) $mapping->cov_level) : 'MR',
+                'level'    => $mapping ? $this->sellout->numToLevel((string) $mapping->cov_level) : 'MR' ?? '-',
                 'pilar'    => $mapping->cov_pilar ?? '-',
                 'divisi'   => $mapping->cov_divisi ?? '-',
                 'cov_desc' => $mapping->cov_desc ?? '-',
             ];
 
-            $rows = DB::connection('db_dwh')
-                ->table('crm_sellout_summary as so')
-                ->leftJoin(DB::raw('(SELECT id_outlet, id_cbg_dist, MAX(nama_outlet) as nama_outlet FROM mst_cust_dist GROUP BY id_outlet, id_cbg_dist) as vcd'), function ($join) {
-                    $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                        ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
-                })
-                ->leftJoin(DB::raw('crm_mst_outlets as mo'), function ($join) {
-                    $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
-                })
-                ->leftJoin(DB::raw('crm_mst_mappings as mc'), function ($join) use ($start, $end) {
-                    $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                        ->whereNull('mc.deleted_at')
-                        ->where(function ($q) {
-                            $q->whereNull('mc.valid_from')->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                        })
-                        ->where(function ($q) {
-                            $q->whereNull('mc.valid_to')->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                        })->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
-                })
-                ->where('mc.cov_nik', $nik)
-                ->whereBetween('so.tgl_faktur', [$start, $end])
-                ->selectRaw('
-                    so.id_outlet as id_outlet,
-                    COALESCE(vcd.nama_outlet, so.id_outlet) as outlet_name,
-                    COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
-                    COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
-                    SUM(so.netto) as netto
-                ')
-                ->groupBy('so.id_outlet', 'vcd.nama_outlet', 'sku', 'product_name')
-                ->orderByDesc('netto')
-                ->get();
+            $outletIds = $this->sellout->anggotaMappedOutlets($nik);
 
+            $rows = collect();
+            $trend = collect();
+
+            if (!empty($outletIds)) {
+                $rows = $this->sellout->anggotaDetailProducts($nik, $start, $end, $outletIds);
+                $trend = $this->sellout->anggotaDetailTrend($nik, $start, $end, $outletIds);
+            }
             $byOutlet = [];
             foreach ($rows as $r) {
                 $key = $r->id_outlet;
@@ -648,28 +571,6 @@ class DashboardService
 
             usort($outlets, fn($a, $b) => $b->total_netto <=> $a->total_netto);
             $anggota->total_netto = $grandTotal;
-
-            $trend = DB::connection('db_dwh')
-                ->table('crm_sellout_summary as so')
-                ->leftJoin(DB::raw('crm_mst_outlets as mo'), function ($join) {
-                    $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
-                })
-                ->leftJoin(DB::raw('crm_mst_mappings as mc'), function ($join) use ($start, $end) {
-                    $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-                        ->whereNull('mc.deleted_at')
-                        ->where(function ($q) {
-                            $q->whereNull('mc.valid_from')->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-                        })
-                        ->where(function ($q) {
-                            $q->whereNull('mc.valid_to')->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-                        })->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
-                })
-                ->where('mc.cov_nik', $nik)
-                ->whereBetween('so.tgl_faktur', [$start, $end])
-                ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
-                ->groupBy('periode')
-                ->orderBy('periode')
-                ->pluck('total_netto', 'periode');
 
             $trendLabels = [];
             $trendData   = [];

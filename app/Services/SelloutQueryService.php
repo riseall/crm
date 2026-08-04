@@ -13,7 +13,7 @@ class SelloutQueryService
     private const CONN_DWH = 'db_dwh';
     private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v11';
+    private const CACHE_VERSION = 'v17';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
     private function dwhDatabaseName(): string
@@ -125,23 +125,25 @@ class SelloutQueryService
     }
 
     /**
-     * Join minimal untuk chart - tanpa users join
+     * Filter minimal untuk chart - menggunakan whereExists untuk mencegah duplikasi baris outlet multi-coverage
      */
     private function applyChartJoins($query)
     {
-        return $query
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereNull('mo.deleted_at');
-
-                $join->whereExists(function ($exists) {
-                    $exists->select(DB::raw(1))
+        return $query->whereExists(function ($exists) {
+            $exists->select(DB::raw(1))
+                ->from(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'))
+                ->whereColumn('mo.id_outlet', 'so.id_outlet')
+                ->whereNull('mo.deleted_at')
+                ->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
                         ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
                         ->whereColumn('mx.id_coverage', 'mo.id_coverage')
                         ->whereNull('mx.deleted_at')
                         ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
                 });
-            });
+
+            $this->coverageAccess->applyScope($exists, 'mo.id_coverage');
+        });
     }
 
     private function normalizeDateRange(array $dateRange): array
@@ -264,21 +266,7 @@ class SelloutQueryService
         return $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
     }
 
-    private function applyMonthListFilter(Builder $query, array $months, int $year): void
-    {
-        if (count($months) <= 1) {
-            return;
-        }
 
-        $query->where(function ($q) use ($months, $year) {
-            foreach ($months as $month) {
-                $q->orWhereBetween('so.tgl_faktur', [
-                    Carbon::create($year, (int) $month, 1)->startOfMonth()->toDateTimeString(),
-                    Carbon::create($year, (int) $month, 1)->endOfMonth()->toDateTimeString(),
-                ]);
-            }
-        });
-    }
 
     private function enrichedSummaryQuery(
         DashboardFilterRequest $request,
@@ -294,14 +282,32 @@ class SelloutQueryService
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so');
 
-        $query = $forChart
-            ? $this->applyChartJoins($query)
-            : $this->applyStandardJoins($query);
+        $user = auth()->user();
+        $needsOutletFilter = ($user && !$this->coverageAccess->isGlobalAccessUser($user))
+            || $request->filled('level')
+            || $request->filled('coverage_nik')
+            || ($coverageId !== null && trim($coverageId) !== '');
 
-        $query->leftJoin(
-            DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
-            $this->mappingJoinCallback()
-        );
+        if ($forChart) {
+            if ($needsOutletFilter) {
+                $query = $this->applyChartJoins($query);
+            }
+        } else {
+            $query = $this->applyStandardJoins($query);
+        }
+
+        // ponytail: skip mc join for chart queries when no mapping filters (level/nik/coverage) are set to avoid 1-to-many row duplication and memory overhead
+        $needsMappingJoin = !$forChart
+            || $request->filled('level')
+            || $request->filled('coverage_nik')
+            || ($coverageId !== null && trim($coverageId) !== '');
+
+        if ($needsMappingJoin) {
+            $query->leftJoin(
+                DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
+                $this->mappingJoinCallback()
+            );
+        }
 
         if ($includeUser) {
             $query->leftJoin(
@@ -337,30 +343,15 @@ class SelloutQueryService
             $query->where('so.id_outlet', $request->get('outlet_id'));
         }
 
-        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+        if (!$forChart) {
+            $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+        }
 
         if ($request->filled('level')) {
             $query->where('mc.cov_level', $this->levelToNum($request->get('level')));
         }
 
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('distributor')) {
-            $query->whereIn('so.dist', $request->input('distributor'));
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('so.code_prod_ph', $request->input('product'));
-        }
+        $this->applyGlobalFilters($query, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
 
         $selects = [
             'so.id',
@@ -374,14 +365,14 @@ class SelloutQueryService
             'so.segment_mi',
             'so.netto',
             'so.pilar_sub as product_pilar',
-            'mc.id_coverage as coverage_id',
-            'mc.cov_desc as coverage_desc',
-            'mc.cov_nik as coverage_nik',
-            'mc.cov_level as coverage_level',
-            'mc.cov_pilar as coverage_pilar',
-            'mc.cov_divisi as coverage_divisi',
-            'mc.valid_from as coverage_valid_from',
-            'mc.valid_to as coverage_valid_to',
+            $needsMappingJoin ? 'mc.id_coverage as coverage_id' : DB::raw('NULL as coverage_id'),
+            $needsMappingJoin ? 'mc.cov_desc as coverage_desc' : DB::raw('NULL as coverage_desc'),
+            $needsMappingJoin ? 'mc.cov_nik as coverage_nik' : DB::raw('NULL as coverage_nik'),
+            $needsMappingJoin ? 'mc.cov_level as coverage_level' : DB::raw('NULL as coverage_level'),
+            $needsMappingJoin ? 'mc.cov_pilar as coverage_pilar' : DB::raw('NULL as coverage_pilar'),
+            $needsMappingJoin ? 'mc.cov_divisi as coverage_divisi' : DB::raw('NULL as coverage_divisi'),
+            $needsMappingJoin ? 'mc.valid_from as coverage_valid_from' : DB::raw('NULL as coverage_valid_from'),
+            $needsMappingJoin ? 'mc.valid_to as coverage_valid_to' : DB::raw('NULL as coverage_valid_to'),
         ];
 
         if ($includeOutletName) {
@@ -420,6 +411,22 @@ class SelloutQueryService
         );
     }
 
+    /**
+     * Base Query untuk chart (dioptimasi, tanpa join user/outlet name unless necessary)
+     */
+    public function baseChartQuery(
+        DashboardFilterRequest $request,
+        ?array $dateRange = null,
+        ?array $months = null,
+        ?string $coverageId = null
+    ): Builder {
+        $range = $dateRange ?? [$request->startDate(), $request->endDate()];
+
+        return $this->wrapAsSellout(
+            $this->enrichedSummaryQuery($request, $range, false, false, true, $months, $coverageId)
+        );
+    }
+
     public function drilldownAggregateQuery(
         DashboardFilterRequest $request,
         string $levelNum,
@@ -430,20 +437,22 @@ class SelloutQueryService
         $coverageSql = 'mo.id_coverage';
         $parentCoverageSql = "NULLIF(SUBSTRING_INDEX({$coverageSql}, '.', {$levelDepth}), '')";
 
+        $moSubquery = "(
+            SELECT id_outlet, cov_pilar, MIN(id_coverage) as id_coverage
+            FROM (
+                SELECT mo.id_outlet, mo.id_coverage, mx.cov_pilar
+                FROM {$this->dwhTable('crm_mst_outlets')} mo
+                JOIN {$this->dwhTable('crm_mst_mappings')} mx ON mx.id_coverage = mo.id_coverage
+                WHERE mo.deleted_at IS NULL AND mx.deleted_at IS NULL
+            ) as sub
+            GROUP BY id_outlet, cov_pilar
+        ) as mo";
+
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
+            ->leftJoin(DB::raw($moSubquery), function ($join) {
                 $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereNull('mo.deleted_at')
-                    ->whereExists(function ($exists) {
-                        $exists->select(DB::raw(1))
-                            ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
-                            ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                            ->whereNull('mx.deleted_at')
-                            ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
-
-                        $this->applyMappingValidity($exists, 'mx');
-                    });
+                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.cov_pilar'));
             })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'), function ($join) use ($parentCoverageSql, $levelNum) {
                 $join->on('mc.id_coverage', '=', DB::raw($parentCoverageSql))
@@ -474,24 +483,7 @@ class SelloutQueryService
             $query->whereRaw($parentCoverageSql . ' LIKE ?', [$parentId . '.%']);
         }
 
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('distributor')) {
-            $query->whereIn('so.dist', $request->input('distributor'));
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('so.code_prod_ph', $request->input('product'));
-        }
+        $this->applyGlobalFilters($query, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
 
         return $query->selectRaw("
                 COALESCE(mc.id_coverage, 'UNMAPPED') as coverage_id,
@@ -512,107 +504,33 @@ class SelloutQueryService
             ]);
     }
 
-    /**
-     * Base Query untuk trend per tahun (12 bulan)
-     */
-    public function baseQueryByYear(DashboardFilterRequest $request): Builder
+
+
+    private function topMarketingBaseQuery(DashboardFilterRequest $request): Builder
     {
-        $year = (int) $request->tahun();
-        $yearRange = [
-            Carbon::create($year, 1, 1, 0, 0, 0)->toDateString(),
-            Carbon::create($year, 12, 31, 23, 59, 59)->toDateString(),
-        ];
+        $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
+        $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
 
-        return $this->baseQuery($request, $yearRange);
-    }
+        $query = DB::connection(self::CONN_DWH)
+            ->table('crm_top_marketing as top')
+            ->whereRaw(
+                "STR_TO_DATE(CONCAT(top.tahun, '-', LPAD(top.bulan, 2, '0'), '-01'), '%Y-%m-%d') BETWEEN ? AND ?",
+                [$startMonth, $endMonth]
+            );
 
-    /**
-     * Lightweight Base Query untuk chart aggregation
-     * Tanpa join ke users, hanya fokus pada data transaksi
-     */
-    public function baseChartQuery(
-        DashboardFilterRequest $request,
-        ?array $dateRange = null
-    ): Builder {
-        $range = $dateRange ?? [$request->startDate(), $request->endDate()];
+        $this->applyGlobalFilters($query, $request, 'top.pilar', null, 'top.kode_ph');
 
-        return $this->wrapAsSellout(
-            $this->enrichedSummaryQuery($request, $range, false, false, true)
-        );
-    }
-
-    /**
-     * Base Chart Query per tahun
-     */
-    public function baseChartQueryByYear(DashboardFilterRequest $request): Builder
-    {
-        $year = (int) $request->tahun();
-        $yearRange = [
-            Carbon::create($year, 1, 1, 0, 0, 0)->toDateString(),
-            Carbon::create($year, 12, 31, 23, 59, 59)->toDateString(),
-        ];
-
-        return $this->baseChartQuery($request, $yearRange);
+        return $query;
     }
 
     public function topMarketingTarget(DashboardFilterRequest $request): float
     {
-        $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
-        $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
-
-        $query = DB::connection(self::CONN_DWH)
-            ->table('crm_top_marketing as top')
-            ->whereRaw(
-                "STR_TO_DATE(CONCAT(top.tahun, '-', LPAD(top.bulan, 2, '0'), '-01'), '%Y-%m-%d') BETWEEN ? AND ?",
-                [$startMonth, $endMonth]
-            );
-
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('top.pilar')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('top.kode_ph', $request->input('product'));
-        }
-
-        return (float) $query->sum('top.val_net');
+        return (float) $this->topMarketingBaseQuery($request)->sum('top.val_net');
     }
 
     public function topMarketingByRegion(DashboardFilterRequest $request)
     {
-        $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
-        $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
-
-        $query = DB::connection(self::CONN_DWH)
-            ->table('crm_top_marketing as top')
-            ->whereRaw(
-                "STR_TO_DATE(CONCAT(top.tahun, '-', LPAD(top.bulan, 2, '0'), '-01'), '%Y-%m-%d') BETWEEN ? AND ?",
-                [$startMonth, $endMonth]
-            );
-
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('top.pilar')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('top.kode_ph', $request->input('product'));
-        }
-
-        return $query
+        return $this->topMarketingBaseQuery($request)
             ->selectRaw("
                 COALESCE(NULLIF(TRIM(top.divisi), ''), 'LAINNYA') as divisi,
                 COALESCE(NULLIF(TRIM(top.region), ''), 'LAINNYA') as region,
@@ -640,24 +558,7 @@ class SelloutQueryService
 
         $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
 
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('distributor')) {
-            $query->whereIn('so.dist', $request->input('distributor'));
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('so.code_prod_ph', $request->input('product'));
-        }
+        $this->applyGlobalFilters($query, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
 
         return $query
             ->selectRaw("
@@ -669,68 +570,7 @@ class SelloutQueryService
             ->get();
     }
 
-    /**
-     * Query khusus chart bulanan.
-     * Tetap menghormati mapping/access filter, tapi tidak melakukan enrichment per transaksi.
-     */
-    public function monthlyChartQuery(DashboardFilterRequest $request): Builder
-    {
-        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
-        $query = DB::connection(self::CONN_DWH)
-            ->table(self::SUMMARY_TABLE . ' as so')
-            ->whereBetween('so.tgl_faktur', [$start, $end]);
 
-        if ($this->monthlyChartNeedsOutletFilter($request)) {
-            $this->applyMonthlyOutletExists($query, $request);
-        }
-
-        if ($request->filled('pilar')) {
-            $query->whereIn(
-                DB::raw($this->normalizedPilarSql('so.pilar_sub')),
-                collect($request->input('pilar'))
-                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
-                    ->unique()
-                    ->values()
-                    ->all()
-            );
-        }
-
-        if ($request->filled('distributor')) {
-            $query->whereIn('so.dist', $request->input('distributor'));
-        }
-
-        if ($request->filled('product')) {
-            $query->whereIn('so.code_prod_ph', $request->input('product'));
-        }
-
-        return $query
-            ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
-            ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')");
-    }
-
-    /**
-     * Query untuk outlet history - menampilkan perkembangan transaksi per outlet per bulan
-     */
-    public function outletHistoryQuery(DashboardFilterRequest $request)
-    {
-        $months = $request->bulanList();
-        $coverageId = $request->get('coverage_id');
-
-        if (count($months) > 1) {
-            $year = (int) $request->tahun();
-            $firstMonth = min($months);
-            $lastMonth = max($months);
-
-            $query = $this->baseQuery($request, [
-                Carbon::create($year, $firstMonth, 1)->startOfMonth()->toDateString(),
-                Carbon::create($year, $lastMonth, 1)->endOfMonth()->toDateString(),
-            ], $months, $coverageId);
-        } else {
-            $query = $this->baseQuery($request, null, null, $coverageId);
-        }
-
-        return $query;
-    }
 
     public function outletHistoryAggregateQuery(DashboardFilterRequest $request, ?string $search = null): Builder
     {
@@ -808,16 +648,7 @@ class SelloutQueryService
             );
     }
 
-    /**
-     * Helper: Hitung grouped result set
-     */
-    public function countGrouped(Builder $query): int
-    {
-        return DB::connection(self::CONN_DWH)
-            ->query()
-            ->fromSub($query, 'agg')
-            ->count();
-    }
+
 
     /**
      * Generate cache key untuk dashboard queries
@@ -904,5 +735,95 @@ class SelloutQueryService
     {
         $idx = array_search($level, self::LEVEL_ORDER);
         return self::LEVEL_ORDER[$idx + 1] ?? null;
+    }
+
+    public function applyGlobalFilters(Builder $query, DashboardFilterRequest $request, string $pilarCol = 'so.pilar_sub', ?string $distCol = 'so.dist', ?string $prodCol = 'so.code_prod_ph'): void
+    {
+        if ($request->filled('pilar')) {
+            $query->whereIn(
+                DB::raw($this->normalizedPilarSql($pilarCol)),
+                collect($request->input('pilar'))
+                    ->map(fn($pilar) => $this->normalizePilarValue($pilar))
+                    ->unique()
+                    ->values()
+                    ->all()
+            );
+        }
+
+        if ($distCol && $request->filled('distributor')) {
+            $query->whereIn($distCol, $request->input('distributor'));
+        }
+
+        if ($prodCol && $request->filled('product')) {
+            $query->whereIn($prodCol, $request->input('product'));
+        }
+    }
+
+    private function baseAnggotaDetailQuery(string $nik, Carbon $start, Carbon $end, array $outletIds): Builder
+    {
+        return DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->whereIn('so.id_outlet', $outletIds)
+            ->leftJoin('crm_mst_outlets as mo', function ($join) {
+                $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
+            })
+            ->leftJoin('crm_mst_mappings as mc', function ($join) {
+                $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                    ->whereNull('mc.deleted_at')
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_from')->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('mc.valid_to')->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+                    })->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
+            })
+            ->where('mc.cov_nik', $nik)
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+    }
+
+    public function anggotaDetailProducts(string $nik, Carbon $start, Carbon $end, array $outletIds): \Illuminate\Support\Collection
+    {
+        $query = $this->baseAnggotaDetailQuery($nik, $start, $end, $outletIds);
+        return $query
+            ->leftJoin('mst_cust_dist as vcd', function ($join) {
+                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
+                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+            })
+            ->selectRaw('
+                so.id_outlet as id_outlet,
+                COALESCE(MAX(vcd.nama_outlet), so.id_outlet) as outlet_name,
+                COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
+                COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
+                SUM(so.netto) as netto
+            ')
+            ->groupBy('so.id_outlet', 'sku', 'product_name')
+            ->orderByDesc('netto')
+            ->get();
+    }
+
+    public function anggotaDetailTrend(string $nik, Carbon $start, Carbon $end, array $outletIds): \Illuminate\Support\Collection
+    {
+        return $this->baseAnggotaDetailQuery($nik, $start, $end, $outletIds)
+            ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
+            ->groupBy('periode')
+            ->orderBy('periode')
+            ->pluck('total_netto', 'periode');
+    }
+
+    public function anggotaMappedOutlets(string $nik): array
+    {
+        return DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings as mc')
+            ->join('crm_mst_outlets as mo', function ($join) {
+                $join->on('mc.id_coverage', '=', 'mo.id_coverage')
+                    ->whereNull('mo.deleted_at');
+            })
+            ->where('mc.cov_nik', $nik)
+            ->whereNull('mc.deleted_at')
+            ->pluck('mo.id_outlet')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }
