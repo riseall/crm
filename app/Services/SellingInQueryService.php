@@ -34,19 +34,6 @@ class SellingInQueryService
         return DB::connection(self::CONN_AUTH)->getDatabaseName() . '.' . $table;
     }
 
-    public function normalizedPilarSql(string $column): string
-    {
-        $value = "UPPER(TRIM({$column} COLLATE utf8mb4_0900_ai_ci))";
-
-        return "CASE
-            WHEN {$value} IS NULL OR {$value} = '' THEN 'EXPORT'
-            WHEN {$value} = 'ETHICOM' THEN 'ETHICOM'
-            WHEN {$value} = 'ETHIPROM' THEN 'ETHIPROM'
-            WHEN {$value} IN ('OGB', 'GENERIK') THEN 'OGB'
-            WHEN {$value} = 'OTC' THEN 'OTC'
-            ELSE {$value}
-        END";
-    }
 
     public function promoPilarSql(string $column): string
     {
@@ -70,18 +57,7 @@ class SellingInQueryService
             return 'EXPORT';
         }
 
-        $pilar = strtoupper(trim($pilar));
-
-        switch ($pilar) {
-            case 'ETHICOM':
-                return 'ETHICOM';
-            case 'ETHIPROM':
-                return 'ETHIPROM';
-            case 'GENERIK':
-                return 'OGB';
-            default:
-                return $pilar;
-        }
+        return strtoupper(trim($pilar));
     }
 
     public function productCoverageTable(string $alias = 'mp'): string
@@ -241,16 +217,6 @@ class SellingInQueryService
         return $query;
     }
 
-    public function baseTransactionQueryByYear(SellingInFilterRequest $request): Builder
-    {
-        $year = $request->tahun();
-        $yearRange = [
-            Carbon::create($year, 1, 1)->startOfYear()->toDateString(),
-            Carbon::create($year, 12, 31)->endOfYear()->toDateString(),
-        ];
-
-        return $this->baseTransactionQuery($request, $yearRange);
-    }
 
     // -------------------------------------------------------
     // TEMP BASE QUERY

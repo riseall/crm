@@ -61,23 +61,9 @@ class SelloutQueryService
             ->groupBy('id_outlet', 'id_cbg_dist');
     }
 
-    private function normalizedPilarSql(string $column): string
-    {
-        return "CASE
-            WHEN UPPER(TRIM({$column})) = 'ETHICOM' THEN 'ETHICOM'
-            WHEN UPPER(TRIM({$column})) = 'ETHIPROM' THEN 'ETHIPROM'
-            WHEN UPPER(TRIM({$column})) IN ('OGB', 'GENERIK') THEN 'OGB'
-            WHEN UPPER(TRIM({$column})) = 'OTC' THEN 'OTC'
-            ELSE UPPER(TRIM({$column}))
-        END";
-    }
-
     private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
     {
-        $prod = $this->normalizedPilarSql($productPilarCol);
-        $map = $this->normalizedPilarSql($mappingPilarCol);
-
-        return "({$prod} = {$map} OR ({$map} = 'ETHICAL' AND {$prod} IN ('ETHICOM', 'ETHIPROM')))";
+        return "({$productPilarCol} = {$mappingPilarCol} OR ({$mappingPilarCol} = 'ETHICAL' AND {$productPilarCol} IN ('ETHICOM', 'ETHIPROM')))";
     }
 
     private function normalizePilarValue(?string $pilar): ?string
@@ -86,18 +72,7 @@ class SelloutQueryService
             return null;
         }
 
-        $pilar = strtoupper(trim($pilar));
-
-        switch ($pilar) {
-            case 'ETHICOM':
-                return 'ETHICOM';
-            case 'ETHIPROM':
-                return 'ETHIPROM';
-            case 'GENERIK':
-                return 'OGB';
-            default:
-                return $pilar;
-        }
+        return strtoupper(trim($pilar));
     }
 
     // -------------------------------------------------------
@@ -205,51 +180,9 @@ class SelloutQueryService
         });
     }
 
-    private function applyMonthlyOutletExists(Builder $query, DashboardFilterRequest $request): void
-    {
-        $user = Auth::user();
-        $isScopedUser = $user && !$this->coverageAccess->isGlobalAccessUser($user);
-        $roots = $isScopedUser ? $this->coverageAccess->rootCoverages($user) : [];
 
-        if ($isScopedUser && empty($roots)) {
-            $query->whereRaw('1 = 0');
-            return;
-        }
 
-        $levelNum = $request->filled('level')
-            ? $this->levelToNum($request->get('level'))
-            : null;
 
-        $query->whereExists(function ($exists) use ($request, $roots, $levelNum) {
-            $exists->select(DB::raw(1))
-                ->from(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo_filter'))
-                ->whereColumn('mo_filter.id_outlet', 'so.id_outlet')
-                ->whereNull('mo_filter.deleted_at');
-
-            if (!empty($roots)) {
-                $exists->where(function ($q) use ($roots) {
-                    foreach ($roots as $root) {
-                        $q->orWhere('mo_filter.id_coverage', 'like', $root . '%');
-                    }
-                });
-            }
-
-            if ($request->filled('coverage_id')) {
-                $exists->where('mo_filter.id_coverage', $request->get('coverage_id'));
-            }
-
-            $this->applyMatchingMappingExists($exists, 'mm_filter', $levelNum, 'mo_filter');
-        });
-    }
-
-    private function monthlyChartNeedsOutletFilter(DashboardFilterRequest $request): bool
-    {
-        $user = Auth::user();
-
-        return ($user && !$this->coverageAccess->isGlobalAccessUser($user))
-            || $request->filled('level')
-            || $request->filled('coverage_id');
-    }
 
     private function outletHistoryDateRange(DashboardFilterRequest $request): array
     {
@@ -677,28 +610,7 @@ class SelloutQueryService
         return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
     }
 
-    public function yearlyCacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
-    {
-        /** @var \App\Models\User */
-        $user = Auth::user();
-        $userKey = $user
-            ? ($user->id . '|' . $user->nik . '|' . $user->getRoleNames()->sort()->implode(','))
-            : 'guest';
 
-        $params = [
-            self::CACHE_VERSION,
-            $userKey,
-            $request->tahun(),
-            $request->get('level', ''),
-            json_encode($request->get('pilar', [])),
-            json_encode($request->get('distributor', [])),
-            json_encode($request->get('product', [])),
-            $request->get('coverage_id', ''),
-            $extra ?? '',
-        ];
-
-        return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
-    }
 
     /**
      * TTL untuk cache
@@ -741,7 +653,7 @@ class SelloutQueryService
     {
         if ($request->filled('pilar')) {
             $query->whereIn(
-                DB::raw($this->normalizedPilarSql($pilarCol)),
+                $pilarCol,
                 collect($request->input('pilar'))
                     ->map(fn($pilar) => $this->normalizePilarValue($pilar))
                     ->unique()
