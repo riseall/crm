@@ -56,9 +56,9 @@ class SelloutQueryService
     private function customerOutletNameQuery(): Builder
     {
         return DB::connection(self::CONN_DWH)
-            ->table('mst_cust_dist')
-            ->selectRaw('id_outlet, id_cbg_dist, MAX(nama_outlet) as outlet_name')
-            ->groupBy('id_outlet', 'id_cbg_dist');
+            ->table('crm_mst_cust_dist as dist')
+            ->join('crm_mst_cust as master', 'dist.id_konversi', '=', 'master.id_konversi')
+            ->selectRaw('dist.id_outlet, dist.id_cbg, master.nama_outlet as outlet_name');
     }
 
     private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
@@ -81,21 +81,14 @@ class SelloutQueryService
     private function applyStandardJoins($query)
     {
         return $query
-            ->leftJoin(DB::raw($this->dwhTable('mst_cust_dist') . ' as vcd'), function ($join) {
-                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+            ->join(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
+                $join->on('so.id_outlet', '=', 'dist.id_outlet')
+                    ->on('so.id_cbg', '=', 'dist.id_cbg');
             })
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereNull('mo.deleted_at');
-
-                $join->whereExists(function ($exists) {
-                    $exists->select(DB::raw(1))
-                        ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
-                        ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                        ->whereNull('mx.deleted_at')
-                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
-                });
+            ->join(DB::raw($this->dwhTable('crm_mst_cust') . ' as master'), 'dist.id_konversi', '=', 'master.id_konversi')
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
+                $join->on('master.id_konversi', '=', 'mo.id_konversi')
+                     ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             });
     }
 
@@ -106,16 +99,11 @@ class SelloutQueryService
     {
         return $query->whereExists(function ($exists) {
             $exists->select(DB::raw(1))
-                ->from(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'))
-                ->whereColumn('mo.id_outlet', 'so.id_outlet')
-                ->whereNull('mo.deleted_at')
-                ->whereExists(function ($sub) {
-                    $sub->select(DB::raw(1))
-                        ->from(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mx'))
-                        ->whereColumn('mx.id_coverage', 'mo.id_coverage')
-                        ->whereNull('mx.deleted_at')
-                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mx.cov_pilar'));
-                });
+                ->from(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'))
+                ->join(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), 'dist.id_konversi', '=', 'mo.id_konversi')
+                ->whereColumn('dist.id_outlet', 'so.id_outlet')
+                ->whereColumn('dist.id_cbg', 'so.id_cbg')
+                ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
 
             $this->coverageAccess->applyScope($exists, 'mo.id_coverage');
         });
@@ -130,22 +118,22 @@ class SelloutQueryService
     }
 
     private function mappingJoinCallback(): \Closure
-{
-    return function ($join) {
-        $join->on('mo.id_coverage', '=', 'mc.id_coverage')
-            ->whereNull('mc.deleted_at')
-            ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
+    {
+        return function ($join) {
+            $join->on('mo.id_coverage', '=', 'mc.id_coverage')
+                ->whereNull('mc.deleted_at')
+                ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mc.cov_pilar'));
 
-        $join->where(function ($q) {
-            $q->whereNull('mc.valid_from')
-                ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
-        })
-        ->where(function ($q) {
-            $q->whereNull('mc.valid_to')
-                ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
-        });
-    };
-}
+            $join->where(function ($q) {
+                $q->whereNull('mc.valid_from')
+                    ->orWhereRaw('so.tgl_faktur >= mc.valid_from');
+            })
+            ->where(function ($q) {
+                $q->whereNull('mc.valid_to')
+                    ->orWhereRaw('so.tgl_faktur <= mc.valid_to');
+            });
+        };
+    }
 
     private function applyMappingValidity($query, string $alias): void
     {
@@ -158,31 +146,6 @@ class SelloutQueryService
                     ->orWhereRaw("so.tgl_faktur <= {$alias}.valid_to");
             });
     }
-
-    private function applyMatchingMappingExists(
-        $query,
-        string $alias = 'mx',
-        ?string $levelNum = null,
-        string $outletAlias = 'mo'
-    ): void {
-        $query->whereExists(function ($exists) use ($alias, $levelNum, $outletAlias) {
-            $exists->select(DB::raw(1))
-                ->from(DB::raw($this->dwhTable('crm_mst_mappings') . " as {$alias}"))
-                ->whereColumn("{$alias}.id_coverage", "{$outletAlias}.id_coverage")
-                ->whereNull("{$alias}.deleted_at")
-                ->whereRaw($this->pilarMatchSql('so.pilar_sub', "{$alias}.cov_pilar"));
-
-            if ($levelNum !== null) {
-                $exists->where("{$alias}.cov_level", $levelNum);
-            }
-
-            $this->applyMappingValidity($exists, $alias);
-        });
-    }
-
-
-
-
 
     private function outletHistoryDateRange(DashboardFilterRequest $request): array
     {
@@ -198,8 +161,6 @@ class SelloutQueryService
 
         return $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
     }
-
-
 
     private function enrichedSummaryQuery(
         DashboardFilterRequest $request,
@@ -309,7 +270,7 @@ class SelloutQueryService
         ];
 
         if ($includeOutletName) {
-            $selects[] = DB::raw("COALESCE(vcd.nama_outlet, so.id_outlet) as outlet_name");
+            $selects[] = DB::raw("COALESCE(master.nama_outlet, so.id_outlet) as outlet_name");
         } else {
             $selects[] = 'so.id_outlet as outlet_name';
         }
@@ -370,22 +331,15 @@ class SelloutQueryService
         $coverageSql = 'mo.id_coverage';
         $parentCoverageSql = "NULLIF(SUBSTRING_INDEX({$coverageSql}, '.', {$levelDepth}), '')";
 
-        $moSubquery = "(
-            SELECT id_outlet, cov_pilar, MIN(id_coverage) as id_coverage
-            FROM (
-                SELECT mo.id_outlet, mo.id_coverage, mx.cov_pilar
-                FROM {$this->dwhTable('crm_mst_outlets')} mo
-                JOIN {$this->dwhTable('crm_mst_mappings')} mx ON mx.id_coverage = mo.id_coverage
-                WHERE mo.deleted_at IS NULL AND mx.deleted_at IS NULL
-            ) as sub
-            GROUP BY id_outlet, cov_pilar
-        ) as mo";
-
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($moSubquery), function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.cov_pilar'));
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
+                $join->on('so.id_outlet', '=', 'dist.id_outlet')
+                    ->on('so.id_cbg', '=', 'dist.id_cbg');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
+                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'), function ($join) use ($parentCoverageSql, $levelNum) {
                 $join->on('mc.id_coverage', '=', DB::raw($parentCoverageSql))
@@ -483,9 +437,13 @@ class SelloutQueryService
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_outlets') . ' as mo'), function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')
-                    ->whereNull('mo.deleted_at');
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
+                $join->on('so.id_outlet', '=', 'dist.id_outlet')
+                    ->on('so.id_cbg', '=', 'dist.id_cbg');
+            })
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
+                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->whereBetween('so.tgl_faktur', [$start, $end]);
 
@@ -530,7 +488,7 @@ class SelloutQueryService
         if (!$hasSearch) {
             $query->leftJoinSub($this->customerOutletNameQuery(), 'vcd', function ($join) {
                 $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
+                    ->on('so.id_cbg', '=', 'vcd.id_cbg');
             })
                 ->leftJoin(
                     DB::raw($this->authTable('users') . ' as ma'),
@@ -676,8 +634,13 @@ class SelloutQueryService
         return DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
             ->whereIn('so.id_outlet', $outletIds)
-            ->leftJoin('crm_mst_outlets as mo', function ($join) {
-                $join->on('so.id_outlet', '=', 'mo.id_outlet')->whereNull('mo.deleted_at');
+            ->join('crm_mst_cust_dist as dist', function ($join) {
+                $join->on('so.id_outlet', '=', 'dist.id_outlet')
+                    ->on('so.id_cbg', '=', 'dist.id_cbg');
+            })
+            ->join('crm_mst_cust_cov as mo', function ($join) {
+                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                     ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->leftJoin('crm_mst_mappings as mc', function ($join) {
                 $join->on('mo.id_coverage', '=', 'mc.id_coverage')
@@ -697,13 +660,10 @@ class SelloutQueryService
     {
         $query = $this->baseAnggotaDetailQuery($nik, $start, $end, $outletIds);
         return $query
-            ->leftJoin('mst_cust_dist as vcd', function ($join) {
-                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg_dist');
-            })
+            ->join('crm_mst_cust as master', 'dist.id_konversi', '=', 'master.id_konversi')
             ->selectRaw('
                 so.id_outlet as id_outlet,
-                COALESCE(MAX(vcd.nama_outlet), so.id_outlet) as outlet_name,
+                COALESCE(MAX(master.nama_outlet), so.id_outlet) as outlet_name,
                 COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
                 COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
                 SUM(so.netto) as netto
@@ -726,13 +686,13 @@ class SelloutQueryService
     {
         return DB::connection(self::CONN_DWH)
             ->table('crm_mst_mappings as mc')
-            ->join('crm_mst_outlets as mo', function ($join) {
-                $join->on('mc.id_coverage', '=', 'mo.id_coverage')
-                    ->whereNull('mo.deleted_at');
+            ->join('crm_mst_cust_cov as mo', function ($join) {
+                $join->on('mc.id_coverage', '=', 'mo.id_coverage');
             })
+            ->join('crm_mst_cust_dist as dist', 'mo.id_konversi', '=', 'dist.id_konversi')
             ->where('mc.cov_nik', $nik)
             ->whereNull('mc.deleted_at')
-            ->pluck('mo.id_outlet')
+            ->pluck('dist.id_outlet')
             ->filter()
             ->unique()
             ->values()
