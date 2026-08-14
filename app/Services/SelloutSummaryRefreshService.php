@@ -10,6 +10,37 @@ class SelloutSummaryRefreshService
     private const CONN_DWH = 'db_dwh';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
+    private const COLUMNS = [
+        'source_table',
+        'source_id',
+        'tgl_faktur',
+        'no_faktur',
+        'dist',
+        'id_cbg',
+        'id_cbg_ph',
+        'id_outlet',
+        'id_konversi',
+        'nama_outlet',
+        'segment_dist',
+        'segment_mi',
+        'code_product',
+        'code_prod_ph',
+        'desc',
+        'satuan',
+        'pilar_sub',
+        'dec_pelayanan',
+        'divisi',
+        'sub_divisi',
+        'regional',
+        'batch',
+        'qty',
+        'hna',
+        'bruto',
+        'netto',
+        'created_at',
+        'updated_at',
+    ];
+
     private function normalizeDateRange(array $dateRange): array
     {
         return [
@@ -56,137 +87,32 @@ class SelloutSummaryRefreshService
      */
     private function insertKftdSummary(string $start, string $end): void
     {
-        $segDist = $this->utf8Key('seg.dist');
-        $segSegment = $this->utf8Key('seg.segment_dist');
-        $kSegment = $this->utf8Key('k.desc_cust_grp4');
-        $vpDist = $this->utf8Key('vp.dist');
-        $vpProduct = $this->utf8Key('vp.pt_dist');
-        $kProduct = $this->utf8Key('k.material');
-        $subSegment = $this->utf8Key('sub.segment_mi');
-        $segSegmentMi = $this->utf8Key('seg.segment_mi');
-        $subPilar = $this->utf8Key('sub.pilar_sub');
-        $vpPilar = $this->utf8Key('vp.pilar_sub');
-        $cbgDist = $this->utf8Key('cbg.dist');
-        $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
-        $kCbg = $this->utf8Key('k.sales_office');
-        $regSubDivisi = $this->utf8Key('reg.sub_divisi');
-        $subSubDivisi = $this->utf8Key('sub.sub_divisi');
-        $regCbgPh = $this->utf8Key('reg.id_cbg_ph');
-        $cbgPh = $this->utf8Key('cbg.id_cbg_ph');
-
-        DB::connection(self::CONN_DWH)->statement(
-            "INSERT INTO " . self::SUMMARY_TABLE . " (
-                source_table,
-                source_id,
-                tgl_faktur,
-                no_faktur,
-                dist,
-                id_cbg,
-                id_cbg_ph,
-                id_outlet,
-                nama_outlet,
-                segment_dist,
-                segment_mi,
-                code_product,
-                code_prod_ph,
-                `desc`,
-                satuan,
-                pilar_sub,
-                dec_pelayanan,
-                divisi,
-                sub_divisi,
-                regional,
-                batch,
-                qty,
-                hna,
-                bruto,
-                netto,
-                created_at,
-                updated_at
-            )
-            SELECT
-                'KFTD' AS source_table,
-                k.id_selling_out AS source_id,
-                k.posting_date AS tgl_faktur,
-                k.billing_no AS no_faktur,              
-                'KFTD' AS dist,
-                k.sales_office AS id_cbg,
-                cbg.id_cbg_ph AS id_cbg_ph,
-                k.ship_to_party AS id_outlet,
-                k.name_ship_to AS nama_outlet,
-                k.desc_cust_grp4 AS segment_dist,
-                seg.segment_mi AS segment_mi,
-                k.material AS code_product,
-                vp.pt_ph AS code_prod_ph,
-                vp.pt_desc AS `desc`,
-                k.sales_unit AS satuan,
-                (CASE WHEN vp.pilar_sub = 'GENERIK' THEN 'OGB' ELSE vp.pilar_sub END) AS pilar_sub,
-                k.dec_pelayanan AS dec_pelayanan,
-                sub.divisi AS divisi,
-                sub.sub_divisi AS sub_divisi,
-                reg.regional AS regional,
-                k.supplier_batch AS batch,
-                k.quantity AS qty,
-                k.unit_price_penjualan AS hna,
-                (k.total_penjualan + k.total_discount) AS bruto,
-                ((k.total_penjualan + k.total_discount) - (k.dis_zd02_amount + k.dis_zd04_amount)) AS netto,
-                NOW() AS created_at,
-                NOW() AS updated_at
-
-            FROM selling_out_kftd AS k
-
-            LEFT JOIN mst_segment AS seg
-                ON {$segDist} = 'KFTD'
-                AND {$segSegment} = {$kSegment}
-
-            LEFT JOIN v_pt_mstr_dist AS vp
-                ON {$vpDist} = 'KFTD'
-                AND {$vpProduct} = {$kProduct}
-
-            LEFT JOIN crm_mst_sub_div AS sub
-                ON {$subSegment} = {$segSegmentMi}
-                AND {$subPilar} = {$vpPilar}
-                AND sub.is_active = 1
-
-            LEFT JOIN mst_cbg_dist_new AS cbg
-                ON {$cbgDist} = 'KFTD'
-                AND {$cbgDistId} = {$kCbg}
-
-            LEFT JOIN crm_mst_regional AS reg
-                ON {$regSubDivisi} = {$subSubDivisi}
-                AND {$regCbgPh} = {$cbgPh}
-                AND reg.is_active = 1
-
-            WHERE k.principle = '7000000344'
-                AND k.posting_date BETWEEN ? AND ?
-
-            ON DUPLICATE KEY UPDATE
-                tgl_faktur = VALUES(tgl_faktur),
-                no_faktur = VALUES(no_faktur),
-                dist = VALUES(dist),
-                id_cbg = VALUES(id_cbg),
-                id_cbg_ph = VALUES(id_cbg_ph),
-                id_outlet = VALUES(id_outlet),
-                nama_outlet = VALUES(nama_outlet),
-                segment_dist = VALUES(segment_dist),
-                segment_mi = VALUES(segment_mi),
-                code_product = VALUES(code_product),
-                code_prod_ph = VALUES(code_prod_ph),
-                `desc` = VALUES(`desc`),
-                pilar_sub = VALUES(pilar_sub),
-                satuan = VALUES(satuan),
-                dec_pelayanan = VALUES(dec_pelayanan),
-                divisi = VALUES(divisi),
-                sub_divisi = VALUES(sub_divisi),
-                regional = VALUES(regional),
-                batch = VALUES(batch),
-                qty = VALUES(qty),
-                hna = VALUES(hna),
-                bruto = VALUES(bruto),
-                netto = VALUES(netto),
-                updated_at = NOW()",
-            [$start, $end]
-        );
+        $this->executeSummaryInsert([
+            'source' => 'KFTD',
+            'from_table' => 'selling_out_kftd',
+            'alias' => 'k',
+            'date_col' => 'posting_date',
+            'where' => "k.principle = '7000000344'",
+            'filter_dist' => true,
+            'select' => [
+                'source_id' => 'k.id_selling_out',
+                'tgl_faktur' => 'k.posting_date',
+                'no_faktur' => 'k.billing_no',
+                'id_cbg' => 'k.sales_office',
+                'id_cbg_ph' => 'cbg.id_cbg_ph',
+                'id_outlet' => 'k.ship_to_party',
+                'nama_outlet' => 'k.name_ship_to',
+                'segment_dist' => 'k.desc_cust_grp4',
+                'code_product' => 'k.material',
+                'satuan' => 'k.sales_unit',
+                'dec_pelayanan' => 'k.dec_pelayanan',
+                'batch' => 'k.supplier_batch',
+                'qty' => 'k.quantity',
+                'hna' => 'k.unit_price_penjualan',
+                'bruto' => '(k.total_penjualan + k.total_discount)',
+                'netto' => '((k.total_penjualan + k.total_discount) - (k.dis_zd02_amount + k.dis_zd04_amount))',
+            ],
+        ], $start, $end);
     }
 
     /**
@@ -194,136 +120,31 @@ class SelloutSummaryRefreshService
      */
     private function insertAamSummary(string $start, string $end): void
     {
-        $segDist = $this->utf8Key('seg.dist');
-        $segSegment = $this->utf8Key('seg.segment_dist');
-        $aSegment = $this->utf8Key('a.desc_cust_grp3');
-        $vpDist = $this->utf8Key('vp.dist');
-        $vpProduct = $this->utf8Key('vp.pt_dist');
-        $aProduct = $this->utf8Key('a.material');
-        $subSegment = $this->utf8Key('sub.segment_mi');
-        $segSegmentMi = $this->utf8Key('seg.segment_mi');
-        $subPilar = $this->utf8Key('sub.pilar_sub');
-        $vpPilar = $this->utf8Key('vp.pilar_sub');
-        $cbgDist = $this->utf8Key('cbg.dist');
-        $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
-        $aCbg = $this->utf8Key('a.sales_office');
-        $regSubDivisi = $this->utf8Key('reg.sub_divisi');
-        $subSubDivisi = $this->utf8Key('sub.sub_divisi');
-        $regCbgPh = $this->utf8Key('reg.id_cbg_ph');
-        $cbgPh = $this->utf8Key('cbg.id_cbg_ph');
-
-        DB::connection(self::CONN_DWH)->statement(
-            "INSERT INTO " . self::SUMMARY_TABLE . " (
-                source_table,
-                source_id,
-                tgl_faktur,
-                no_faktur,
-                dist,
-                id_cbg,
-                id_cbg_ph,
-                id_outlet,
-                nama_outlet,
-                segment_dist,
-                segment_mi,
-                code_product,
-                code_prod_ph,
-                `desc`,
-                satuan,
-                pilar_sub,
-                dec_pelayanan,
-                divisi,
-                sub_divisi,
-                regional,
-                batch,
-                qty,
-                hna,
-                bruto,
-                netto,
-                created_at,
-                updated_at
-            )
-            SELECT
-                'AAM' AS source_table,
-                a.id AS source_id,
-                a.posting_date AS tgl_faktur,
-                a.po_number AS no_faktur,
-                'AAM' AS dist,
-                a.sales_office AS id_cbg,
-                cbg.id_cbg_ph AS id_cbg_ph,
-                a.ship_to_party AS id_outlet,
-                a.name_ship_to AS nama_outlet,
-                a.desc_cust_grp3 AS segment_dist,
-                seg.segment_mi AS segment_mi,
-                a.material AS code_product,
-                vp.pt_ph AS code_prod_ph,
-                vp.pt_desc AS `desc`,
-                a.sales_unit AS satuan,
-                (CASE WHEN vp.pilar_sub = 'GENERIK' THEN 'OGB' ELSE vp.pilar_sub END) AS pilar_sub,
-                a.dec_pelayanan AS dec_pelayanan,
-                sub.divisi AS divisi,
-                sub.sub_divisi AS sub_divisi,
-                reg.regional AS regional,
-                a.batch AS batch,
-                a.quantity AS qty,
-                a.unit_price_penjualan AS hna,
-                a.nilai_bruto AS bruto,
-                a.nilai_netto AS netto,
-                NOW() AS created_at,
-                NOW() AS updated_at
-
-            FROM selling_out_aam AS a
-
-            LEFT JOIN mst_segment AS seg
-                ON {$segDist} = 'AAM'
-                AND {$segSegment} = {$aSegment}
-
-            LEFT JOIN v_pt_mstr_dist AS vp
-                ON {$vpDist} = 'AAM'
-                AND {$vpProduct} = {$aProduct}
-
-            LEFT JOIN crm_mst_sub_div AS sub
-                ON {$subSegment} = {$segSegmentMi}
-                AND {$subPilar} = {$vpPilar}
-                AND sub.is_active = 1
-
-            LEFT JOIN mst_cbg_dist_new AS cbg
-                ON {$cbgDist} = 'AAM'
-                AND {$cbgDistId} = {$aCbg}
-
-            LEFT JOIN crm_mst_regional AS reg
-                ON {$regSubDivisi} = {$subSubDivisi}
-                AND {$regCbgPh} = {$cbgPh}
-                AND reg.is_active = 1
-
-            WHERE a.posting_date BETWEEN ? AND ?
-
-            ON DUPLICATE KEY UPDATE
-                tgl_faktur = VALUES(tgl_faktur),
-                no_faktur = VALUES(no_faktur),
-                dist = VALUES(dist),
-                id_cbg = VALUES(id_cbg),
-                id_cbg_ph = VALUES(id_cbg_ph),
-                id_outlet = VALUES(id_outlet),
-                nama_outlet = VALUES(nama_outlet),
-                segment_dist = VALUES(segment_dist),
-                segment_mi = VALUES(segment_mi),
-                code_product = VALUES(code_product),
-                code_prod_ph = VALUES(code_prod_ph),
-                `desc` = VALUES(`desc`),
-                pilar_sub = VALUES(pilar_sub),
-                satuan = VALUES(satuan),
-                dec_pelayanan = VALUES(dec_pelayanan),
-                divisi = VALUES(divisi),
-                sub_divisi = VALUES(sub_divisi),
-                regional = VALUES(regional),
-                batch = VALUES(batch),
-                qty = VALUES(qty),
-                hna = VALUES(hna),
-                bruto = VALUES(bruto),
-                netto = VALUES(netto),
-                updated_at = NOW()",
-            [$start, $end]
-        );
+        $this->executeSummaryInsert([
+            'source' => 'AAM',
+            'from_table' => 'selling_out_aam',
+            'alias' => 'a',
+            'date_col' => 'posting_date',
+            'filter_dist' => true,
+            'select' => [
+                'source_id' => 'a.id',
+                'tgl_faktur' => 'a.posting_date',
+                'no_faktur' => 'a.po_number',
+                'id_cbg' => 'a.sales_office',
+                'id_cbg_ph' => 'cbg.id_cbg_ph',
+                'id_outlet' => 'a.ship_to_party',
+                'nama_outlet' => 'a.name_ship_to',
+                'segment_dist' => 'a.desc_cust_grp3',
+                'code_product' => 'a.material',
+                'satuan' => 'a.sales_unit',
+                'dec_pelayanan' => 'a.dec_pelayanan',
+                'batch' => 'a.batch',
+                'qty' => 'a.quantity',
+                'hna' => 'a.unit_price_penjualan',
+                'bruto' => 'a.nilai_bruto',
+                'netto' => 'a.nilai_netto',
+            ],
+        ], $start, $end);
     }
 
     /**
@@ -331,129 +152,135 @@ class SelloutSummaryRefreshService
      */
     private function insertMetdSummary(string $start, string $end): void
     {
-        $segSegment = $this->utf8Key('seg.segment_dist');
-        $mSegment = $this->utf8Key('m.segmen');
-        $vpProduct = $this->utf8Key('vp.pt_dist');
-        $mProduct = $this->utf8Key('m.kode_brg_metd');
-        $subSegment = $this->utf8Key('sub.segment_mi');
-        $segSegmentMi = $this->utf8Key('seg.segment_mi');
-        $subPilar = $this->utf8Key('sub.pilar_sub');
-        $vpPilar = $this->utf8Key('vp.pilar_sub');
-        $cbgDistId = $this->utf8Key('cbg.kode_cbg_dist');
-        $mCbg = $this->utf8Key('m.kode_cbg_ph');
-        $regSubDivisi = $this->utf8Key('reg.sub_divisi');
-        $subSubDivisi = $this->utf8Key('sub.sub_divisi');
-        $regCbgPh = $this->utf8Key('reg.id_cbg_ph');
-        $cbgPhFallback = "COALESCE({$this->utf8Key('cbg.id_cbg_ph')}, {$mCbg})";
+        $cbgPhFallback = "COALESCE({$this->utf8Key('cbg.id_cbg_ph')}, {$this->utf8Key('m.kode_cbg_ph')})";
 
-        DB::connection(self::CONN_DWH)->statement(
-            "INSERT INTO " . self::SUMMARY_TABLE . " (
-                source_table,
-                source_id,
-                tgl_faktur,
-                no_faktur,
-                dist,
-                id_cbg,
-                id_cbg_ph,
-                id_outlet,
-                nama_outlet,
-                segment_dist,
-                segment_mi,
-                code_product,
-                code_prod_ph,
-                `desc`,
-                satuan,
-                pilar_sub,
-                dec_pelayanan,
-                divisi,
-                sub_divisi,
-                regional,
-                batch,
-                qty,
-                hna,
-                bruto,
-                netto,
-                created_at,
-                updated_at
+        $this->executeSummaryInsert([
+            'source' => 'METD',
+            'from_table' => 'selling_out_metd',
+            'alias' => 'm',
+            'date_col' => 'tgl_shipper',
+            'filter_dist' => false,
+            'reg_cbg_ph_override' => $cbgPhFallback,
+            'select' => [
+                'source_id' => 'm.id',
+                'tgl_faktur' => 'm.tgl_shipper',
+                'no_faktur' => 'm.no_faktur',
+                'id_cbg' => 'm.kode_cbg_ph',
+                'id_cbg_ph' => "{$cbgPhFallback} AS id_cbg_ph",
+                'id_outlet' => 'm.id_outlet',
+                'nama_outlet' => 'm.nama_outlet',
+                'segment_dist' => 'm.segmen',
+                'code_product' => 'm.kode_brg_metd',
+                'satuan' => 'm.satuan_metd',
+                'dec_pelayanan' => "''",
+                'batch' => 'm.batch_ph',
+                'qty' => 'm.qty',
+                'hna' => 'm.hna',
+                'bruto' => 'm.bruto',
+                'netto' => 'm.netto',
+            ],
+        ], $start, $end);
+    }
+
+    /**
+     * Executing dynamic summary insert with standardized query template.
+     */
+    private function executeSummaryInsert(array $config, string $start, string $end): void
+    {
+        $source = $config['source'];
+        $table = $config['from_table'];
+        $alias = $config['alias'];
+        $dateCol = $config['date_col'];
+        $filterDist = $config['filter_dist'];
+        $s = $config['select'];
+
+        $segDistJoin  = $filterDist ? "{$this->utf8Key('seg.dist')} = '{$source}' AND " : '';
+        $vpDistJoin   = $filterDist ? "{$this->utf8Key('vp.dist')} = '{$source}' AND " : '';
+        $cbgDistJoin  = $filterDist ? "{$this->utf8Key('cbg.dist')} = '{$source}' AND " : '';
+        $custDistJoin = $filterDist ? "{$this->utf8Key('TRIM(cd.dist)')} = '{$source}' AND " : '';
+
+        $regCbgPhExpr = $config['reg_cbg_ph_override'] ?? $this->utf8Key('cbg.id_cbg_ph');
+
+        $whereClause = "{$alias}.{$dateCol} BETWEEN ? AND ?";
+        if (!empty($config['where'])) {
+            $whereClause = "{$config['where']} AND {$whereClause}";
+        }
+
+        $colsSql = implode(",\n                ", array_map(fn($col) => $col === 'desc' ? '`desc`' : $col, self::COLUMNS));
+
+        $onDuplicateSql = implode(",\n                ", array_map(function ($col) {
+            if ($col === 'updated_at') {
+                return 'updated_at = NOW()';
+            }
+            $colName = $col === 'desc' ? '`desc`' : $col;
+            return "{$colName} = VALUES({$colName})";
+        }, array_filter(self::COLUMNS, fn($col) => !in_array($col, ['source_table', 'source_id', 'created_at'], true))));
+
+        $idCbgPhSelect = str_contains($s['id_cbg_ph'], ' AS ') ? $s['id_cbg_ph'] : "{$s['id_cbg_ph']} AS id_cbg_ph";
+
+        $sql = "INSERT INTO " . self::SUMMARY_TABLE . " (
+                {$colsSql}
             )
             SELECT
-                'METD' AS source_table,
-                m.id AS source_id,
-                m.tgl_shipper AS tgl_faktur,
-                m.no_faktur AS no_faktur,
-                'METD' AS dist,
-                m.kode_cbg_ph AS id_cbg,
-                {$cbgPhFallback} AS id_cbg_ph,
-                m.id_outlet AS id_outlet,
-                m.nama_outlet AS nama_outlet,
-                m.segmen AS segment_dist,
+                '{$source}' AS source_table,
+                {$s['source_id']} AS source_id,
+                {$s['tgl_faktur']} AS tgl_faktur,
+                {$s['no_faktur']} AS no_faktur,
+                '{$source}' AS dist,
+                {$s['id_cbg']} AS id_cbg,
+                {$idCbgPhSelect},
+                {$s['id_outlet']} AS id_outlet,
+                cd.id_konversi AS id_konversi,
+                {$s['nama_outlet']} AS nama_outlet,
+                {$s['segment_dist']} AS segment_dist,
                 seg.segment_mi AS segment_mi,
-                m.kode_brg_metd AS code_product,
+                {$s['code_product']} AS code_product,
                 vp.pt_ph AS code_prod_ph,
                 vp.pt_desc AS `desc`,
-                m.satuan_metd AS satuan,
+                {$s['satuan']} AS satuan,
                 (CASE WHEN vp.pilar_sub = 'GENERIK' THEN 'OGB' ELSE vp.pilar_sub END) AS pilar_sub,
-                '' AS dec_pelayanan,
+                {$s['dec_pelayanan']} AS dec_pelayanan,
                 sub.divisi AS divisi,
                 sub.sub_divisi AS sub_divisi,
                 reg.regional AS regional,
-                m.batch_ph AS batch,
-                m.qty AS qty,
-                m.hna AS hna,
-                m.bruto AS bruto,
-                m.netto AS netto,
+                {$s['batch']} AS batch,
+                {$s['qty']} AS qty,
+                {$s['hna']} AS hna,
+                {$s['bruto']} AS bruto,
+                {$s['netto']} AS netto,
                 NOW() AS created_at,
                 NOW() AS updated_at
 
-            FROM selling_out_metd AS m
+            FROM {$table} AS {$alias}
+
+            LEFT JOIN crm_mst_cust_dist AS cd
+                ON {$custDistJoin}{$this->utf8Key('TRIM(cd.id_outlet)')} = {$this->utf8Key("TRIM({$s['id_outlet']})")}
+                AND {$this->utf8Key('TRIM(cd.id_cbg)')} = {$this->utf8Key("TRIM({$s['id_cbg']})")}
 
             LEFT JOIN mst_segment AS seg
-                ON {$segSegment} = {$mSegment}
+                ON {$segDistJoin}{$this->utf8Key('seg.segment_dist')} = {$this->utf8Key($s['segment_dist'])}
 
             LEFT JOIN v_pt_mstr_dist AS vp
-                ON {$vpProduct} = {$mProduct}
+                ON {$vpDistJoin}{$this->utf8Key('vp.pt_dist')} = {$this->utf8Key($s['code_product'])}
 
             LEFT JOIN crm_mst_sub_div AS sub
-                ON {$subSegment} = {$segSegmentMi}
-                AND {$subPilar} = {$vpPilar}
+                ON {$this->utf8Key('sub.segment_mi')} = {$this->utf8Key('seg.segment_mi')}
+                AND {$this->utf8Key('sub.pilar_sub')} = {$this->utf8Key('vp.pilar_sub')}
                 AND sub.is_active = 1
 
             LEFT JOIN mst_cbg_dist_new AS cbg
-                ON {$cbgDistId} = {$mCbg}
+                ON {$cbgDistJoin}{$this->utf8Key('cbg.kode_cbg_dist')} = {$this->utf8Key($s['id_cbg'])}
 
             LEFT JOIN crm_mst_regional AS reg
-                ON {$regSubDivisi} = {$subSubDivisi}
-                AND {$regCbgPh} = {$cbgPhFallback}
+                ON {$this->utf8Key('reg.sub_divisi')} = {$this->utf8Key('sub.sub_divisi')}
+                AND {$this->utf8Key('reg.id_cbg_ph')} = {$regCbgPhExpr}
                 AND reg.is_active = 1
 
-            WHERE m.tgl_shipper BETWEEN ? AND ?
+            WHERE {$whereClause}
 
             ON DUPLICATE KEY UPDATE
-                tgl_faktur = VALUES(tgl_faktur),
-                no_faktur = VALUES(no_faktur),
-                dist = VALUES(dist),
-                id_cbg = VALUES(id_cbg),
-                id_cbg_ph = VALUES(id_cbg_ph),
-                id_outlet = VALUES(id_outlet),
-                nama_outlet = VALUES(nama_outlet),
-                segment_dist = VALUES(segment_dist),
-                segment_mi = VALUES(segment_mi),
-                code_product = VALUES(code_product),
-                code_prod_ph = VALUES(code_prod_ph),
-                `desc` = VALUES(`desc`),
-                pilar_sub = VALUES(pilar_sub),
-                satuan = VALUES(satuan),
-                dec_pelayanan = VALUES(dec_pelayanan),
-                divisi = VALUES(divisi),
-                sub_divisi = VALUES(sub_divisi),
-                regional = VALUES(regional),
-                batch = VALUES(batch),
-                qty = VALUES(qty),
-                hna = VALUES(hna),
-                bruto = VALUES(bruto),
-                netto = VALUES(netto),
-                updated_at = NOW()",
-            [$start, $end]
-        );
+                {$onDuplicateSql}";
+
+        DB::connection(self::CONN_DWH)->statement($sql, [$start, $end]);
     }
 }
