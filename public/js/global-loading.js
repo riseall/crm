@@ -2,7 +2,7 @@
 
 (function (window, document, $) {
     var showTimer = null;
-    var showDelay = 650;
+    var showDelay = 250;
     var body = document.body;
     var modalId = "crm-inline-loading";
     var modalStyleId = "crm-inline-loading-style";
@@ -322,7 +322,13 @@
     );
 
     window.addEventListener("beforeunload", showPageLoader);
-    window.addEventListener("pageshow", resetAll);
+    // ponytail: pageshow only resets active state if restored from BFCache (persisted). Normal page loads must keep loadingState intact for AJAX calls started on DOMReady.
+    window.addEventListener("pageshow", function (event) {
+        hidePageLoader();
+        if (event && event.persisted) {
+            reset();
+        }
+    });
 
     window.CrmLoading = {
         start: start,

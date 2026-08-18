@@ -283,6 +283,81 @@
                 border-color: #E4E6EF !important;
             }
 
+            /* Select2 Multi-Select Compact Choice Pills */
+            .select2-container--default .select2-selection--multiple {
+                min-height: 32px !important;
+                max-height: 64px !important;
+                overflow-y: auto !important;
+                height: auto !important;
+                padding: 1px 4px !important;
+                border-color: #E4E6EF !important;
+                font-size: 0.75rem !important;
+            }
+            .select2-container--default .select2-selection--multiple::-webkit-scrollbar {
+                width: 4px;
+            }
+            .select2-container--default .select2-selection--multiple::-webkit-scrollbar-thumb {
+                background: #CBD5E1;
+                border-radius: 4px;
+            }
+            .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+                padding: 0 2px !important;
+                margin: 0 !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 3px !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-selection__choice {
+                background-color: #F3F6F9 !important;
+                border: 1px solid #E4E6EF !important;
+                border-radius: 4px !important;
+                padding: 1px 6px !important;
+                margin: 2px 0 !important;
+                font-size: 0.70rem !important;
+                font-weight: 500 !important;
+                color: #3F4254 !important;
+                line-height: 1.3 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                max-width: 170px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+                color: #7E8299 !important;
+                font-size: 0.75rem !important;
+                line-height: 1 !important;
+                margin-right: 4px !important;
+                border: none !important;
+                background: transparent !important;
+                cursor: pointer !important;
+                float: none !important;
+                position: static !important;
+                display: inline-block !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove::before,
+            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove::after {
+                content: "" !important;
+                display: none !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+                color: #F64E60 !important;
+                background: transparent !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-search--inline {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field {
+                margin: 2px 0 !important;
+                padding: 0 4px !important;
+                height: 22px !important;
+                font-size: 0.75rem !important;
+                line-height: 1.3 !important;
+            }
+
             /* Bootstrap Selectpicker Popup Menu */
             .bootstrap-select .dropdown-menu {
                 font-size: 0.76rem !important;
@@ -398,11 +473,18 @@
                 }
                 .filter-bar-responsive .form-control,
                 .filter-bar-responsive .selectpicker,
-                .filter-bar-responsive .select2-container .select2-selection--single,
-                .filter-bar-responsive .select2-container .select2-selection--multiple {
+                .filter-bar-responsive .select2-container .select2-selection--single {
                     font-size: 0.78rem !important;
                     min-height: 32px !important;
                     height: 32px !important;
+                    border-color: #E4E6EF !important;
+                }
+                .filter-bar-responsive .select2-container .select2-selection--multiple {
+                    font-size: 0.75rem !important;
+                    min-height: 32px !important;
+                    max-height: 64px !important;
+                    overflow-y: auto !important;
+                    height: auto !important;
                     border-color: #E4E6EF !important;
                 }
                 .filter-bar-responsive .bootstrap-select .dropdown-toggle .filter-option-inner-inner {

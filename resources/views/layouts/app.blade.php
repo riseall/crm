@@ -188,19 +188,19 @@
                 dom: "<'row align-items-center mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 text-md-right'f>>" +
                     "rt" +
                     "<'row align-items-center mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-                language: {
-                    search: '',
-                    searchPlaceholder: 'Cari...',
-                    lengthMenu: '_MENU_',
-                    info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
-                    infoEmpty: 'Menampilkan 0 - 0 dari 0 data',
-                    infoFiltered: '(disaring dari _MAX_ data)',
-                    zeroRecords: 'Tidak ada data yang cocok',
-                    paginate: {
-                        previous: 'Sebelumnya',
-                        next: 'Berikutnya',
-                    },
-                }
+                // language: {
+                //     search: '',
+                //     searchPlaceholder: 'Cari...',
+                //     lengthMenu: '_MENU_',
+                //     info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
+                //     infoEmpty: 'Menampilkan 0 - 0 dari 0 data',
+                //     infoFiltered: '(disaring dari _MAX_ data)',
+                //     zeroRecords: 'Tidak ada data yang cocok',
+                //     paginate: {
+                //         previous: 'Sebelumnya',
+                //         next: 'Berikutnya',
+                //     },
+                // }
             });
 
             $.fn.dataTable.ext.errMode = 'none';
