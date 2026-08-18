@@ -51,8 +51,8 @@
                                 <span></span>
                             </label>
                         </div>
-                        <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.key') }}">
-                        </div>
+                        {{-- <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.key') }}">
+                        </div> --}}
                         <div class="invalid-feedback text-left text-danger @error('cf-turnstile-response') d-block @enderror"
                             data-error-for="cf-turnstile-response">
                             @error('cf-turnstile-response')

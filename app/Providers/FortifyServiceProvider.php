@@ -54,17 +54,41 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         Fortify::authenticateUsing(function (Request $request) {
-            $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
-                'secret' => env('TURNSTILE_SECRET_KEY'),
-                'response' => $request->input('cf-turnstile-response'),
-                'remoteip' => $request->ip(),
-            ]);
+            // $secretKey = config('services.turnstile.secret') ?: env('TURNSTILE_SECRET_KEY');
 
-            if (!$turnstileResponse->json('success')) {
-                throw ValidationException::withMessages([
-                    'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
-                ]);
-            }
+            // try {
+            //     $turnstileResponse = Http::asForm()
+            //         ->when(app()->environment('local'), fn($h) => $h->withoutVerifying())
+            //         ->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+            //             'secret'   => $secretKey,
+            //             'response' => $request->input('cf-turnstile-response'),
+            //             'remoteip' => $request->ip(),
+            //         ]);
+
+            //     $result = $turnstileResponse->json();
+
+            //     if (empty($result['success'])) {
+            //         \Illuminate\Support\Facades\Log::warning('Turnstile verification failed:', [
+            //             'secret_key_present' => !empty($secretKey),
+            //             'cloudflare_response' => $result,
+            //             'http_status' => $turnstileResponse->status(),
+            //         ]);
+
+            //         throw ValidationException::withMessages([
+            //             'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
+            //         ]);
+            //     }
+            // } catch (\Exception $e) {
+            //     if ($e instanceof ValidationException) {
+            //         throw $e;
+            //     }
+
+            //     \Illuminate\Support\Facades\Log::error('Turnstile exception: ' . $e->getMessage());
+
+            //     throw ValidationException::withMessages([
+            //         'cf-turnstile-response' => ['Validasi keamanan gagal. Silakan centang kotak verifikasi.'],
+            //     ]);
+            // }
 
             $spkUser = DB::connection('db_master')
                 ->table('mst_anggota')
