@@ -13,7 +13,7 @@ class SelloutQueryService
     private const CONN_DWH = 'db_dwh';
     private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v17';
+    private const CACHE_VERSION = 'v18';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
     private function dwhDatabaseName(): string
@@ -29,11 +29,11 @@ class SelloutQueryService
     private CoverageAccessService $coverageAccess;
 
     public const LEVEL_MAP = [
-        'GM' => '1',
-        'RM' => '2',
+        'GM'  => '1',
+        'RM'  => '2',
         'SAM' => '3',
-        'AM' => '4',
-        'MR' => '5',
+        'AM'  => '4',
+        'MR'  => '5',
     ];
 
     public const LEVEL_ORDER = ['GM', 'RM', 'SAM', 'AM', 'MR'];
@@ -53,14 +53,6 @@ class SelloutQueryService
         return $this->authDatabaseName() . '.' . $table;
     }
 
-    private function customerOutletNameQuery(): Builder
-    {
-        return DB::connection(self::CONN_DWH)
-            ->table('crm_mst_cust_dist as dist')
-            ->join('crm_mst_cust as master', 'dist.id_konversi', '=', 'master.id_konversi')
-            ->selectRaw('dist.id_outlet, dist.id_cbg, master.nama_outlet as outlet_name');
-    }
-
     private function pilarMatchSql(string $productPilarCol, string $mappingPilarCol): string
     {
         return "({$productPilarCol} = {$mappingPilarCol} OR ({$mappingPilarCol} = 'ETHICAL' AND {$productPilarCol} IN ('ETHICOM', 'ETHIPROM')))";
@@ -76,18 +68,14 @@ class SelloutQueryService
     }
 
     // -------------------------------------------------------
-    // STANDARD JOINS - Query langsung dari summary table
+    // STANDARD JOINS - Direct join dari summary table via id_konversi
     // -------------------------------------------------------
     private function applyStandardJoins($query)
     {
         return $query
-            ->join(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
-                $join->on('so.id_outlet', '=', 'dist.id_outlet')
-                    ->on('so.id_cbg', '=', 'dist.id_cbg');
-            })
-            ->join(DB::raw($this->dwhTable('crm_mst_cust') . ' as master'), 'dist.id_konversi', '=', 'master.id_konversi')
+            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust') . ' as master'), 'so.id_konversi', '=', 'master.id_konversi')
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
-                $join->on('master.id_konversi', '=', 'mo.id_konversi')
+                $join->on('so.id_konversi', '=', 'mo.id_konversi')
                      ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             });
     }
@@ -99,10 +87,8 @@ class SelloutQueryService
     {
         return $query->whereExists(function ($exists) {
             $exists->select(DB::raw(1))
-                ->from(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'))
-                ->join(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), 'dist.id_konversi', '=', 'mo.id_konversi')
-                ->whereColumn('dist.id_outlet', 'so.id_outlet')
-                ->whereColumn('dist.id_cbg', 'so.id_cbg')
+                ->from(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'))
+                ->whereColumn('mo.id_konversi', 'so.id_konversi')
                 ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
 
             $this->coverageAccess->applyScope($exists, 'mo.id_coverage');
@@ -254,6 +240,7 @@ class SelloutQueryService
             'so.tgl_faktur',
             'so.dist',
             'so.id_outlet',
+            'so.id_konversi',
             'so.id_cbg',
             'so.code_product',
             'so.segment_mi',
@@ -278,6 +265,7 @@ class SelloutQueryService
         $selects[] = $includeUser
             ? 'ma.name as user_name'
             : DB::raw('NULL as user_name');
+
         return $query->select($selects);
     }
 
@@ -288,10 +276,6 @@ class SelloutQueryService
             ->fromSub($query, 'so');
     }
 
-    /**
-     * Base Query untuk dashboard
-     * Query dari crm_sellout_summary (DWH) + join ke master tables (DWH) + cross-DB join ke users (MySQL)
-     */
     public function baseQuery(
         DashboardFilterRequest $request,
         ?array $dateRange = null,
@@ -305,9 +289,6 @@ class SelloutQueryService
         );
     }
 
-    /**
-     * Base Query untuk chart (dioptimasi, tanpa join user/outlet name unless necessary)
-     */
     public function baseChartQuery(
         DashboardFilterRequest $request,
         ?array $dateRange = null,
@@ -333,12 +314,8 @@ class SelloutQueryService
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
-                $join->on('so.id_outlet', '=', 'dist.id_outlet')
-                    ->on('so.id_cbg', '=', 'dist.id_cbg');
-            })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
-                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                $join->on('so.id_konversi', '=', 'mo.id_konversi')
                     ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'), function ($join) use ($parentCoverageSql, $levelNum) {
@@ -391,8 +368,6 @@ class SelloutQueryService
             ]);
     }
 
-
-
     private function topMarketingBaseQuery(DashboardFilterRequest $request): Builder
     {
         $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
@@ -437,12 +412,8 @@ class SelloutQueryService
 
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_dist') . ' as dist'), function ($join) {
-                $join->on('so.id_outlet', '=', 'dist.id_outlet')
-                    ->on('so.id_cbg', '=', 'dist.id_cbg');
-            })
             ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
-                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                $join->on('so.id_konversi', '=', 'mo.id_konversi')
                     ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->whereBetween('so.tgl_faktur', [$start, $end]);
@@ -460,8 +431,6 @@ class SelloutQueryService
             ->groupBy('divisi', DB::raw($regionSql))
             ->get();
     }
-
-
 
     public function outletHistoryAggregateQuery(DashboardFilterRequest $request, ?string $search = null): Builder
     {
@@ -486,10 +455,12 @@ class SelloutQueryService
         $query = $this->wrapAsSellout($transactions);
 
         if (!$hasSearch) {
-            $query->leftJoinSub($this->customerOutletNameQuery(), 'vcd', function ($join) {
-                $join->on('so.id_outlet', '=', 'vcd.id_outlet')
-                    ->on('so.id_cbg', '=', 'vcd.id_cbg');
-            })
+            $query->leftJoin(
+                DB::raw($this->dwhTable('crm_mst_cust') . ' as vcd'),
+                'so.id_konversi',
+                '=',
+                'vcd.id_konversi'
+            )
                 ->leftJoin(
                     DB::raw($this->authTable('users') . ' as ma'),
                     'so.coverage_nik',
@@ -500,7 +471,7 @@ class SelloutQueryService
 
         $outletNameSql = $hasSearch
             ? 'so.outlet_name'
-            : 'COALESCE(vcd.outlet_name, so.id_outlet)';
+            : 'COALESCE(vcd.nama_outlet, so.id_outlet)';
         $userNameSql = $hasSearch ? 'so.user_name' : 'ma.name';
 
         return $query
@@ -539,11 +510,6 @@ class SelloutQueryService
             );
     }
 
-
-
-    /**
-     * Generate cache key untuk dashboard queries
-     */
     public function cacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
     {
         /** @var \App\Models\User */
@@ -568,27 +534,16 @@ class SelloutQueryService
         return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
     }
 
-
-
-    /**
-     * TTL untuk cache
-     */
     public function cacheTtl(): int
     {
         return self::CACHE_TTL;
     }
 
-    /**
-     * Convert level string ke number
-     */
     public function levelToNum(string $level): string
     {
         return self::LEVEL_MAP[$level] ?? $level;
     }
 
-    /**
-     * Convert level number ke string
-     */
     public function numToLevel(?string $num): string
     {
         if (is_null($num)) {
@@ -598,9 +553,6 @@ class SelloutQueryService
         return array_flip(self::LEVEL_MAP)[$num] ?? 'Unknown';
     }
 
-    /**
-     * Get next level dalam hierarchy
-     */
     public function nextLevel(string $level): ?string
     {
         $idx = array_search($level, self::LEVEL_ORDER);
@@ -634,12 +586,8 @@ class SelloutQueryService
         return DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
             ->whereIn('so.id_outlet', $outletIds)
-            ->join('crm_mst_cust_dist as dist', function ($join) {
-                $join->on('so.id_outlet', '=', 'dist.id_outlet')
-                    ->on('so.id_cbg', '=', 'dist.id_cbg');
-            })
             ->join('crm_mst_cust_cov as mo', function ($join) {
-                $join->on('dist.id_konversi', '=', 'mo.id_konversi')
+                $join->on('so.id_konversi', '=', 'mo.id_konversi')
                      ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
             })
             ->leftJoin('crm_mst_mappings as mc', function ($join) {
@@ -660,7 +608,7 @@ class SelloutQueryService
     {
         $query = $this->baseAnggotaDetailQuery($nik, $start, $end, $outletIds);
         return $query
-            ->join('crm_mst_cust as master', 'dist.id_konversi', '=', 'master.id_konversi')
+            ->leftJoin('crm_mst_cust as master', 'so.id_konversi', '=', 'master.id_konversi')
             ->selectRaw('
                 so.id_outlet as id_outlet,
                 COALESCE(MAX(master.nama_outlet), so.id_outlet) as outlet_name,

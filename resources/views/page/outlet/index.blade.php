@@ -33,11 +33,11 @@
     <x-datatable-card title="Master Mapping Outlet - Coverage" subtitle="Daftar mapping outlet ke coverage"
         table-id="tblMapping" showCreate createLabel="Tambah Mapping">
         <th>No</th>
-        <th>Dist</th>
+        {{-- <th>Dist</th> --}}
         <th>Kode Outlet</th>
         <th>Nama Outlet</th>
-        <th>Kode Cabang</th>
-        {{-- <th>Nama Cabang</th>
+        {{-- <th>Kode Cabang</th>
+        <th>Nama Cabang</th>
         <th>Kota</th> --}}
         <th>Segment</th>
         <th>Pilar</th>
@@ -93,55 +93,45 @@
                         searchable: false,
                         className: 'text-center'
                     },
-                    {
-                        data: 'dist',
-                        name: 'mst_cust_dist.dist',
-                        defaultContent: '-'
-                    },
+                    // {
+                    //     data: 'dist',
+                    //     name: 'cov.id_konversi',
+                    //     defaultContent: '-'
+                    // },
                     {
                         data: 'id_outlet',
-                        name: 'mst_cust_dist.id_outlet'
+                        name: 'cov.id_konversi'
                     },
                     {
                         data: 'nama_outlet',
-                        name: 'mst_cust_dist.nama_outlet',
+                        name: 'master.nama_outlet',
                         defaultContent: '-'
                     },
-                    {
-                        data: 'kode_cabang',
-                        name: 'mst_cust_dist.id_cbg_dist',
-                        defaultContent: '-',
-                        className: 'text-center'
-                    },
                     // {
-                    //     data: 'nama_cabang',
-                    //     name: 'mst_cust_dist.nama_cabang',
-                    //     defaultContent: '-'
-                    // },
-                    // {
-                    //     data: 'kota',
-                    //     name: 'mst_cust_dist.kota',
-                    //     defaultContent: '-'
+                    //     data: 'kode_cabang',
+                    //     name: 'cov.id_konversi',
+                    //     defaultContent: '-',
+                    //     className: 'text-center'
                     // },
                     {
                         data: 'segment',
-                        name: 'mst_cust_dist.segment',
+                        name: 'master.segment',
                         defaultContent: '-'
                     },
                     {
                         data: 'pilar',
-                        name: 'crm_mst_mappings.cov_pilar',
+                        name: 'cov.pilar',
                         defaultContent: '-',
                         className: 'text-center'
                     },
                     {
                         data: 'id_coverage',
-                        name: 'crm_mst_outlets.id_coverage',
+                        name: 'cov.id_coverage',
                         className: 'text-center'
                     },
                     {
                         data: 'cov_nik',
-                        name: 'crm_mst_mappings.cov_nik',
+                        name: 'mapping.cov_nik',
                         defaultContent: '-',
                         className: 'text-center'
                     },
