@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\OutletController;
+use App\Http\Controllers\OutletPerformanceController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SellingInController;
 use App\Http\Controllers\StockController;
@@ -84,8 +85,8 @@ Route::middleware('auth')->group(function () {
     // Outlet
     Route::prefix('outlet')->name('outlet.')->group(function () {
         Route::get('/', [OutletController::class, 'index'])->name('index');
-        Route::get('/history', [OutletController::class, 'history'])->name('history');
-        Route::get('/history/data', [OutletController::class, 'historyData'])->name('history.data');
+        Route::get('/history', [OutletPerformanceController::class, 'index'])->name('history');
+        Route::get('/history/data', [OutletPerformanceController::class, 'data'])->name('history.data');
         Route::get('/data', [OutletController::class, 'data'])->name('data');
         Route::get('/outlet', [OutletController::class, 'getOutlet'])->name('outlet');
         Route::get('/coverage', [OutletController::class, 'getCoverage'])->name('coverage');
@@ -121,8 +122,13 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    //Visit
-    Route::get('/visits', [VisitController::class, 'getVisitData']);
+    // Visit & Heatmap
+    Route::prefix('visits')->name('visits.')->group(function () {
+        Route::get('/', [VisitController::class, 'index'])->name('index');
+        Route::get('/data', [VisitController::class, 'getVisitData'])->name('data');
+        Route::get('/data-by-sales', [VisitController::class, 'getVisitDataBySales'])->name('data-by-sales');
+    });
+
 
     Route::post('/notifications/coverage/read', function () {
         $user = request()->user();

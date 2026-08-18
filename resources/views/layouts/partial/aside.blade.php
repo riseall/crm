@@ -189,6 +189,20 @@
                         <span class="menu-text">Monitoring Stock GPJ vs Cabang</span>
                     </a>
                 </li>
+                {{-- <li class="menu-item" aria-haspopup="true">
+                    <a href="{{ route('visits.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24"/>
+                                    <path d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.62,11.5 9.5,10.38 9.5,9 C9.5,7.62 10.62,6.5 12,6.5 C13.38,6.5 14.5,7.62 14.5,9 C14.5,10.38 13.38,11.5 12,11.5 Z" fill="#000000"/>
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Kunjungan</span>
+                    </a>
+                </li> --}}
             </ul>
             <!--end::Menu Nav-->
         </div>

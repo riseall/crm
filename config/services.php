@@ -39,4 +39,8 @@ return [
         'url' => env('QAD_WSA_URL'),
         'namespace' => env('QAD_WSA_NAMESPACE'),
     ],
+
+    'sfa' => [
+        'api_key' => env('KLIKPETA_API_KEY'),
+    ],
 ];

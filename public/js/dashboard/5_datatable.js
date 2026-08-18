@@ -58,16 +58,6 @@ Dashboard.Tables = (function ($, H) {
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
                 {
-                    data: "total_visit",
-                    className: "text-center",
-                    render: function (v, t, row) {
-                        let visitsUrl = "/visits?nik=" + (row.nik || "");
-                        return `<a href="${visitsUrl}" class="btn btn-sm btn-light-info font-weight-bolder" title="Lihat detail kunjungan ${row.name || ''}">
-                            <i class="fas fa-map-marked-alt"></i>
-                        </a>`;
-                    },
-                },
-                {
                     data: "total_netto",
                     render: function (v) {
                         return "<strong>" + H.formatRupiah(v) + "</strong>";
@@ -79,6 +69,7 @@ Dashboard.Tables = (function ($, H) {
                     searchable: false,
                     className: "text-center",
                     render: function (data, type, row) {
+                        let btns = [];
                         if (row.is_unmapped === 0 && row.nik) {
                             let detailUrl =
                                 window.DashboardPage.routes.detailAnggota.replace(
@@ -86,16 +77,34 @@ Dashboard.Tables = (function ($, H) {
                                     row.nik,
                                 );
 
-                            return `<a href="${detailUrl}" target="_blank" class="btn btn-sm btn-light-primary font-weight-bolder" title="Lihat Detail Outlet">
-                        <i class="fas fa-store-alt"></i>
-                    </a>`;
+                            btns.push(
+                                `<a href="${detailUrl}" target="_blank" class="btn btn-icon btn-sm btn-outline-primary font-weight-bolder mr-1" title="Lihat Detail Outlet"><i class="fas fa-store-alt"></i></a>`
+                            );
                         }
 
-                        return '<span class="text-muted small">N/A</span>';
+                        if (row.nik) {
+                            let visitsUrl =
+                                (window.DashboardPage &&
+                                    window.DashboardPage.routes &&
+                                    window.DashboardPage.routes.visitsDetail)
+                                    ? window.DashboardPage.routes.visitsDetail.replace(
+                                          ":nik",
+                                          encodeURIComponent(row.nik)
+                                      )
+                                    : "/visits?nik=" + encodeURIComponent(row.nik);
+
+                            btns.push(
+                                `<a href="${visitsUrl}" target="_blank" class="btn btn-icon btn-sm btn-outline-info font-weight-bolder" title="Lihat detail kunjungan ${row.name || ''}"><i class="fas fa-map-marked-alt"></i></a>`
+                            );
+                        }
+
+                        return btns.length
+                            ? btns.join("")
+                            : '<span class="text-muted small">N/A</span>';
                     },
                 },
             ],
-            order: [[7, "desc"]],
+            order: [[6, "desc"]],
         });
     }
 

@@ -121,16 +121,16 @@
         }
 
         /* .achievement-race__icon {
-                                                                        width: 34px;
-                                                                        height: 34px;
-                                                                        border-radius: 10px;
-                                                                        background: #E6F1FB;
-                                                                        color: #185FA5;
-                                                                        display: flex;
-                                                                        align-items: center;
-                                                                        justify-content: center;
-                                                                        font-size: 17px;
-                                                                    } */
+                                                                            width: 34px;
+                                                                            height: 34px;
+                                                                            border-radius: 10px;
+                                                                            background: #E6F1FB;
+                                                                            color: #185FA5;
+                                                                            display: flex;
+                                                                            align-items: center;
+                                                                            justify-content: center;
+                                                                            font-size: 17px;
+                                                                        } */
 
         .achievement-race__title {
             color: #181C32;
@@ -345,7 +345,8 @@
         id-reset="btnResetSellingOut">
         <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 160px;">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Produk</label>
-            <select id="filter_product" class="form-control form-control-sm select2-product" style="width: 100%;" multiple></select>
+            <select id="filter_product" class="form-control form-control-sm select2-product" style="width: 100%;"
+                multiple></select>
         </div>
     </x-filter-bar>
 
@@ -458,14 +459,13 @@
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
     <x-datatable-card title="Detail Performance per Anggota" table-id="tblAnggota" table-class="table-sm" :load-assets="false"
-        :collapsible="true" :collapsed="true">
+        :collapsible="true" :collapsed="false">
         <th>No</th>
         <th>NIK</th>
         <th>Nama</th>
         <th>Level</th>
         <th>Pilar</th>
         <th>Divisi</th>
-        <th>Kunjungan</th>
         <th>Netto</th>
         <th>Aksi</th>
     </x-datatable-card>

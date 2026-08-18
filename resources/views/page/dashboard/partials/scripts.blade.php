@@ -7,6 +7,7 @@
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
             productLookup: "{{ route('product.produk') }}",
             detailAnggota: "{{ route('dashboard.anggota.detail', ':nik') }}",
+            visitsDetail: "{{ route('visits.index') }}?nik=:nik",
         }
     };
 </script>
