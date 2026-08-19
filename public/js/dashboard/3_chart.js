@@ -183,7 +183,7 @@ Dashboard.Charts = (function ($, H) {
             },
             series: [],
             labels: [],
-            colors: ["#8B5CF6", "#EC4899", "#3B82F6"],
+            colors: ["#8B5CF6", "#EC4899", "#3B82F6", "#10B981", "#F59E0B", "#6366F1", "#14B8A6"],
             legend: getDivisiChartOptions(el).legend,
             plotOptions: {
                 pie: {
@@ -335,7 +335,7 @@ Dashboard.Charts = (function ($, H) {
             grid: {
                 borderColor: "#eef0f5",
                 strokeDashArray: 4,
-                padding: { right: 75, left: -5, top: -10, bottom: -10 },
+                padding: { right: 0, left: 5, top: -10, bottom: -10 },
             },
             series: [{ name: "Netto", data: [] }],
             xaxis: {

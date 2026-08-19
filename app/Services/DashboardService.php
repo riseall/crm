@@ -169,36 +169,20 @@ class DashboardService
     }
 
     // -------------------------------------------------------
-    // CHART: Netto per Divisi (donut — Reguler vs CMA)
+    // CHART: Netto per Divisi (donut)
     // -------------------------------------------------------
     public function getChartPerDivisi(DashboardFilterRequest $request): array
     {
         return $this->cached('chart_divisi', $request, function () use ($request) {
-                $results = $this->sellout->drilldownAggregateQuery(
-                    $request,
-                    $this->sellout->levelToNum('GM')
-                )->get();
-
-                $totals = $results->groupBy(function ($row) {
-                    if ((int) $row->is_unmapped === 1 || $row->coverage_id === 'UNMAPPED') {
-                        return 'Belum Mapping';
-                    }
-
-                    if ($row->coverage_divisi === 'Reguler') {
-                        return 'Reguler';
-                    }
-
-                    if ($row->coverage_divisi === null || $row->coverage_divisi === '') {
-                        return 'Divisi Kosong';
-                    }
-
-                    return 'CMA';
-                })->map(fn($rows) => $rows->sum(fn($row) => (float) $row->total_netto))
-                    ->sortDesc();
+                $results = $this->sellout->baseChartQuery($request)
+                    ->selectRaw("COALESCE(NULLIF(TRIM(so.divisi), ''), 'UNMAPPED') as divisi_name, SUM(so.netto) as total_netto")
+                    ->groupBy('divisi_name')
+                    ->orderByDesc('total_netto')
+                    ->get();
 
                 return [
-                    'labels' => $totals->keys()->values()->toArray(),
-                    'data'   => $totals->values()->toArray(),
+                    'labels' => $results->pluck('divisi_name')->values()->toArray(),
+                    'data'   => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values()->toArray(),
                 ];
             }
         );
