@@ -13,7 +13,7 @@ class SelloutQueryService
     private const CONN_DWH = 'db_dwh';
     private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v20';
+    private const CACHE_VERSION = 'v21';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
     private function dwhDatabaseName(): string

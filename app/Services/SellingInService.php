@@ -128,7 +128,11 @@ class SellingInService
             $this->query->cacheKey('chart_bulan', $request),
             $this->query->cacheTtl(),
             function () use ($request) {
-                $results = $this->query->baseTransactionQuery($request)
+                $year = (int) $request->tahun();
+                $startOfYear = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
+                $endOfYear = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
+
+                $results = $this->query->baseTransactionQuery($request, [$startOfYear, $endOfYear])
                     ->selectRaw("DATE_FORMAT(si.tr_eff_date, '%Y-%m') as periode, SUM(si.netto) as total_netto")
                     ->groupByRaw("DATE_FORMAT(si.tr_eff_date, '%Y-%m')")
                     ->get()
@@ -138,9 +142,9 @@ class SellingInService
                 $data   = [];
 
                 $period = CarbonPeriod::create(
-                    Carbon::parse($request->startDate())->startOfMonth(),
+                    Carbon::create($year, 1, 1)->startOfMonth(),
                     '1 month',
-                    Carbon::parse($request->endDate())->startOfMonth()
+                    Carbon::create($year, 12, 1)->startOfMonth()
                 );
 
                 foreach ($period as $month) {
@@ -152,7 +156,7 @@ class SellingInService
                 return [
                     'labels' => $labels,
                     'data' => $data,
-                    'period' => $this->periodLabel($request),
+                    'period' => (string) $year,
                 ];
             }
         );

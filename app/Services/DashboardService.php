@@ -80,7 +80,11 @@ class DashboardService
     public function getChartPerBulan(DashboardFilterRequest $request): array
     {
         return $this->cached('chart_bulan', $request, function () use ($request) {
-                $results = $this->sellout->baseChartQuery($request)
+                $year = (int) $request->tahun();
+                $startOfYear = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
+                $endOfYear = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
+
+                $results = $this->sellout->baseChartQuery($request, [$startOfYear, $endOfYear])
                     ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
                     ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')")
                     ->get()
@@ -90,9 +94,9 @@ class DashboardService
                 $data   = [];
 
                 $period = CarbonPeriod::create(
-                    Carbon::parse($request->startDate())->startOfMonth(),
+                    Carbon::create($year, 1, 1)->startOfMonth(),
                     '1 month',
-                    Carbon::parse($request->endDate())->startOfMonth()
+                    Carbon::create($year, 12, 1)->startOfMonth()
                 );
 
                 foreach ($period as $month) {
@@ -105,7 +109,7 @@ class DashboardService
                     'labels' => $labels,
                     'data' => $data,
                     'mode' => 'bulan',
-                    'period' => $this->periodLabel($request),
+                    'period' => (string) $year,
                 ];
             }
         );

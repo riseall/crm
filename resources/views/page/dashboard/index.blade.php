@@ -37,28 +37,6 @@
             color: #791F1F;
         }
 
-        /* ===== Chart Toggle ===== */
-        .chart-mode-toggle .btn {
-            font-size: .8rem;
-            font-weight: 600;
-            padding: 5px 16px;
-            border-radius: 100px !important;
-            border-color: #E1E4ED;
-            color: #5B6477;
-        }
-
-        .chart-mode-toggle .btn:not(.active):hover {
-            background: #F5F7FB;
-            color: #3F4254;
-        }
-
-        .chart-mode-toggle .btn.active {
-            background: #5B7CFA;
-            color: #fff;
-            border-color: #5B7CFA;
-            box-shadow: 0 2px 6px rgba(91, 124, 250, .35);
-        }
-
         /* ===== Drill-down ===== */
         .drill-path {
             font-size: .82rem;
@@ -121,16 +99,16 @@
         }
 
         /* .achievement-race__icon {
-                                                                            width: 34px;
-                                                                            height: 34px;
-                                                                            border-radius: 10px;
-                                                                            background: #E6F1FB;
-                                                                            color: #185FA5;
-                                                                            display: flex;
-                                                                            align-items: center;
-                                                                            justify-content: center;
-                                                                            font-size: 17px;
-                                                                        } */
+                                                                                    width: 34px;
+                                                                                    height: 34px;
+                                                                                    border-radius: 10px;
+                                                                                    background: #E6F1FB;
+                                                                                    color: #185FA5;
+                                                                                    display: flex;
+                                                                                    align-items: center;
+                                                                                    justify-content: center;
+                                                                                    font-size: 17px;
+                                                                                } */
 
         .achievement-race__title {
             color: #181C32;
@@ -374,7 +352,7 @@
                         <h3 class="card-label" id="chartTrendTitle">Netto per Hari</h3>
                     </div>
                     <div class="card-toolbar">
-                        <div class="btn-group chart-mode-toggle" role="group">
+                        <div class="btn-group" role="group">
                             <button id="btnModeHari" class="btn btn-sm btn-outline-primary active">Per Hari</button>
                             <button id="btnModeBulan" class="btn btn-sm btn-outline-primary">Per Bulan</button>
                         </div>
