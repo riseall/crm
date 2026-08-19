@@ -13,7 +13,7 @@ class SelloutQueryService
     private const CONN_DWH = 'db_dwh';
     private const CONN_AUTH = 'mysql';
     private const CACHE_TTL = 300;
-    private const CACHE_VERSION = 'v18';
+    private const CACHE_VERSION = 'v20';
     private const SUMMARY_TABLE = 'crm_sellout_summary';
 
     private function dwhDatabaseName(): string
@@ -162,6 +162,8 @@ class SelloutQueryService
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so');
 
+        $isUnmappedOnly = ($coverageId === 'UNMAPPED' || $request->get('coverage_id') === 'UNMAPPED');
+
         $user = auth()->user();
         $needsOutletFilter = ($user && !$this->coverageAccess->isGlobalAccessUser($user))
             || $request->filled('level')
@@ -215,6 +217,11 @@ class SelloutQueryService
 
         if ($request->filled('coverage_nik')) {
             $query->where('mc.cov_nik', $request->get('coverage_nik'));
+        } elseif ($isUnmappedOnly) {
+            $query->where(function ($q) {
+                $q->whereNull('mc.id_coverage')
+                  ->orWhereNull('mo.id_coverage');
+            });
         } elseif ($coverageId !== null && trim($coverageId) !== '') {
             $query->where('mc.id_coverage', $coverageId);
         }
@@ -223,11 +230,11 @@ class SelloutQueryService
             $query->where('so.id_outlet', $request->get('outlet_id'));
         }
 
-        if (!$forChart) {
+        if (!$forChart && !$isUnmappedOnly) {
             $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
         }
 
-        if ($request->filled('level')) {
+        if ($request->filled('level') && !$isUnmappedOnly) {
             $query->where('mc.cov_level', $this->levelToNum($request->get('level')));
         }
 
@@ -244,6 +251,7 @@ class SelloutQueryService
             'so.id_cbg',
             'so.code_product',
             'so.segment_mi',
+            'so.divisi',
             'so.netto',
             'so.pilar_sub as product_pilar',
             $needsMappingJoin ? 'mc.id_coverage as coverage_id' : DB::raw('NULL as coverage_id'),
@@ -432,6 +440,17 @@ class SelloutQueryService
             ->get();
     }
 
+    private function applyHistorySearch(Builder $query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('so.id_outlet', 'like', "%{$search}%")
+                ->orWhere('so.id_cbg', 'like', "%{$search}%")
+                ->orWhere('master.nama_outlet', 'like', "%{$search}%")
+                ->orWhere('ma.name', 'like', "%{$search}%")
+                ->orWhere('mc.cov_nik', 'like', "%{$search}%");
+        });
+    }
+
     public function outletHistoryAggregateQuery(DashboardFilterRequest $request, ?string $search = null): Builder
     {
         $months = $request->bulanList();
@@ -478,6 +497,8 @@ class SelloutQueryService
             ->selectRaw("
                 so.dist,
                 so.id_outlet,
+                so.id_cbg,
+                so.id_konversi,
                 {$outletNameSql} as outlet_name,
                 so.coverage_id,
                 so.coverage_desc,
@@ -495,6 +516,8 @@ class SelloutQueryService
             ->groupBy(
                 'so.dist',
                 'so.id_outlet',
+                'so.id_cbg',
+                'so.id_konversi',
                 DB::raw($outletNameSql),
                 'so.coverage_id',
                 'so.coverage_desc',

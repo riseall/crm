@@ -12,11 +12,40 @@ $(document).ready(function () {
     var $outlet = $("#filter_outlet_id");
     var selectedCoverageNik = "";
 
+    var urlParams = new URLSearchParams(window.location.search);
+    var initStartDate = urlParams.get("start_date");
+    var initEndDate = urlParams.get("end_date");
+    var initCoverageId = urlParams.get("coverage_id");
+    var initUnmapped = urlParams.get("unmapped");
+    var initLevel = urlParams.get("level");
+    var initPilar = urlParams.getAll("pilar[]");
+    if (!initPilar.length && urlParams.get("pilar")) {
+        initPilar = [urlParams.get("pilar")];
+    }
+
+    if (initStartDate && $startDate.length) {
+        $startDate.val(initStartDate);
+    }
+    if (initEndDate && $endDate.length) {
+        $endDate.val(initEndDate);
+    }
+    if (initStartDate && initEndDate && $("#filter_period").length && window.moment) {
+        var startMom = moment(initStartDate, "YYYY-MM-DD");
+        var endMom = moment(initEndDate, "YYYY-MM-DD");
+        if (startMom.isValid() && endMom.isValid()) {
+            $("#filter_period").val(startMom.format("DD MMM YYYY") + " - " + endMom.format("DD MMM YYYY"));
+        }
+    }
+
     if (!$("#tblHistoryOutlet").length) {
         return;
     }
 
     if ($.fn.select2) {
+        if (initCoverageId && initCoverageId !== "UNMAPPED" && $coverage.length) {
+            var opt = new Option(initCoverageId, initCoverageId, true, true);
+            $coverage.append(opt);
+        }
         $coverage
             .select2({
                 placeholder: "Cari PIC...",
@@ -78,8 +107,8 @@ $(document).ready(function () {
     var table = $("#tblHistoryOutlet").DataTable({
         processing: true,
         serverSide: true,
-        autoWidth: false,
-        responsive: false,
+        // autoWidth: false,
+        responsive: true,
         scrollX: true,
         searchDelay: 700,
         ajax: {
@@ -88,7 +117,7 @@ $(document).ready(function () {
                 return $.extend({}, d, {
                     start_date: $startDate.val(),
                     end_date: $endDate.val(),
-                    coverage_id: $coverage.val(),
+                    coverage_id: $coverage.val() || (initCoverageId === "UNMAPPED" ? "UNMAPPED" : ""),
                     coverage_nik: selectedCoverageNik,
                     outlet_id: $outlet.val(),
                 });
@@ -108,7 +137,8 @@ $(document).ready(function () {
                 className: "text-center",
             },
             { data: "dist", name: "so.dist", searchable: false },
-            { data: "id_outlet", name: "so.id_outlet", searchable: false },
+            { data: "id_outlet", name: "so.id_outlet", defaultContent: "-", searchable: false },
+            { data: "id_cbg", name: "so.id_cbg", defaultContent: "-", searchable: false },
             { data: "outlet_name", name: "so.outlet_name", searchable: false },
             {
                 data: "coverage_nik",
@@ -133,17 +163,6 @@ $(document).ready(function () {
                 },
             },
             {
-                data: "coverage_level",
-                name: "so.coverage_level",
-                searchable: false,
-                className: "text-center",
-                render: function (v) {
-                    return isUnmappedValue(v)
-                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
-                        : '<span class="badge badge-light-primary font-weight-bold">' + v + '</span>';
-                },
-            },
-            {
                 data: "product_pilar",
                 name: "so.product_pilar",
                 searchable: false,
@@ -153,7 +172,7 @@ $(document).ready(function () {
                 data: "total_netto",
                 name: "total_netto",
                 searchable: false,
-                className: "text-right font-weight-bolder",
+                className: "text-center font-weight-bolder",
                 render: function (data) {
                     return (
                         "Rp " +
@@ -162,6 +181,15 @@ $(document).ready(function () {
                 },
             },
         ],
+        rowCallback: function (row, data) {
+            $(row).toggleClass("table-warning", isUnmappedValue(data.coverage_nik) || !data.coverage_id || data.coverage_id === "UNMAPPED");
+        },
+        drawCallback: function (settings) {
+            var json = (settings && settings.json) ? settings.json : (table ? table.ajax.json() : null);
+            var grandTotal = (json && json.grand_total_netto !== undefined) ? json.grand_total_netto : 0;
+            var totalFormatted = "Rp " + parseFloat(grandTotal || 0).toLocaleString("id-ID");
+            $("#totalNettoDisplay").text(totalFormatted);
+        },
         order: [[9, "desc"]],
     });
 
@@ -179,10 +207,15 @@ $(document).ready(function () {
 
         // Reset select2 coverage & outlet ke nilai kosong, lalu reload tabel.
         selectedCoverageNik = "";
+        initCoverageId = "";
+        initUnmapped = "";
+        initLevel = "";
+        initPilar = [];
         if ($.fn.select2) {
             $coverage.val(null).trigger("change");
             $outlet.val(null).trigger("change");
         }
+        $("#infoFilterSummary").empty();
         table.search("").columns().search("").draw();
         table.ajax.reload(null, false);
     });

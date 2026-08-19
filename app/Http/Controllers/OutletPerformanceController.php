@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DashboardFilterRequest;
 use App\Services\SelloutQueryService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class OutletPerformanceController extends Controller
@@ -28,10 +29,17 @@ class OutletPerformanceController extends Controller
         $outletNameOrderSql = $search !== '' ? 'so.outlet_name' : 'COALESCE(vcd.outlet_name, so.id_outlet)';
         $userNameOrderSql = $search !== '' ? 'so.user_name' : 'ma.name';
 
+        $grandTotalNetto = (float) DB::connection('db_dwh')
+            ->query()
+            ->fromSub($base, 'agg')
+            ->sum('total_netto');
+
         $datatable = DataTables::of($base)
             ->skipTotalRecords()
+            ->with('grand_total_netto', $grandTotalNetto)
             ->orderColumn('dist', 'so.dist $1')
             ->orderColumn('id_outlet', 'so.id_outlet $1')
+            ->orderColumn('id_cbg', 'so.id_cbg $1')
             ->orderColumn('outlet_name', $outletNameOrderSql . ' $1')
             ->orderColumn('coverage_id', 'so.coverage_id $1')
             ->orderColumn('coverage_desc', 'so.coverage_desc $1')
