@@ -10,6 +10,7 @@ use App\Services\CoverageAccessService;
 use App\Services\SelloutQueryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
@@ -282,6 +283,8 @@ class OutletController extends Controller
             ]
         );
 
+        Cache::flush();
+
         return response()->json(['success' => true, 'message' => 'Mapping berhasil ditambahkan.']);
     }
 
@@ -319,6 +322,8 @@ class OutletController extends Controller
             'pilar'       => $request->input('pilar', $cov->pilar),
         ]);
 
+        Cache::flush();
+
         return response()->json(['success' => true, 'message' => 'Mapping berhasil diupdate.']);
     }
 
@@ -341,6 +346,7 @@ class OutletController extends Controller
                 ]);
 
             DB::connection('db_dwh')->commit();
+            Cache::flush();
 
             if ($updatedCount === 0) {
                 return response()->json([
@@ -378,6 +384,7 @@ class OutletController extends Controller
     {
         $cov = CrmMstCustCov::findOrFail($id);
         $cov->delete();
+        Cache::flush();
 
         return response()->json(['success' => true, 'message' => 'Mapping berhasil dihapus.']);
     }

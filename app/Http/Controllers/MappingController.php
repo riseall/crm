@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Mapping;
 use App\Models\Outlet;
 use App\Services\CoverageReplacementAlertService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
-use Carbon\Carbon;
 
 class MappingController extends Controller
 {
@@ -287,6 +288,7 @@ class MappingController extends Controller
             ]);
 
             DB::connection('db_dwh')->commit();
+            Cache::flush();
 
             foreach ($closedCoverages as $item) {
                 if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
@@ -372,6 +374,7 @@ class MappingController extends Controller
             ]);
 
             DB::connection('db_dwh')->commit();
+            Cache::flush();
 
             app(CoverageReplacementAlertService::class)->syncReplacementFlag($coverage);
             $this->dispatchCoverageReplacementAlertIfNeeded($coverage, $originalState);
@@ -426,6 +429,7 @@ class MappingController extends Controller
             }
 
             DB::connection('db_dwh')->commit();
+            Cache::flush();
             foreach ($closedCoverages as $item) {
                 if ($alertService->shouldNotify($item['original_state'], $item['coverage'])) {
                     $alertService->notify($item['coverage']);
@@ -469,6 +473,7 @@ class MappingController extends Controller
         }
 
         $coverage->delete();
+        Cache::flush();
         return response()->json(['success' => true, 'message' => 'Coverage berhasil dihapus.']);
     }
 
