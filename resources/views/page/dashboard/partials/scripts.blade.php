@@ -8,6 +8,7 @@
             productLookup: "{{ route('product.produk') }}",
             detailAnggota: "{{ route('dashboard.anggota.detail', ':nik') }}",
             visitsDetail: "{{ route('visits.index') }}?nik=:nik",
+            outletHistory: "{{ route('outlet.history') }}",
         }
     };
 </script>

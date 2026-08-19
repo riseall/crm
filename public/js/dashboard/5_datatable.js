@@ -47,8 +47,27 @@ Dashboard.Tables = (function ($, H) {
                     orderable: false,
                     className: "text-center",
                 },
-                { data: "nik" },
-                { data: "name" },
+                {
+                    data: "nik",
+                    render: function (v, t, r) {
+                        if (!v || r.is_unmapped === 1) {
+                            var covId = (r.coverage_id && r.coverage_id !== "UNMAPPED")
+                                ? '<small class="text-muted d-block font-weight-normal">' + r.coverage_id + '</small>'
+                                : '';
+                            return '<span class="badge badge-warning font-weight-bold">UNMAPPED</span>' + covId;
+                        }
+                        return v;
+                    },
+                },
+                {
+                    data: "name",
+                    render: function (v, t, r) {
+                        if (!v || r.is_unmapped === 1) {
+                            return '<span class="text-danger font-italic font-weight-bold">' + (r.cov_desc || 'Belum Termapping') + '</span>';
+                        }
+                        return v;
+                    },
+                },
                 {
                     data: "level_name",
                     render: function (v) {
@@ -67,7 +86,7 @@ Dashboard.Tables = (function ($, H) {
                     data: "nik",
                     orderable: false,
                     searchable: false,
-                    className: "text-center",
+                    className: "text-center text-nowrap",
                     render: function (data, type, row) {
                         let btns = [];
                         if (row.is_unmapped === 0 && row.nik) {
@@ -98,12 +117,36 @@ Dashboard.Tables = (function ($, H) {
                             );
                         }
 
+                        if (row.is_unmapped === 1 || !row.nik) {
+                            let historyUrl =
+                                (window.DashboardPage &&
+                                    window.DashboardPage.routes &&
+                                    window.DashboardPage.routes.outletHistory)
+                                    ? window.DashboardPage.routes.outletHistory
+                                    : "/outlet/history";
+
+                            let params = [];
+                            let filters = (H && typeof H.getFilters === "function") ? H.getFilters() : {};
+                            if (filters.start_date) params.push("start_date=" + encodeURIComponent(filters.start_date));
+                            if (filters.end_date) params.push("end_date=" + encodeURIComponent(filters.end_date));
+                            let covId = row.coverage_id || "UNMAPPED";
+                            params.push("coverage_id=" + encodeURIComponent(covId));
+                            let fullHistoryUrl = historyUrl + (params.length ? "?" + params.join("&") : "");
+
+                            btns.push(
+                                `<a href="${fullHistoryUrl}" target="_blank" class="btn btn-icon btn-sm btn-outline-warning font-weight-bolder" title="Lihat Riwayat Outlet & Transaksi SO Unmapped"><i class="fas fa-exclamation-triangle"></i></a>`
+                            );
+                        }
+
                         return btns.length
                             ? btns.join("")
                             : '<span class="text-muted small">N/A</span>';
                     },
                 },
             ],
+            rowCallback: function (row, data) {
+                $(row).toggleClass("table-warning", data.is_unmapped === 1 || !data.nik);
+            },
             order: [[6, "desc"]],
         });
     }

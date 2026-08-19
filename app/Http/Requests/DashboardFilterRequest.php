@@ -68,6 +68,7 @@ class DashboardFilterRequest extends FormRequest
             'coverage_id' => 'nullable|string',
             'coverage_nik' => 'nullable|string',
             'outlet_id' => 'nullable|string',
+            'unmapped' => 'nullable',
         ];
     }
 
