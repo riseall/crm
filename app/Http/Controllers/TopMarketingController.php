@@ -41,10 +41,15 @@ class TopMarketingController extends Controller
             'bulan',
             'divisi',
             'region',
-            'pm',
-            'pilar',
             'kode_ph',
             'nama_prod',
+            'pilar',
+            'pm',
+            'mr',
+            'am',
+            'sam',
+            'rm',
+            'gm',
             'segment',
             'cbg_new',
             'unit',
@@ -57,7 +62,12 @@ class TopMarketingController extends Controller
         }
 
         if ($request->filled('bulan')) {
-            $query->where('bulan', (int) $request->get('bulan'));
+            $bulan = (int) $request->get('bulan');
+            $query->whereIn('bulan', [
+                $bulan,
+                (string) $bulan,
+                str_pad((string) $bulan, 2, '0', STR_PAD_LEFT),
+            ]);
         }
 
         return DataTables::of($query)

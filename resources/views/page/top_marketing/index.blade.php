@@ -50,15 +50,19 @@
         <th>Periode</th>
         <th>Divisi</th>
         <th>Region</th>
-        <th>PM</th>
-        <th>Pilar</th>
         <th>Kode PH</th>
         <th>Nama Produk</th>
+        <th>Pilar</th>
+        <th>PM</th>
+        <th>MR</th>
+        <th>AM</th>
+        <th>SAM</th>
+        <th>RM</th>
+        <th>GM</th>
         <th>Segment</th>
         <th>Cabang</th>
         <th>Unit</th>
         <th>Val Nett</th>
-        <th>Updated</th>
     </x-datatable-card>
 
     <div class="modal fade" id="modalUploadTopMarketing" data-backdrop="static" tabindex="-1" role="dialog"
@@ -121,6 +125,8 @@
                 orientation: 'bottom left',
                 todayHighlight: true,
                 autoclose: true
+            }).on('changeDate', function() {
+                $(this).trigger('change');
             });
 
             function splitPeriod(value) {
@@ -169,15 +175,6 @@
                         name: 'region'
                     },
                     {
-                        data: 'pm',
-                        name: 'pm'
-                    },
-                    {
-                        data: 'pilar',
-                        name: 'pilar',
-                        className: 'text-center'
-                    },
-                    {
                         data: 'kode_ph',
                         name: 'kode_ph'
                     },
@@ -186,12 +183,49 @@
                         name: 'nama_prod'
                     },
                     {
+                        data: 'pilar',
+                        name: 'pilar',
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'pm',
+                        name: 'pm',
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'mr',
+                        name: 'mr',
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'am',
+                        name: 'am',
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'sam',
+                        name: 'sam',
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'rm',
+                        name: 'rm',
+                        defaultContent: '-'
+                    },
+                    {
+                        data: 'gm',
+                        name: 'gm',
+                        defaultContent: '-'
+                    },
+                    {
                         data: 'segment',
-                        name: 'segment'
+                        name: 'segment',
+                        defaultContent: '-'
                     },
                     {
                         data: 'cbg_new',
-                        name: 'cbg_new'
+                        name: 'cbg_new',
+                        defaultContent: '-'
                     },
                     {
                         data: 'unit',
@@ -203,18 +237,13 @@
                         name: 'val_net',
                         className: 'text-right'
                     },
-                    {
-                        data: 'updated_at',
-                        name: 'updated_at',
-                        className: 'text-center'
-                    },
                 ],
                 order: [
-                    [11, 'desc']
+                    [16, 'desc']
                 ]
             });
 
-            $('#filter_periode').on('change', function() {
+            $('#filter_periode').on('change changeDate input', function() {
                 table.ajax.reload();
             });
 
@@ -222,7 +251,7 @@
                 table.ajax.reload();
             });
 
-            $('#upload_periode').on('change', syncUploadPeriod);
+            $('#upload_periode').on('change changeDate input', syncUploadPeriod);
 
             $('#modalUploadTopMarketing').on('shown.bs.modal', function() {
                 $('#upload_periode').val($('#filter_periode').val()).trigger('change');
