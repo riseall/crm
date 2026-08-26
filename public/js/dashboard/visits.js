@@ -332,7 +332,7 @@
             $('#modal_outlet_name').text(row.outlet_name || '-');
             $('#modal_customer_id').text(`ID Konversi: ${row.id_konversi || row.customer_id || '-'}`);
             $('#modal_outlet_code').text(row.outlet_code ? `Code: ${row.outlet_code}` : '-');
-            $('#modal_visit_datetime').text(`${row.visit_date} Pukul ${row.visit_time}`);
+            $('#modal_visit_datetime').text(`${row.visit_date} ${row.visit_time}`);
             $('#modal_pilar').text(row.pilar || '-');
             $('#modal_status').text(row.status || 'Selesai');
             $('#modal_coordinates').html(coordinateLink(row.latitude, row.longitude, 'font-weight-bold'));

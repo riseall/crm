@@ -163,7 +163,7 @@
 
         .achievement-race__row {
             display: grid;
-            grid-template-columns: minmax(84px, 130px) minmax(0, 1fr);
+            grid-template-columns: auto minmax(0, 1fr);
             align-items: center;
             gap: 12px;
             min-height: 30px;
@@ -180,7 +180,7 @@
             font-weight: 600;
             line-height: 1.25;
             text-align: right;
-            word-break: break-word;
+            white-space: nowrap;
         }
 
         .achievement-race__track {
@@ -294,7 +294,7 @@
             }
 
             .achievement-race__row {
-                grid-template-columns: minmax(70px, 96px) minmax(0, 1fr);
+                grid-template-columns: auto minmax(0, 1fr);
             }
 
             .achievement-race__label {
