@@ -98,7 +98,7 @@ class CoverageAccessService
 
         return $coverageList->filter(function ($cov) use ($roots) {
             foreach ($roots as $root) {
-                if (str_starts_with($cov->id_coverage, $root)) {
+                if (strpos((string) $cov->id_coverage, (string) $root) === 0) {
                     return true;
                 }
             }
@@ -159,7 +159,7 @@ class CoverageAccessService
         }
 
         foreach ($this->rootCoverages($user) as $root) {
-            if (str_starts_with($coverageId, $root)) {
+            if (strpos((string) $coverageId, (string) $root) === 0) {
                 return true;
             }
         }
