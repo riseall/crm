@@ -1,3 +1,32 @@
+<style>
+    .outlet-item {
+        transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        border: 1px solid #ebedf2;
+    }
+    .outlet-item:hover {
+        background-color: #f4f6fa !important;
+        border-color: #3699ff !important;
+    }
+    .outlet-item.is-checked {
+        background-color: #e8f4ff !important;
+        border-color: #8ec5fc !important;
+    }
+    #outletScrollList::-webkit-scrollbar {
+        width: 6px;
+    }
+    #outletScrollList::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    #outletScrollList::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+    #outletScrollList::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+</style>
+
 <x-modal id="modalMapping" title="Tambah Mapping" submitBtnId="btnSimpan">
     <input type="hidden" id="mappingId">
     <div class="form-group">
@@ -17,8 +46,11 @@
         <select id="old_coverage_id" class="form-control select2-coverage-modal" style="width:100%"></select>
     </div>
     <div class="form-group">
-        <label>Pilih Outlet yang Dipindah <span class="text-danger">*</span></label>
-        <div id="outletList" class="border p-3 rounded">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="mb-0 font-weight-bold">Pilih Outlet yang Dipindah <span class="text-danger">*</span></label>
+            <span class="badge badge-light-primary text-primary font-weight-bolder" id="outletCountBadge" style="display: none;">0 dipilih</span>
+        </div>
+        <div id="outletList" class="border p-3 rounded bg-light">
             <small class="text-muted">Pilih coverage lama terlebih dahulu.</small>
         </div>
     </div>
@@ -59,9 +91,9 @@
                 minimumInputLength: 2,
             });
 
-            initCoverageSelect($coverage, $mappingModal, 'Cari Coverage, NIK, atau Nama...');
-            initCoverageSelect($oldCoverage, $bulkModal, 'Cari Coverage Lama...');
-            initCoverageSelect($newCoverage, $bulkModal, 'Cari Coverage Baru...');
+            initCoverageSelect($coverage, $mappingModal, 'Cari Coverage, NIK, atau Nama...', false);
+            initCoverageSelect($oldCoverage, $bulkModal, 'Cari Coverage Lama...', true);
+            initCoverageSelect($newCoverage, $bulkModal, 'Cari Coverage Baru...', false);
 
             $(document).on('click', '#btnTambah', function(e) {
                 e.preventDefault();
@@ -155,6 +187,7 @@
 
             $oldCoverage.on('change', function() {
                 var coverageId = $(this).val();
+                $('#outletCountBadge').hide().text('0 dipilih');
 
                 if (!coverageId) {
                     $('#outletList').html(
@@ -162,64 +195,157 @@
                     return;
                 }
 
-                $.get('{{ url('outlet/outlet-by-coverage') }}/' + coverageId, function(data) {
-                    if (!data.length) {
+                $('#outletList').html(
+                    '<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin mr-1"></i> Memuat daftar outlet...</div>'
+                );
+
+                $.get('{{ url('outlet/outlet-by-coverage') }}/' + encodeURIComponent(coverageId), function(data) {
+                    if (!data || !data.length) {
                         $('#outletList').html(
-                            '<small class="text-muted">Tidak ada outlet untuk coverage ini.</small>'
-                            );
+                            '<div class="text-muted text-center py-2"><i class="fas fa-info-circle mr-1"></i> Tidak ada outlet untuk coverage ini.</div>'
+                        );
                         return;
                     }
 
-                    var html =
-                        '<div class="mb-2"><label><input type="checkbox" id="checkAll"> <strong>Pilih Semua</strong></label></div>';
+                    var html = '<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">';
+                    html += '  <div class="custom-control custom-checkbox">';
+                    html += '    <input type="checkbox" class="custom-control-input" id="checkAll">';
+                    html += '    <label class="custom-control-label font-weight-bold cursor-pointer" for="checkAll">Pilih Semua (' + data.length + ')</label>';
+                    html += '  </div>';
+                    html += '  <div style="max-width: 220px;" class="w-100">';
+                    html += '    <input type="text" id="searchOutletList" class="form-control form-control-sm" placeholder="Cari kode/nama outlet...">';
+                    html += '  </div>';
+                    html += '</div>';
+
+                    html += '<div id="outletScrollList" class="pr-1" style="max-height: 250px; overflow-y: auto;">';
                     $.each(data, function(i, item) {
                         var badge = item.needs_replacement ?
-                            ' <span class="badge badge-warning">Butuh Pengganti</span>' :
+                            '<span class="badge badge-warning font-size-xs ml-1">Butuh Pengganti</span>' :
                             '';
-                        html +=
-                            '<div><label><input type="checkbox" class="chk-outlet" value="' +
-                            item.id + '"> ' + item.id_outlet + badge + '</label></div>';
-                    });
+                        var pilarBadge = item.pilar ?
+                            '<span class="badge badge-light-dark font-weight-bold font-size-xs ml-1">' + item.pilar + '</span>' :
+                            '';
+                        var outletName = item.nama_outlet && item.nama_outlet !== '-' ?
+                            item.nama_outlet :
+                            '';
+                        var searchStr = (item.id_outlet + ' ' + (item.nama_outlet || '') + ' ' + (item.pilar || '') + ' ' + (item.kota || '')).toLowerCase();
 
+                        html += '<div class="outlet-item d-flex align-items-center justify-content-between p-2 mb-1 bg-white rounded cursor-pointer" data-search="' + searchStr.replace(/"/g, '&quot;') + '">';
+                        html += '  <div class="custom-control custom-checkbox d-flex align-items-center flex-grow-1 mr-2 text-truncate">';
+                        html += '    <input type="checkbox" class="custom-control-input chk-outlet" id="chk_' + item.id + '" value="' + item.id + '">';
+                        html += '    <label class="custom-control-label d-block text-truncate cursor-pointer mb-0 w-100 font-size-sm" for="chk_' + item.id + '">';
+                        html += '      <span class="font-weight-bolder text-dark">' + item.id_outlet + '</span>';
+                        if (outletName) {
+                            html += '      <span class="text-muted mx-1">-</span><span class="text-dark">' + outletName + '</span>';
+                        }
+                        html += '    </label>';
+                        html += '  </div>';
+                        html += '  <div class="d-flex align-items-center flex-shrink-0">';
+                        html += pilarBadge + badge;
+                        html += '  </div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
                     $('#outletList').html(html);
+                    updateOutletCountFast();
+                }).fail(function(xhr) {
+                    $('#outletList').html(
+                        '<div class="text-danger text-center py-2"><i class="fas fa-exclamation-triangle mr-1"></i> ' +
+                        getErrorMessage(xhr, 'Gagal memuat outlet.') + '</div>'
+                    );
                 });
             });
 
+            function updateOutletCountFast() {
+                var $all = $('.chk-outlet');
+                var total = $all.length;
+                if (total === 0) {
+                    $('#outletCountBadge').hide();
+                    return;
+                }
+
+                var checked = $('.chk-outlet:checked').length;
+                $('#outletCountBadge').show().text(checked + ' dari ' + total + ' dipilih');
+                $('#checkAll').prop('checked', checked === total && total > 0);
+            }
+
             $(document).on('change', '#checkAll', function() {
-                $('.chk-outlet').prop('checked', $(this).is(':checked'));
+                var isChecked = this.checked;
+                var $filterInput = $('#searchOutletList');
+                var query = $filterInput.length ? $filterInput.val().trim() : '';
+
+                if (query !== '') {
+                    var $visible = $('.outlet-item:not([style*="display: none"])');
+                    $visible.find('.chk-outlet').prop('checked', isChecked);
+                    $visible.toggleClass('is-checked', isChecked);
+                } else {
+                    $('.chk-outlet').prop('checked', isChecked);
+                    $('.outlet-item').toggleClass('is-checked', isChecked);
+                }
+
+                updateOutletCountFast();
+            });
+
+            $(document).on('change', '.chk-outlet', function() {
+                $(this).closest('.outlet-item').toggleClass('is-checked', this.checked);
+                updateOutletCountFast();
+            });
+
+            var searchTimer = null;
+            $(document).on('keyup search', '#searchOutletList', function() {
+                var q = this.value.toLowerCase().trim();
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function() {
+                    var items = document.querySelectorAll('.outlet-item');
+                    for (var i = 0; i < items.length; i++) {
+                        var searchStr = items[i].getAttribute('data-search') || '';
+                        items[i].style.display = (!q || searchStr.indexOf(q) !== -1) ? '' : 'none';
+                    }
+                }, 80);
             });
 
             $(document).on('click', '#btnBulkSimpan', function(e) {
                 e.preventDefault();
+                var $btn = $(this);
+                var oldCov = $oldCoverage.val();
+                var newCov = $newCoverage.val();
                 var outletIds = $('.chk-outlet:checked').map(function() {
                     return $(this).val();
                 }).get();
 
-                if (!$oldCoverage.val() || !$newCoverage.val()) {
+                if (!oldCov || !newCov) {
                     Swal.fire('Perhatian', 'Coverage lama dan baru wajib dipilih.', 'warning');
                     return;
                 }
 
+                if (oldCov === newCov) {
+                    Swal.fire('Perhatian', 'Coverage baru harus berbeda dengan coverage lama.', 'warning');
+                    return;
+                }
+
                 if (outletIds.length === 0) {
-                    Swal.fire('Perhatian', 'Pilih minimal 1 outlet.', 'warning');
+                    Swal.fire('Perhatian', 'Pilih minimal 1 outlet yang ingin dipindahkan.', 'warning');
                     return;
                 }
 
                 Swal.fire({
                     title: 'Pindahkan ' + outletIds.length + ' outlet?',
-                    text: 'Outlet akan dipindahkan ke coverage baru.',
+                    text: 'Outlet yang dipilih akan dialihkan ke coverage baru.',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Ya, pindahkan!',
+                    cancelButtonText: 'Batal',
                 }).then(function(result) {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value) {
+                        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Memproses...');
+
                         $.ajax({
                             url: '{{ route('outlet.bulk.update') }}',
                             type: 'POST',
                             data: {
                                 _token: '{{ csrf_token() }}',
-                                old_coverage_id: $oldCoverage.val(),
-                                new_coverage_id: $newCoverage.val(),
+                                old_coverage_id: oldCov,
+                                new_coverage_id: newCov,
                                 mapping_ids: outletIds,
                             },
                             success: function(res) {
@@ -231,6 +357,9 @@
                                 Swal.fire('Gagal', getErrorMessage(xhr,
                                         'Data gagal dipindahkan.'),
                                     'error');
+                            },
+                            complete: function() {
+                                $btn.prop('disabled', false).text('Pindahkan');
                             }
                         });
                     }
@@ -248,11 +377,12 @@
             function resetBulkModal() {
                 setSelect2Value($oldCoverage, '');
                 setSelect2Value($newCoverage, '');
+                $('#outletCountBadge').hide().text('0 dipilih');
                 $('#outletList').html(
                     '<small class="text-muted">Pilih coverage lama terlebih dahulu.</small>');
             }
 
-            function initCoverageSelect($select, dropdownParent, placeholder) {
+            function initCoverageSelect($select, dropdownParent, placeholder, includeInactive) {
                 $select.select2({
                     dropdownParent: dropdownParent,
                     placeholder: placeholder,
@@ -262,11 +392,15 @@
                         dataType: 'json',
                         delay: 250,
                         data: function(params) {
-                            return {
+                            var query = {
                                 q: params.term,
                                 all_levels: 1,
                                 exclude_prefix: '3',
                             };
+                            if (includeInactive) {
+                                query.include_inactive = 1;
+                            }
+                            return query;
                         },
                         processResults: function(data) {
                             return {

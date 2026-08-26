@@ -24,14 +24,13 @@
         </div>
     </div>
 
-    {{-- <div class="d-flex justify-content-end mb-4">
-        <button type="button" class="btn btn-warning font-weight-bolder mr-2" id="btnBulkUpdate">
-            <i class="fas fa-exchange-alt"></i> Bulk Update
-        </button>
-    </div> --}}
-
     <x-datatable-card title="Master Mapping Outlet - Coverage" subtitle="Daftar mapping outlet ke coverage"
         table-id="tblMapping" showCreate createLabel="Tambah Mapping">
+        <x-slot name="toolbar">
+            <button type="button" class="btn btn-sm btn-xl-md btn-warning font-weight-bolder mr-2" id="btnBulkUpdate">
+                <i class="fas fa-exchange-alt mr-1"></i> Bulk Update
+            </button>
+        </x-slot>
         <th>No</th>
         {{-- <th>Dist</th> --}}
         <th>Kode Outlet</th>

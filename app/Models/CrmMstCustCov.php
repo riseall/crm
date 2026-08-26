@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CrmMstCustCov extends Model
 {
+    use SoftDeletes;
+
     protected $connection = 'db_dwh';
     protected $table = 'crm_mst_cust_cov';
 

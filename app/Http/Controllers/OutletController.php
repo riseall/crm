@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -22,6 +23,24 @@ class OutletController extends Controller
     public function __construct(CoverageAccessService $coverageAccess)
     {
         $this->coverageAccess = $coverageAccess;
+    }
+
+    private function ensureSoftDeletesColumnExists(): void
+    {
+        Cache::remember('crm_mst_cust_cov_has_deleted_at', 86400, function () {
+            try {
+                if (Schema::connection('db_dwh')->hasTable('crm_mst_cust_cov')) {
+                    if (!Schema::connection('db_dwh')->hasColumn('crm_mst_cust_cov', 'deleted_at')) {
+                        Schema::connection('db_dwh')->table('crm_mst_cust_cov', function ($table) {
+                            $table->softDeletes();
+                        });
+                    }
+                }
+                return true;
+            } catch (\Exception $e) {
+                return false;
+            }
+        });
     }
 
     private function dwhTable(string $table): string
@@ -41,7 +60,10 @@ class OutletController extends Controller
 
     public function index()
     {
+        $this->ensureSoftDeletesColumnExists();
+
         $totals = $this->dwhQuery('crm_mst_cust_cov as cov')
+            ->whereNull('cov.deleted_at')
             ->selectRaw('
                 COUNT(*) as total_data,
                 SUM(CASE WHEN cov.id_coverage IS NOT NULL AND cov.id_coverage != "" THEN 1 ELSE 0 END) as total_tercoverage,
@@ -65,6 +87,8 @@ class OutletController extends Controller
 
     public function data(Request $request)
     {
+        $this->ensureSoftDeletesColumnExists();
+
         $search = trim((string) data_get($request->input('search'), 'value', ''));
         if (mb_strlen($search) === 1) {
             $request->merge([
@@ -84,6 +108,7 @@ class OutletController extends Controller
             })
             ->leftJoin($this->dwhTable('crm_mst_mappings') . ' as mapping', 'latest_mappings.id', '=', 'mapping.id')
             ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'mapping.cov_nik', '=', 'users.nik')
+            ->whereNull('cov.deleted_at')
             ->select([
                 'cov.id',
                 'cov.id_konversi as id_outlet',
@@ -218,8 +243,11 @@ class OutletController extends Controller
 
         $query = $this->dwhQuery('crm_mst_mappings')
             ->leftJoin(DB::raw($this->authTable('users') . ' as users'), 'crm_mst_mappings.cov_nik', '=', 'users.nik')
-            ->where('crm_mst_mappings.is_active', true)
             ->whereNull('crm_mst_mappings.deleted_at');
+
+        if (!$request->boolean('include_inactive')) {
+            $query->where('crm_mst_mappings.is_active', true);
+        }
 
         if (!$request->boolean('all_levels')) {
             $query->where('crm_mst_mappings.cov_level', 5);
@@ -244,19 +272,23 @@ class OutletController extends Controller
         }
 
         $coverage = $query
-            ->orderBy('crm_mst_mappings.id_coverage')
-            ->limit(30)
-            ->get([
+            ->select([
                 DB::raw('crm_mst_mappings.id_coverage as id'),
                 DB::raw('crm_mst_mappings.cov_nik as cov_nik'),
-                DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name))) as text"),
-            ]);
+                DB::raw("CONCAT(crm_mst_mappings.id_coverage, ' - ', crm_mst_mappings.cov_nik, IF(users.name IS NULL OR users.name = '', '', CONCAT(' - ', users.name)), IF(COALESCE(crm_mst_mappings.is_active, 0) = 1, '', ' (Nonaktif)')) as text"),
+            ])
+            ->distinct()
+            ->orderBy('crm_mst_mappings.id_coverage')
+            ->limit(30)
+            ->get();
 
         return response()->json(['results' => $coverage]);
     }
 
     public function store(Request $request)
     {
+        $this->ensureSoftDeletesColumnExists();
+
         $request->validate([
             'id_outlet'   => 'required|string',
             'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
@@ -264,24 +296,33 @@ class OutletController extends Controller
 
         $pilar = $request->input('pilar', 'ETHICAL');
 
-        $exists = CrmMstCustCov::where('id_konversi', $request->id_outlet)
+        $existing = CrmMstCustCov::withTrashed()
+            ->where('id_konversi', $request->id_outlet)
             ->where('pilar', $pilar)
-            ->where('id_coverage', $request->id_coverage)
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            return response()->json(['success' => false, 'message' => 'Outlet ini sudah di-mapping ke coverage tersebut.'], 422);
+        if ($existing) {
+            if ($existing->trashed()) {
+                $existing->restore();
+                $existing->update(['id_coverage' => $request->id_coverage]);
+                Cache::flush();
+                return response()->json(['success' => true, 'message' => 'Mapping berhasil ditambahkan kembali.']);
+            }
+
+            if ($existing->id_coverage == $request->id_coverage) {
+                return response()->json(['success' => false, 'message' => 'Outlet ini sudah di-mapping ke coverage tersebut.'], 422);
+            }
+
+            $existing->update(['id_coverage' => $request->id_coverage]);
+            Cache::flush();
+            return response()->json(['success' => true, 'message' => 'Mapping berhasil diperbarui.']);
         }
 
-        CrmMstCustCov::updateOrCreate(
-            [
-                'id_konversi' => $request->id_outlet,
-                'pilar'       => $pilar,
-            ],
-            [
-                'id_coverage' => $request->id_coverage,
-            ]
-        );
+        CrmMstCustCov::create([
+            'id_konversi' => $request->id_outlet,
+            'pilar'       => $pilar,
+            'id_coverage' => $request->id_coverage,
+        ]);
 
         Cache::flush();
 
@@ -331,11 +372,19 @@ class OutletController extends Controller
     public function bulkUpdateCoverage(Request $request)
     {
         $request->validate([
-            'old_coverage_id' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
-            'new_coverage_id' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage|different:old_coverage_id',
+            'old_coverage_id' => 'required|string',
+            'new_coverage_id' => 'required|string|different:old_coverage_id',
             'mapping_ids'     => 'required|array|min:1',
             'mapping_ids.*'   => 'required|integer',
         ]);
+
+        if (!$this->coverageAccess->canAccessCoverage(auth()->user(), $request->old_coverage_id)
+            || !$this->coverageAccess->canAccessCoverage(auth()->user(), $request->new_coverage_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki hak akses untuk memindahkan coverage ini.'
+            ], 403);
+        }
 
         DB::connection('db_dwh')->beginTransaction();
         try {
@@ -372,17 +421,64 @@ class OutletController extends Controller
             return response()->json([]);
         }
 
-        $outlets = CrmMstCustCov::where('id_coverage', $coverageId)
-            ->select(['id', 'id_konversi', 'pilar', 'id_coverage'])
-            ->limit(500)
+        $latestMappings = $this->dwhQuery('crm_mst_mappings')
+            ->selectRaw('MAX(id) as id, id_coverage')
+            ->whereNull('deleted_at')
+            ->groupBy('id_coverage');
+
+        $outlets = $this->dwhQuery('crm_mst_cust_cov as cov')
+            ->leftJoin($this->dwhTable('crm_mst_cust') . ' as master', 'cov.id_konversi', '=', 'master.id_konversi')
+            ->leftJoinSub($latestMappings, 'latest_mappings', function ($join) {
+                $join->on('cov.id_coverage', '=', 'latest_mappings.id_coverage');
+            })
+            ->leftJoin($this->dwhTable('crm_mst_mappings') . ' as mapping', 'latest_mappings.id', '=', 'mapping.id')
+            ->where('cov.id_coverage', $coverageId)
+            ->whereNull('cov.deleted_at')
+            ->select([
+                'cov.id',
+                'cov.id_konversi',
+                'master.nama_outlet',
+                'master.segment',
+                'master.kota',
+                'cov.pilar',
+                'cov.id_coverage',
+                'mapping.id as mapping_id',
+                'mapping.valid_to',
+                DB::raw('COALESCE(mapping.is_active, 0) as mapping_is_active'),
+            ])
+            ->orderBy('cov.id_konversi')
             ->get();
 
-        return response()->json($outlets);
+        $result = $outlets->map(function ($row) {
+            $needsReplacement = empty($row->mapping_id)
+                || !(bool) $row->mapping_is_active
+                || !empty($row->valid_to);
+
+            return [
+                'id'                => $row->id,
+                'id_outlet'         => $row->id_konversi,
+                'nama_outlet'       => $row->nama_outlet ?? '-',
+                'segment'           => $row->segment ?? '-',
+                'pilar'             => $row->pilar ?? '-',
+                'kota'              => $row->kota ?? '-',
+                'id_coverage'       => $row->id_coverage,
+                'needs_replacement' => $needsReplacement,
+            ];
+        });
+
+        return response()->json($result);
     }
 
     public function destroy($id)
     {
-        $cov = CrmMstCustCov::findOrFail($id);
+        $this->ensureSoftDeletesColumnExists();
+
+        $cov = CrmMstCustCov::withTrashed()->findOrFail($id);
+
+        if ($cov->trashed()) {
+            return response()->json(['success' => false, 'message' => 'Mapping outlet ini sudah dihapus.'], 422);
+        }
+
         $cov->delete();
         Cache::flush();
 
