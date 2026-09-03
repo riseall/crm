@@ -94,10 +94,10 @@ class VisitController extends Controller
         $url = 'https://sfa-phapros.klikpeta.com/sfa/visits';
         $apiKey = config('services.sfa.api_key');
 
-        // Cache key membedakan nasional vs per-cabang (v7: clean deduplicated + retry)
+        // Cache key membedakan nasional vs per-cabang (v8: filtered office attendance check-ins)
         $cacheKey = !empty($branchCode)
-            ? 'sfa_visits_v7_branch_' . $branchCode . '_' . md5($visitDate)
-            : 'sfa_visits_v7_' . md5($visitDate);
+            ? 'sfa_visits_v8_branch_' . $branchCode . '_' . md5($visitDate)
+            : 'sfa_visits_v8_' . md5($visitDate);
 
         $ttl = 900; // 15 menit
 
@@ -281,10 +281,45 @@ class VisitController extends Controller
             }
             $visits = array_values($dedupedVisits);
 
+            // 🐎 Ponytail: Filter out absensi/kunjungan kantor internal (KANTOR-*, PHAPROS CAB., dll).
+            // Data ini adalah absensi pegawai di kantor cabang/pusat, bukan kunjungan sales ke outlet/pelanggan.
+            $visits = array_values(array_filter($visits, function ($item) {
+                $code = strtoupper(trim((string) (
+                    isset($item['location_code']) && !empty($item['location_code'])
+                        ? $item['location_code']
+                        : (isset($item['outlet_code']) && !empty($item['outlet_code'])
+                            ? $item['outlet_code']
+                            : (isset($item['customer_id']) ? $item['customer_id'] : ''))
+                )));
+                $name = strtoupper(trim((string) (
+                    isset($item['outlet_name']) && !empty($item['outlet_name'])
+                        ? $item['outlet_name']
+                        : (isset($item['location_name']) && !empty($item['location_name'])
+                            ? $item['location_name']
+                            : '')
+                )));
+
+                if ($code !== '' && strpos($code, 'KANTOR') !== false) {
+                    return false;
+                }
+                if ($name !== '' && strpos($name, 'KANTOR') !== false) {
+                    return false;
+                }
+                if ($name !== '' && strpos($name, 'PHAPROS') === 0) {
+                    return false;
+                }
+
+                return true;
+            }));
+
 
             // Link with CRM Master Customer using id_konversi (matched via SFA location_code)
             $locationCodes = collect($visits)
-                ->pluck('location_code')
+                ->map(function ($item) {
+                    return !empty($item['location_code'])
+                        ? $item['location_code']
+                        : (!empty($item['outlet_code']) ? $item['outlet_code'] : null);
+                })
                 ->filter()
                 ->unique()
                 ->values()
@@ -302,6 +337,14 @@ class VisitController extends Controller
                 }
             }
 
+            // Users lookup from auth table (connection: mysql)
+            $userByNik = collect();
+            try {
+                $userByNik = DB::table('users')->pluck('name', 'nik');
+            } catch (\Exception $e) {
+                Log::warning('Error querying users table: ' . $e->getMessage());
+            }
+
             // Link with CRM Mappings using NIK PIC & Names
             $mappingByNik = collect();
             $mappingByName = collect();
@@ -317,65 +360,135 @@ class VisitController extends Controller
                 Log::warning('Error querying crm_mst_mappings: ' . $e->getMessage());
             }
 
+            // Query Sellout Netto from crm_sellout_summary via id_konversi and pilar
+            $selloutPilarMap = collect();
+            $selloutOutletMap = collect();
+            if (!empty($locationCodes)) {
+                try {
+                    $selloutPilarRows = DB::connection('db_dwh')
+                        ->table('crm_sellout_summary')
+                        ->whereIn('id_konversi', $locationCodes)
+                        ->groupBy('id_konversi', 'pilar_sub')
+                        ->select('id_konversi', 'pilar_sub', DB::raw('SUM(netto) as total_netto'))
+                        ->get();
+
+                    $selloutPilarMap = $selloutPilarRows->groupBy('id_konversi');
+
+                    $selloutOutletMap = DB::connection('db_dwh')
+                        ->table('crm_sellout_summary')
+                        ->whereIn('id_konversi', $locationCodes)
+                        ->groupBy('id_konversi')
+                        ->select('id_konversi', DB::raw('SUM(netto) as total_netto'))
+                        ->pluck('total_netto', 'id_konversi');
+                } catch (\Exception $e) {
+                    Log::warning('Error querying crm_sellout_summary: ' . $e->getMessage());
+                }
+            }
+
             // Normalize live visit items for Map and DataTable (Strict PHP 7.4 compatible)
-            $normalizedVisits = collect($visits)->map(function ($item, $idx) use ($visitDate, $masterCustMap, $mappingByNik, $mappingByName) {
+            $normalizedVisits = collect($visits)->map(function ($item, $idx) use ($visitDate, $masterCustMap, $selloutPilarMap, $selloutOutletMap, $userByNik, $mappingByNik, $mappingByName) {
                 $lat = (float) ($item['visit_latitude'] ?? $item['lat'] ?? 0);
                 $lng = (float) ($item['visit_longitude'] ?? $item['lng'] ?? $item['long'] ?? 0);
-                $locationCode = isset($item['location_code']) ? $item['location_code'] : null;
+                $locationCode = isset($item['location_code']) && !empty($item['location_code'])
+                    ? $item['location_code']
+                    : (isset($item['outlet_code']) && !empty($item['outlet_code']) ? $item['outlet_code'] : null);
                 $cust = ($locationCode && $masterCustMap->has($locationCode)) ? $masterCustMap->get($locationCode) : null;
 
                 // Resolve SFA identity
-                $sfaNik = isset($item['nik_pic']) && trim((string)$item['nik_pic']) !== '' ? trim((string)$item['nik_pic']) : (isset($item['nik']) ? trim((string)$item['nik']) : (isset($item['sales_nik']) ? trim((string)$item['sales_nik']) : null));
-                $sfaName = isset($item['nama_pic']) && trim((string)$item['nama_pic']) !== '' ? trim((string)$item['nama_pic']) : (isset($item['sales_name']) ? trim((string)$item['sales_name']) : (isset($item['user_name']) ? trim((string)$item['user_name']) : null));
+                $sfaNik = isset($item['nik_pic']) && trim((string)$item['nik_pic']) !== ''
+                    ? trim((string)$item['nik_pic'])
+                    : (isset($item['nik']) ? trim((string)$item['nik']) : (isset($item['sales_nik']) ? trim((string)$item['sales_nik']) : null));
+                $sfaName = isset($item['nama_pic']) && trim((string)$item['nama_pic']) !== ''
+                    ? trim((string)$item['nama_pic'])
+                    : (isset($item['sales_name']) ? trim((string)$item['sales_name']) : (isset($item['user_name']) ? trim((string)$item['user_name']) : null));
 
-                // Resolve CRM Mapping from Customer Coverage or Name
-                $crmNik = null;
-                $crmName = null;
-                $covPilar = null;
-                if ($cust && $cust->coverages && $cust->coverages->isNotEmpty()) {
-                    $firstCoverage = $cust->coverages->first();
-                    $covMapping = $firstCoverage ? $firstCoverage->mapping : null;
-                    if ($covMapping) {
-                        $crmNik = $covMapping->cov_nik;
-                        $crmName = ($covMapping->user ? $covMapping->user->name : null) ?? $covMapping->cov_desc;
-                    }
-                    $covPilar = $cust->coverages->pluck('pilar')->filter()->first();
-                }
-
-                // If CRM NIK is missing, fallback to mapping by SFA Name
-                if (!$crmNik && $sfaName) {
+                // Resolve Mapping from visiting sales NIK / Name
+                $matchedMapping = null;
+                if ($sfaNik && $mappingByNik->has($sfaNik)) {
+                    $matchedMapping = $mappingByNik->get($sfaNik);
+                } elseif ($sfaName) {
                     $nameKey = mb_strtolower(trim($sfaName));
                     if ($mappingByName->has($nameKey)) {
                         $matchedMapping = $mappingByName->get($nameKey);
-                        $crmNik = $matchedMapping->cov_nik;
-                        $crmName = $matchedMapping->cov_desc;
-                        if (!$covPilar) $covPilar = $matchedMapping->cov_pilar;
                     }
                 }
 
-                // Resolve Pilar: from SFA payload -> CRM coverage -> CRM customer divisi -> User mapping
-                $pilar = isset($item['pilar']) ? $item['pilar'] : null;
-                if (!$pilar) {
-                    $pilar = $covPilar ?: ($cust ? $cust->divisi : ($sfaNik && $mappingByNik->has($sfaNik) ? $mappingByNik->get($sfaNik)->cov_pilar : null));
+                $nik = $sfaNik ? $sfaNik : ($matchedMapping ? $matchedMapping->cov_nik : (isset($item['branch_code']) ? $item['branch_code'] : '-'));
+                $officialName = ($nik && $userByNik->has($nik))
+                    ? $userByNik->get($nik)
+                    : ($matchedMapping ? $matchedMapping->cov_desc : $sfaName);
+                $salesName = $officialName ? $officialName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force');
+
+                // Match specific coverage in master cust
+                $matchedCov = null;
+                if ($cust && $cust->coverages && $cust->coverages->isNotEmpty()) {
+                    if ($nik && $nik !== '-') {
+                        $matchedCov = $cust->coverages->first(function ($c) use ($nik) {
+                            return optional($c->mapping)->cov_nik == $nik;
+                        });
+                    }
+                    if (!$matchedCov && $matchedMapping && !empty($matchedMapping->cov_pilar)) {
+                        $pilarTarget = $matchedMapping->cov_pilar;
+                        $matchedCov = $cust->coverages->first(function ($c) use ($pilarTarget) {
+                            return $c->pilar == $pilarTarget;
+                        });
+                    }
+                    if (!$matchedCov) {
+                        $matchedCov = $cust->coverages->first();
+                    }
                 }
 
-                $nik = $sfaNik ? $sfaNik : ($crmNik ? $crmNik : (isset($item['branch_code']) ? $item['branch_code'] : '-'));
-                $salesName = $sfaName ? $sfaName : ($crmName ? $crmName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force'));
+                // Resolve Pilar accurately: SFA payload -> Sales Mapping Pilar -> Coverage Pilar -> Cust Divisi
+                $pilar = !empty($item['pilar'])
+                    ? $item['pilar']
+                    : ($matchedMapping && !empty($matchedMapping->cov_pilar)
+                        ? $matchedMapping->cov_pilar
+                        : ($matchedCov && !empty($matchedCov->pilar)
+                            ? $matchedCov->pilar
+                            : ($cust && !empty($cust->divisi) ? $cust->divisi : '-')));
 
-                // Resolve Outlet Name & Customer ID / id_konversi
-                $outletName = isset($item['outlet_name']) ? $item['outlet_name'] : ($cust ? $cust->nama_outlet : (isset($item['location_name']) ? $item['location_name'] : ('Outlet #' . ($idx + 1))));
+                // Resolve Outlet Name prioritizing crm_mst_cust (nama_outlet)
+                $outletName = ($cust && !empty($cust->nama_outlet))
+                    ? $cust->nama_outlet
+                    : (isset($item['outlet_name']) && !empty($item['outlet_name'])
+                        ? $item['outlet_name']
+                        : (isset($item['location_name']) && !empty($item['location_name'])
+                            ? $item['location_name']
+                            : ('Outlet #' . ($idx + 1))));
                 $customerId = $locationCode ? $locationCode : (isset($item['outlet_code']) ? $item['outlet_code'] : '-');
+                $targetKonversi = $locationCode ? $locationCode : (isset($item['outlet_code']) ? $item['outlet_code'] : null);
+
+                // Calculate Netto matching NIK & Pilar
+                $totalNetto = 0.0;
+                if ($targetKonversi) {
+                    if ($pilar && $pilar !== '-' && $selloutPilarMap->has($targetKonversi)) {
+                        $pilarRows = $selloutPilarMap->get($targetKonversi);
+                        $matchingRows = $pilarRows->filter(function ($r) use ($pilar) {
+                            $ps = strtoupper(trim((string)$r->pilar_sub));
+                            $p = strtoupper(trim((string)$pilar));
+                            return $ps === $p || ($p === 'ETHICAL' && in_array($ps, ['ETHICOM', 'ETHIPROM'], true));
+                        });
+                        if ($matchingRows->isNotEmpty()) {
+                            $totalNetto = (float) $matchingRows->sum('total_netto');
+                        } else {
+                            $totalNetto = (float) ($selloutOutletMap->get($targetKonversi) ?? 0.0);
+                        }
+                    } elseif ($selloutOutletMap->has($targetKonversi)) {
+                        $totalNetto = (float) $selloutOutletMap->get($targetKonversi);
+                    }
+                }
 
                 return [
                     'id'                  => isset($item['id']) ? $item['id'] : ($idx + 1),
                     'nik'                 => $nik ? $nik : (isset($item['branch_code']) ? $item['branch_code'] : '-'),
                     'sfa_nik'             => $sfaNik,
-                    'crm_nik'             => $crmNik,
                     'sales_name'          => $salesName ? $salesName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force'),
+                    'pic_name'            => $sfaName ? $sfaName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force'),
                     'outlet_name'         => $outletName,
                     'customer_id'         => $customerId,
                     'location_code'       => $locationCode,
                     'id_konversi'         => $locationCode,
+                    'total_netto'         => $totalNetto,
                     'outlet_code'         => isset($item['outlet_code']) ? $item['outlet_code'] : '-',
                     'location_name'       => isset($item['location_name']) ? $item['location_name'] : '-',
                     'branch_code'         => isset($item['branch_code']) ? $item['branch_code'] : '-',
@@ -396,6 +509,24 @@ class VisitController extends Controller
                     'status'              => !empty($item['approval_status']) ? $item['approval_status'] : (isset($item['status']) ? $item['status'] : 'Selesai'),
                 ];
             });
+
+            // Double safety filter pada normalized visits (menangkap jika nama terisi dari master cust)
+            $normalizedVisits = $normalizedVisits->filter(function ($v) {
+                $code = strtoupper(trim((string) (isset($v['customer_id']) ? $v['customer_id'] : (isset($v['location_code']) ? $v['location_code'] : ''))));
+                $name = strtoupper(trim((string) (isset($v['outlet_name']) ? $v['outlet_name'] : '')));
+
+                if ($code !== '' && strpos($code, 'KANTOR') !== false) {
+                    return false;
+                }
+                if ($name !== '' && strpos($name, 'KANTOR') !== false) {
+                    return false;
+                }
+                if ($name !== '' && strpos($name, 'PHAPROS') === 0) {
+                    return false;
+                }
+
+                return true;
+            })->values();
 
             return [
                 'apiSuccess'       => $apiSuccess,
@@ -503,4 +634,3 @@ class VisitController extends Controller
         ]);
     }
 }
-

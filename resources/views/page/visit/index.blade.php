@@ -159,27 +159,14 @@
             border-top: 5px solid var(--visit-tier-5);
         }
 
-        /* ===== Popup & Modal detail blocks ===== */
+        /* ===== Popup Styling ===== */
         .visit-popup {
-            min-width: 210px;
+            min-width: 220px;
+            font-family: inherit;
         }
 
-        .visit-popup hr {
-            margin: 4px 0;
-        }
-
-        .detail-block {
-            padding: .75rem 1rem;
-            background: #f8f9fa;
-            border: 1px solid #e4e6ef;
-            border-radius: 8px;
-            color: #3f4254;
-        }
-
-        .badge-visit-status {
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-weight: 600;
+        .visit-popup .border-bottom {
+            border-bottom: 1px solid #eef2f7 !important;
         }
 
         /* ===== Modern Modal Detail Styling ===== */
@@ -459,10 +446,6 @@
         <th>Waktu</th>
         <th>Sales / NIK</th>
         <th>Outlet / Cust ID</th>
-        {{-- <th class="text-center">Pilar</th>
-        <th>Koordinat</th>
-        <th>Visit Resume</th>
-        <th>Customer Discussion</th> --}}
         <th class="text-center">Aksi</th>
     </x-datatable-card>
 
@@ -667,10 +650,13 @@
                     return gradient;
                 }, {});
 
-            /** Truncate long text for compact table cells. */
-            const truncate = (text, length = 40) => {
-                if (!text) return '-';
-                return text.length > length ? `${text.substring(0, length)}...` : text;
+            /** Format numeric value to Rupiah currency string. */
+            const formatRupiah = (val) => {
+                return new Intl.NumberFormat('id-ID', {
+                    style: 'currency',
+                    currency: 'IDR',
+                    maximumFractionDigits: 0
+                }).format(val || 0);
             };
 
             /** Render a "lat, lng" value as a clickable Google Maps link. */
@@ -808,6 +794,16 @@
 
                         visitDataStore = res.data || [];
 
+                        // 🐎 Ponytail: Filter out absensi kantor (KANTOR-*, PHAPROS CAB., dll)
+                        visitDataStore = visitDataStore.filter(function(v) {
+                            const code = String(v.customer_id || v.location_code || v.outlet_code || '').toUpperCase();
+                            const name = String(v.outlet_name || v.location_name || '').toUpperCase();
+                            if (code.indexOf('KANTOR') !== -1) return false;
+                            if (name.indexOf('KANTOR') !== -1) return false;
+                            if (name.indexOf('PHAPROS') === 0) return false;
+                            return true;
+                        });
+
                         // Apply local filters if needed
                         let filtered = visitDataStore;
                         if ($('#filter_pilar').length) {
@@ -894,13 +890,18 @@
                     const lng = parseFloat(v.longitude);
                     latLngs.push([lat, lng]);
 
-                    const key = v.customer_id || `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+                    const key = v.id_konversi || v.location_code || v.customer_id ||
+                        `${lat.toFixed(4)}_${lng.toFixed(4)}`;
                     if (!outletMap[key]) {
                         outletMap[key] = {
                             lat,
                             lng,
                             outlet_name: v.outlet_name || 'Outlet',
                             customer_id: v.customer_id || '-',
+                            nik: v.nik || '-',
+                            pilar: v.pilar || '-',
+                            user_name: v.sales_name || v.pic_name || v.nik || '-',
+                            total_netto: parseFloat(v.total_netto) || 0,
                             visits: [],
                             count: 0
                         };
@@ -916,22 +917,32 @@
             }
 
             function buildPopupHtml(item, tier) {
-                const lastVisit = item.visits[0] || {};
+                const userName = item.user_name || (item.visits[0] && (item.visits[0].sales_name || item.visits[0]
+                    .pic_name || item.visits[0].nik)) || '-';
+                const formattedNetto = formatRupiah(item.total_netto || 0);
+                const pilarBadge = item.pilar && item.pilar !== '-' ?
+                    `<span class="badge badge-light-primary font-weight-bold ml-1">${item.pilar}</span>` : '';
+
                 return `
-                    <div class="visit-popup">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <strong class="text-dark">${item.outlet_name}</strong>
-                            <span class="badge ${tier.badge} font-weight-bolder ml-2">${item.count} Visit</span>
+                    <div class="visit-popup p-1">
+                        <div class="font-weight-bolder text-dark font-size-sm mb-2 pb-1 border-bottom d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center text-truncate mr-2">
+                                <i class="fas fa-store-alt text-primary mr-2 font-size-xs"></i>
+                                <span class="text-truncate" title="${item.outlet_name}">${item.outlet_name}</span>
+                            </div>
+                            ${pilarBadge}
                         </div>
-                        <div class="small text-muted mb-2">
-                            Cust ID: ${item.customer_id} ·
-                            <span class="font-weight-bold" style="color:${tier.color}">${tier.label}</span>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span class="text-muted font-size-xs"><i class="fas fa-walking text-primary mr-1"></i> Total Kunjungan</span>
+                            <span class="badge ${tier.badge} font-weight-bolder px-2 py-1">${item.count}</span>
                         </div>
-                        <hr />
-                        <div class="small">
-                            <i class="fas fa-user-tie text-primary mr-1"></i> ${lastVisit.sales_name || '-'} (${lastVisit.nik || '-'})<br/>
-                            <i class="far fa-clock text-muted mr-1"></i> ${lastVisit.visit_date || ''} ${lastVisit.visit_time || ''}<br/>
-                            <span class="text-dark font-italic">${lastVisit.visit_resume || ''}</span>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span class="text-muted font-size-xs"><i class="fas fa-user-tie text-info mr-1"></i> User</span>
+                            <span class="font-weight-bold font-size-xs text-dark text-right text-truncate ml-2" style="max-width: 130px;" title="${userName}">${userName}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span class="text-muted font-size-xs"><i class="fas fa-coins text-warning mr-1"></i> Netto</span>
+                            <span class="font-weight-bolder font-size-xs text-success ml-2">${formattedNetto}</span>
                         </div>
                     </div>
                 `;
