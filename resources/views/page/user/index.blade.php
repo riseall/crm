@@ -39,73 +39,12 @@
 
 @push('scripts')
     <script>
-        $(document).ready(function() {
-            var table = $('#table_pengguna').DataTable({
-                processing: true,
-                serverSide: true,
-                responsive: true,
-                ajax: {
-                    url: "{{ route('users.data') }}",
-                    type: 'GET'
-                },
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'nik',
-                    },
-                    {
-                        data: 'name',
-                    },
-                    {
-                        data: 'email',
-                    },
-                    {
-                        data: 'jabatan',
-                    },
-                    {
-                        data: 'role',
-                        className: 'text-center',
-                        orderable: false
-                    },
-                    {
-                        data: 'is_active',
-                        className: 'text-center'
-                    },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     className: 'text-center',
-                    //     orderable: false,
-                    //     searchable: false
-                    // }
-                ],
-            });
-
-            // Opsional: Jika kamu ingin menghubungkan tombol Export Metronic dengan DataTables
-            // (Membutuhkan ekstensi Buttons dari DataTables)
-            $('#export_print').on('click', function(e) {
-                e.preventDefault();
-                table.button(0).trigger();
-            });
-            $('#export_copy').on('click', function(e) {
-                e.preventDefault();
-                table.button(1).trigger();
-            });
-            $('#export_excel').on('click', function(e) {
-                e.preventDefault();
-                table.button(2).trigger();
-            });
-            $('#export_csv').on('click', function(e) {
-                e.preventDefault();
-                table.button(3).trigger();
-            });
-            $('#export_pdf').on('click', function(e) {
-                e.preventDefault();
-                table.button(4).trigger();
-            });
-        });
+        window.UserPageConfig = {
+            routes: {
+                data: '{{ route('users.data') }}'
+            }
+        };
     </script>
+    <script src="{{ asset('js/user/index.js') }}?v={{ filemtime(public_path('js/user/index.js')) }}"></script>
 @endpush
+

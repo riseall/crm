@@ -53,89 +53,19 @@
 
 @push('scripts')
     <script>
-        $(document).ready(function() {
-
-            window.tablePm = $('#tblPm').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: '{{ route('product.data') }}',
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'c_ph',
-                        name: 'crm_mst_products.pt_ph'
-                    },
-                    {
-                        data: 'p_desc',
-                        name: 'parts.pt_desc'
-                    },
-                    {
-                        data: 'id_coverage',
-                        name: 'crm_mst_products.id_coverage',
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'action',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center text-nowrap',
-                        width: '100px'
-                    },
-                ]
-            });
-
-            window.tablePmDist = $('#tblPmDist').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: '{{ route('product.dataDist') }}',
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'c_dist',
-                        name: 'v_pt_mstr_dist.pt_dist'
-                    },
-                    {
-                        data: 'c_ph',
-                        name: 'v_pt_mstr_dist.pt_ph'
-                    },
-                    {
-                        data: 'p_desc',
-                        name: 'v_pt_mstr_dist.pt_desc'
-                    },
-                    {
-                        data: 'dist',
-                        name: 'v_pt_mstr_dist.dist',
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'pilar',
-                        name: 'v_pt_mstr_dist.pilar_sub',
-                        className: 'text-center'
-                    },
-                    // {
-                    //     data: 'cov',
-                    //     className: 'text-center'
-                    // },
-                    {
-                        data: 'cov_pm',
-                        name: 'crm_mst_mappings.cov_nik',
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'nama_pm',
-                        name: 'users.name'
-                    },
-                ]
-            });
-
-        });
+        window.ProductPageConfig = {
+            csrfToken: '{{ csrf_token() }}',
+            routes: {
+                data: '{{ route('product.data') }}',
+                dataDist: '{{ route('product.dataDist') }}',
+                produk: '{{ route('product.produk') }}',
+                show: '{{ route('product.show', ':id') }}',
+                store: '{{ route('product.store') }}',
+                update: '{{ route('product.update', ':id') }}',
+                destroy: '{{ route('product.destroy', ':id') }}',
+            }
+        };
     </script>
+    <script src="{{ asset('js/product/index.js') }}?v={{ filemtime(public_path('js/product/index.js')) }}"></script>
 @endpush
+
