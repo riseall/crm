@@ -1,0 +1,149 @@
+.sk-bar-track {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #EEF2FF;
+}
+
+.sk-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+    transition: width .3s ease;
+}
+
+.sk-equal-card .card-body {
+    min-height: 330px;
+}
+
+.sk-chart {
+    min-height: 280px;
+}
+
+.sk-list-stack {
+    display: flex;
+    min-height: 280px;
+    flex-direction: column;
+    justify-content: start;
+}
+
+.sk-list-stack .sk-list-item:last-child {
+    margin-bottom: 0 !important;
+}
+
+.sk-src-badge {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.sk-list-item {
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.sk-warning-bar {
+    display: flex;
+    min-height: 58px;
+    overflow: hidden;
+    align-items: stretch;
+    border: 1px solid #F6C343;
+    border-radius: 8px;
+    background: #FFFBEB;
+}
+
+.sk-warning-label {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0 20px;
+    background: #F59E0B;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+.sk-warning-viewport {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    align-items: center;
+}
+
+.sk-warning-track {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    will-change: transform;
+}
+
+.sk-warning-track.is-running {
+    animation-name: stock-warning-scroll;
+    animation-duration: 30s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.sk-warning-viewport:hover .sk-warning-track {
+    animation-play-state: paused;
+}
+
+.sk-warning-group {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+}
+
+.sk-warning-item {
+    display: flex;
+    min-height: 56px;
+    align-items: center;
+    padding: 0 28px;
+    color: #78350F;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.sk-warning-item::after {
+    width: 5px;
+    height: 5px;
+    margin-left: 28px;
+    border-radius: 50%;
+    background: #F59E0B;
+    content: '';
+}
+
+.sk-warning-item strong {
+    margin: 0 4px;
+    color: #92400E;
+}
+
+@keyframes stock-warning-scroll {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .sk-warning-bar {
+        display: block;
+    }
+
+    .sk-warning-label {
+        min-height: 42px;
+        justify-content: center;
+    }
+}

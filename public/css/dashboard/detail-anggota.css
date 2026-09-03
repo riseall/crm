@@ -1,0 +1,88 @@
+.bg-pareto-a {
+    background-color: #1e3a8a !important;
+    color: #fff;
+}
+
+.bg-pareto-b {
+    background-color: #0d9488 !important;
+    color: #fff;
+}
+
+.bg-pareto-c {
+    background-color: #cbd5e1 !important;
+    color: #333;
+}
+
+.table-pareto tbody tr.pareto-a td {
+    background-color: rgba(30, 58, 138, .9);
+    color: #fff;
+    border-color: #fff;
+}
+
+.table-pareto tbody tr.pareto-b td {
+    background-color: rgba(13, 148, 136, .9);
+    color: #fff;
+    border-color: #fff;
+}
+
+.table-pareto tbody tr.pareto-c td {
+    background-color: rgba(203, 213, 225, .9);
+    color: #333;
+    border-color: #fff;
+}
+
+.anggota-trend-chart {
+    min-height: 90px;
+}
+
+/* ==== Pagination outlet ala DataTables ==== */
+.outlet-pagination-wrap {
+    font-size: .95rem;
+}
+
+.outlet-paginate {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.outlet-paginate .paginate_button {
+    display: inline-block;
+    min-width: 2rem;
+    padding: .35rem .65rem;
+    text-align: center;
+    border: 1px solid transparent;
+    border-radius: .42rem;
+    color: #3f4254;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color .15s ease;
+}
+
+.outlet-paginate .paginate_button:hover:not(.disabled):not(.current) {
+    background-color: #f3f6f9;
+}
+
+.outlet-paginate .paginate_button.current {
+    background-color: #005db6;
+    color: #fff;
+    font-weight: 600;
+}
+
+.outlet-paginate .paginate_button.disabled {
+    color: #b5b5c3;
+    cursor: default;
+}
+
+.outlet-paginate .paginate_button.ellipsis {
+    cursor: default;
+    padding: .35rem .25rem;
+    color: #b5b5c3;
+}
+
+.outlet-length-select {
+    width: auto;
+    display: inline-block;
+}
