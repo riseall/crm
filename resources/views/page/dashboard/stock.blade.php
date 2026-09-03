@@ -6,8 +6,8 @@
         :show-tahun="false" :show-pilar="false" id-apply="btnApply" :show-reset="true" id-reset="btnResetStock">
         <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 140px;">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Distributor</label>
-            <select class="form-control form-control-sm selectpicker" id="filterSource" data-width="100%" multiple data-actions-box="true"
-                data-selected-text-format="count > 1" data-none-selected-text="Semua distributor"
+            <select class="form-control form-control-sm selectpicker" id="filterSource" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua distributor"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih">
                 <option value="GPJ">GPJ</option>
@@ -19,24 +19,24 @@
 
         <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 130px;">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Pilar</label>
-            <select class="form-control form-control-sm selectpicker" id="filterPilar" data-width="100%" multiple data-actions-box="true"
-                data-selected-text-format="count > 1" data-none-selected-text="Semua pilar"
+            <select class="form-control form-control-sm selectpicker" id="filterPilar" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua pilar"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih"></select>
         </div>
 
         <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 135px;">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Cabang</label>
-            <select class="form-control form-control-sm selectpicker" id="filterCabang" data-width="100%" data-live-search="true" multiple
-                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua cabang"
-                data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
-                data-count-selected-text="{0} dipilih"></select>
+            <select class="form-control form-control-sm selectpicker" id="filterCabang" data-width="100%"
+                data-live-search="true" multiple data-actions-box="true" data-selected-text-format="count > 1"
+                data-none-selected-text="Semua cabang" data-select-all-text="Pilih semua"
+                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih"></select>
         </div>
 
         <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 125px;">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Aging</label>
-            <select class="form-control form-control-sm selectpicker" id="filterKelEd" data-width="100%" multiple data-actions-box="true"
-                data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
+            <select class="form-control form-control-sm selectpicker" id="filterKelEd" data-width="100%" multiple
+                data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="Semua aging"
                 data-select-all-text="Pilih semua" data-deselect-all-text="Hapus semua"
                 data-count-selected-text="{0} dipilih">
                 <option value="sudah_ed">Sudah ED</option>
@@ -90,7 +90,7 @@
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label font-size-h5">Per distributor</h3>
+                            <h3 class="card-label font-size-h5">by distributor</h3>
                         </div>
                     </div>
                     <div class="card-body p-2 p-xl-3">
@@ -103,7 +103,7 @@
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label font-size-h5">Aging stock</h3>
+                            <h3 class="card-label font-size-h5">Kelompok ED</h3>
                         </div>
                     </div>
                     <div class="card-body p-2 p-xl-3">
@@ -116,7 +116,7 @@
                 <div class="card card-custom h-100 sk-equal-card">
                     <div class="card-header">
                         <div class="card-title">
-                            <h3 class="card-label font-size-h5">Top cabang</h3>
+                            <h3 class="card-label font-size-h5">by Cabang</h3>
                         </div>
                     </div>
                     <div class="card-body p-2 p-xl-3">
@@ -133,8 +133,8 @@
             <th>Nama Produk</th>
             <th>Pilar</th>
             <th>Cabang</th>
-            <th>Stock</th>
-            <th>Nilai</th>
+            <th>Unit</th>
+            <th>Value</th>
             <th>Exp. Date</th>
             <th>Kelompok ED</th>
         </x-datatable-card>
