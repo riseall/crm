@@ -13,7 +13,8 @@
     <div class="card-body d-flex justify-content-between align-items-center p-3 p-xl-4">
         <div class="d-flex flex-column mr-2 min-w-0" style="min-width: 0;">
             <div class="d-flex align-items-center justify-content-between mb-1 flex-wrap">
-                <span class="font-weight-bolder text-muted text-uppercase font-size-xs mb-1 text-truncate">{{ $title }}</span>
+                <span
+                    class="font-weight-bolder text-muted text-uppercase font-size-xs mb-1 text-truncate">{{ $title }}</span>
                 @if ($subtitle)
                     <span class="{{ $subtitleColor }} font-size-xs font-weight-bold ml-1 text-nowrap"
                         @if ($subtitleId) id="{{ $subtitleId }}" @endif>{{ $subtitle }}</span>
@@ -30,4 +31,3 @@
         </div>
     </div>
 </div>
-

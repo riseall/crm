@@ -9,6 +9,7 @@ use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DashboardService
 {
@@ -22,10 +23,8 @@ class DashboardService
     }
 
     // -------------------------------------------------------
-    // SUMMARY CARDS
+    // CACHE HELPER (untuk endpoint DataTables / Drilldown)
     // -------------------------------------------------------
-
-    // Contoh pada getSummaryCards
     private function cached(string $key, DashboardFilterRequest $request, \Closure $callback, string $extra = '')
     {
         return Cache::remember(
@@ -35,43 +34,44 @@ class DashboardService
         );
     }
 
+    // -------------------------------------------------------
+    // SUMMARY CARDS
+    // -------------------------------------------------------
     public function getSummaryCards(DashboardFilterRequest $request): array
     {
-        return $this->cached('summary_top', $request, function () use ($request) {
-            $range = [$request->prevStartDate(), $request->endDate()];
-            $currentStart = $request->startDate();
-            $currentEnd = $request->endDate();
-            $prevStart = $request->prevStartDate();
-            $prevEnd = $request->prevEndDate();
+        $range = [$request->prevStartDate(), $request->endDate()];
+        $currentStart = $request->startDate();
+        $currentEnd = $request->endDate();
+        $prevStart = $request->prevStartDate();
+        $prevEnd = $request->prevEndDate();
 
-            $summary = $this->sellout->baseChartQuery($request, $range)
-                ->selectRaw("
-                    SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as total_netto,
-                    SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
-                ", [
-                    $currentStart,
-                    $currentEnd,
-                    $prevStart,
-                    $prevEnd,
-                ])
-                ->first();
+        $summary = $this->sellout->baseChartQuery($request, $range)
+            ->selectRaw("
+                SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as total_netto,
+                SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
+            ", [
+                $currentStart,
+                $currentEnd,
+                $prevStart,
+                $prevEnd,
+            ])
+            ->first();
 
-            $currNetto = (float) ($summary->total_netto ?? 0);
-            $prevNetto = (float) ($summary->prev_netto ?? 0);
-            $topValue = $this->sellout->topMarketingTarget($request);
-            $diffNetto = $prevNetto > 0
-                ? (($currNetto - $prevNetto) / $prevNetto) * 100
-                : ($currNetto > 0 ? 100 : 0);
-            $topAchievement = $topValue > 0 ? ($currNetto / $topValue) * 100 : 0;
+        $currNetto = (float) ($summary->total_netto ?? 0);
+        $prevNetto = (float) ($summary->prev_netto ?? 0);
+        $topValue = $this->sellout->topMarketingTarget($request);
+        $diffNetto = $prevNetto > 0
+            ? (($currNetto - $prevNetto) / $prevNetto) * 100
+            : ($currNetto > 0 ? 100 : 0);
+        $topAchievement = $topValue > 0 ? ($currNetto / $topValue) * 100 : 0;
 
-            return [
-                'total_netto'     => $currNetto,
-                'top_value'       => $topValue,
-                'top_achievement' => round($topAchievement, 2),
-                'prev_netto'      => $prevNetto,
-                'diff_netto'      => round($diffNetto, 2)
-            ];
-        });
+        return [
+            'total_netto'     => $currNetto,
+            'top_value'       => $topValue,
+            'top_achievement' => round($topAchievement, 2),
+            'prev_netto'      => $prevNetto,
+            'diff_netto'      => round($diffNetto, 2)
+        ];
     }
 
     // -------------------------------------------------------
@@ -79,40 +79,37 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerBulan(DashboardFilterRequest $request): array
     {
-        return $this->cached('chart_bulan', $request, function () use ($request) {
-                $year = (int) $request->tahun();
-                $startOfYear = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
-                $endOfYear = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
+        $year = (int) $request->tahun();
+        $startOfYear = Carbon::create($year, 1, 1)->startOfDay()->toDateTimeString();
+        $endOfYear = Carbon::create($year, 12, 31)->endOfDay()->toDateTimeString();
 
-                $results = $this->sellout->baseChartQuery($request, [$startOfYear, $endOfYear])
-                    ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
-                    ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')")
-                    ->get()
-                    ->keyBy('periode');
+        $results = $this->sellout->baseChartQuery($request, [$startOfYear, $endOfYear])
+            ->selectRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m') as periode, SUM(so.netto) as total_netto")
+            ->groupByRaw("DATE_FORMAT(so.tgl_faktur, '%Y-%m')")
+            ->get()
+            ->keyBy('periode');
 
-                $labels = [];
-                $data   = [];
+        $labels = [];
+        $data   = [];
 
-                $period = CarbonPeriod::create(
-                    Carbon::create($year, 1, 1)->startOfMonth(),
-                    '1 month',
-                    Carbon::create($year, 12, 1)->startOfMonth()
-                );
-
-                foreach ($period as $month) {
-                    $key = $month->format('Y-m');
-                    $labels[] = $month->locale('id')->translatedFormat('M Y');
-                    $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
-                }
-
-                return [
-                    'labels' => $labels,
-                    'data' => $data,
-                    'mode' => 'bulan',
-                    'period' => (string) $year,
-                ];
-            }
+        $period = CarbonPeriod::create(
+            Carbon::create($year, 1, 1)->startOfMonth(),
+            '1 month',
+            Carbon::create($year, 12, 1)->startOfMonth()
         );
+
+        foreach ($period as $month) {
+            $key = $month->format('Y-m');
+            $labels[] = $month->locale('id')->translatedFormat('M Y');
+            $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
+        }
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+            'mode'   => 'bulan',
+            'period' => (string) $year,
+        ];
     }
 
     // -------------------------------------------------------
@@ -120,36 +117,32 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerHari(DashboardFilterRequest $request): array
     {
-        return $this->cached('chart_hari', $request, function () use ($request) {
-                // Gunakan baseQuery (bukan clone manual)
-                $results = $this->sellout->baseChartQuery($request)
-                    ->selectRaw('DATE(so.tgl_faktur) as tanggal, SUM(so.netto) as total_netto')
-                    ->groupByRaw('DATE(so.tgl_faktur)')
-                    ->get()
-                    ->keyBy('tanggal');
+        $results = $this->sellout->baseChartQuery($request)
+            ->selectRaw('DATE(so.tgl_faktur) as tanggal, SUM(so.netto) as total_netto')
+            ->groupByRaw('DATE(so.tgl_faktur)')
+            ->get()
+            ->keyBy('tanggal');
 
-                $labels    = [];
-                $data      = [];
+        $labels    = [];
+        $data      = [];
 
-                $period = CarbonPeriod::create(
-                    Carbon::parse($request->startDate())->startOfDay(),
-                    Carbon::parse($request->endDate())->startOfDay()
-                );
-
-                foreach ($period as $date) {
-                    $key = $date->toDateString();
-                    $labels[] = $date->locale('id')->translatedFormat('d M');
-                    $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
-                }
-
-                return [
-                    'labels' => $labels,
-                    'data'   => $data,
-                    'mode'   => 'hari',
-                    'period' => $this->periodLabel($request),
-                ];
-            }
+        $period = CarbonPeriod::create(
+            Carbon::parse($request->startDate())->startOfDay(),
+            Carbon::parse($request->endDate())->startOfDay()
         );
+
+        foreach ($period as $date) {
+            $key = $date->toDateString();
+            $labels[] = $date->locale('id')->translatedFormat('d M');
+            $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
+        }
+
+        return [
+            'labels' => $labels,
+            'data'   => $data,
+            'mode'   => 'hari',
+            'period' => $this->periodLabel($request),
+        ];
     }
 
     // -------------------------------------------------------
@@ -157,19 +150,16 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerPilar(DashboardFilterRequest $request): array
     {
-        return $this->cached('chart_pilar', $request, function () use ($request) {
-                $results = $this->sellout->baseChartQuery($request)
-                    // GUNAKAN product_pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
-                    ->selectRaw('COALESCE(so.product_pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
-                    ->groupBy('pilar_name')
-                    ->get();
+        $results = $this->sellout->baseChartQuery($request)
+            // GUNAKAN product_pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
+            ->selectRaw('COALESCE(so.product_pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
+            ->groupBy('pilar_name')
+            ->get();
 
-                return [
-                    'labels' => $results->pluck('pilar_name'),
-                    'data'   => $results->pluck('total_netto')->map(fn($v) => (float)$v),
-                ];
-            }
-        );
+        return [
+            'labels' => $results->pluck('pilar_name'),
+            'data'   => $results->pluck('total_netto')->map(fn($v) => (float)$v),
+        ];
     }
 
     // -------------------------------------------------------
@@ -177,19 +167,16 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerDivisi(DashboardFilterRequest $request): array
     {
-        return $this->cached('chart_divisi', $request, function () use ($request) {
-                $results = $this->sellout->baseChartQuery($request)
-                    ->selectRaw("COALESCE(NULLIF(TRIM(so.divisi), ''), 'UNMAPPED') as divisi_name, SUM(so.netto) as total_netto")
-                    ->groupBy('divisi_name')
-                    ->orderByDesc('total_netto')
-                    ->get();
+        $results = $this->sellout->baseChartQuery($request)
+            ->selectRaw("COALESCE(NULLIF(TRIM(so.divisi), ''), 'UNMAPPED') as divisi_name, SUM(so.netto) as total_netto")
+            ->groupBy('divisi_name')
+            ->orderByDesc('total_netto')
+            ->get();
 
-                return [
-                    'labels' => $results->pluck('divisi_name')->values()->toArray(),
-                    'data'   => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values()->toArray(),
-                ];
-            }
-        );
+        return [
+            'labels' => $results->pluck('divisi_name')->values()->toArray(),
+            'data'   => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values()->toArray(),
+        ];
     }
 
     // -------------------------------------------------------
@@ -197,78 +184,70 @@ class DashboardService
     // -------------------------------------------------------
     public function getChartPerSegment(DashboardFilterRequest $request): array
     {
-        return $this->cached('chart_segment', $request, function () use ($request) {
-                $results = $this->sellout->baseChartQuery($request)
-                    ->selectRaw("COALESCE(NULLIF(TRIM(so.segment_mi), ''), 'UNMAPPED') as segment_name, SUM(so.netto) as total_netto")
-                    ->groupBy('segment_name')
-                    ->orderByDesc('total_netto')
-                    ->get();
+        $results = $this->sellout->baseChartQuery($request)
+            ->selectRaw("COALESCE(NULLIF(TRIM(so.segment_mi), ''), 'UNMAPPED') as segment_name, SUM(so.netto) as total_netto")
+            ->groupBy('segment_name')
+            ->orderByDesc('total_netto')
+            ->get();
 
-                return [
-                    'labels' => $results->pluck('segment_name')->values(),
-                    'data' => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values(),
-                ];
-            }
-        );
+        return [
+            'labels' => $results->pluck('segment_name')->values(),
+            'data'   => $results->pluck('total_netto')->map(fn($v) => (float) $v)->values(),
+        ];
     }
-
-
 
     public function getAchievementRace(DashboardFilterRequest $request): array
     {
-        return $this->cached('achievement_race_v1', $request, function () use ($request) {
-                $topRows = $this->sellout->topMarketingByRegion($request);
-                $realRows = $this->sellout->realNettoByRegion($request);
+        $topRows = $this->sellout->topMarketingByRegion($request);
+        $realRows = $this->sellout->realNettoByRegion($request);
 
-                $rows = [];
+        $rows = [];
 
-                foreach ($topRows as $row) {
-                    $key = $this->achievementKey($row->divisi, $row->region);
-                    $rows[$key] = [
-                        'label' => (string) $row->region,
-                        'divisi' => (string) $row->divisi,
-                        'top' => (float) $row->top_value,
-                        'real' => 0.0,
-                    ];
-                }
+        foreach ($topRows as $row) {
+            $key = $this->achievementKey($row->divisi, $row->region);
+            $rows[$key] = [
+                'label'  => (string) $row->region,
+                'divisi' => (string) $row->divisi,
+                'top'    => (float) $row->top_value,
+                'real'   => 0.0,
+            ];
+        }
 
-                foreach ($realRows as $row) {
-                    $key = $this->achievementKey($row->divisi, $row->region);
+        foreach ($realRows as $row) {
+            $key = $this->achievementKey($row->divisi, $row->region);
 
-                    if (!isset($rows[$key])) {
-                        $rows[$key] = [
-                            'label' => (string) $row->region,
-                            'divisi' => (string) ($row->divisi ?: ''),
-                            'top' => 0.0,
-                            'real' => 0.0,
-                        ];
-                    }
-
-                    $rows[$key]['real'] += (float) $row->real_value;
-                }
-
-                $data = collect($rows)
-                    ->map(function (array $row) {
-                        $ach = $row['top'] > 0 ? ($row['real'] / $row['top']) * 100 : 0;
-
-                        return [
-                            'label' => $row['label'],
-                            'divisi' => $row['divisi'],
-                            'top' => round($row['top']),
-                            'real' => round($row['real']),
-                            'achievement' => round($ach, 2),
-                        ];
-                    })
-                    ->filter(fn(array $row) => $row['top'] > 0)
-                    ->sortByDesc('achievement')
-                    ->values();
-
-                return [
-                    'labels' => $data->pluck('label')->all(),
-                    'data' => $data->all(),
+            if (!isset($rows[$key])) {
+                $rows[$key] = [
+                    'label'  => (string) $row->region,
+                    'divisi' => (string) ($row->divisi ?: ''),
+                    'top'    => 0.0,
+                    'real'   => 0.0,
                 ];
             }
-        );
+
+            $rows[$key]['real'] += (float) $row->real_value;
+        }
+
+        $data = collect($rows)
+            ->map(function (array $row) {
+                $ach = $row['top'] > 0 ? ($row['real'] / $row['top']) * 100 : 0;
+
+                return [
+                    'label'       => $row['label'],
+                    'divisi'      => $row['divisi'],
+                    'top'         => round($row['top']),
+                    'real'        => round($row['real']),
+                    'achievement' => round($ach, 2),
+                ];
+            })
+            ->filter(fn(array $row) => $row['top'] > 0)
+            ->sortByDesc('achievement')
+            ->values();
+
+        return [
+            'labels' => $data->pluck('label')->all(),
+            'data'   => $data->all(),
+        ];
     }
 
     // -------------------------------------------------------
@@ -308,11 +287,11 @@ class DashboardService
             if ($search !== '') {
                 $needle = mb_strtolower($search);
                 $filteredRows = $rows->filter(function ($row) use ($needle) {
-                    return str_contains(mb_strtolower((string) $row->coverage_id), $needle)
-                        || str_contains(mb_strtolower((string) $row->coverage_desc), $needle)
-                        || str_contains(mb_strtolower((string) $row->coverage_nik), $needle)
-                        || str_contains(mb_strtolower((string) $row->user_name), $needle)
-                        || str_contains(mb_strtolower((string) $row->coverage_pilar), $needle);
+                    return Str::contains(mb_strtolower((string) $row->coverage_id), $needle)
+                        || Str::contains(mb_strtolower((string) $row->coverage_desc), $needle)
+                        || Str::contains(mb_strtolower((string) $row->coverage_nik), $needle)
+                        || Str::contains(mb_strtolower((string) $row->user_name), $needle)
+                        || Str::contains(mb_strtolower((string) $row->coverage_pilar), $needle);
                 });
             }
 
@@ -390,11 +369,16 @@ class DashboardService
         $length = (int) $request->get('length', 10);
         $search = $request->get('search')['value'] ?? '';
 
-        $rows = $this->cached('anggota_rows', $request, function () use ($request) {
+        $rows = $this->cached('anggota_rows_v2', $request, function () use ($request) {
+            $topMap = $this->sellout->topMarketingByLevel($request, 'MR');
+
             return $this->sellout->drilldownAggregateQuery($request, $this->sellout->levelToNum('MR'))
                 ->get()
-                ->map(function ($row) {
+                ->map(function ($row) use ($topMap) {
                     $isUnmapped = (int) $row->is_unmapped === 1 || $row->coverage_id === 'UNMAPPED';
+                    $targetTop = $isUnmapped ? 0.0 : (float) ($topMap[$row->coverage_id] ?? 0);
+                    $totalNetto = (float) $row->total_netto;
+                    $achievement = $targetTop > 0 ? round(($totalNetto / $targetTop) * 100, 2) : 0;
 
                     return (object) [
                         'nik' => $isUnmapped || $row->coverage_nik === '-' ? null : $row->coverage_nik,
@@ -405,7 +389,9 @@ class DashboardService
                         'divisi' => $row->coverage_divisi,
                         'coverage_id' => $row->coverage_id,
                         'cov_desc' => $row->coverage_desc,
-                        'total_netto' => (float) $row->total_netto,
+                        'target_top' => $targetTop,
+                        'total_netto' => $totalNetto,
+                        'achievement' => $achievement,
                         'total_outlet' => (int) $row->total_outlet,
                         'total_transaksi' => (int) $row->total_transaksi,
                         'total_visit' => (int) ($row->total_visit ?? (($row->total_transaksi ?? 0) > 0 ? rand(5, 30) : rand(1, 10))),
@@ -420,12 +406,14 @@ class DashboardService
         if ($search !== '') {
             $needle = mb_strtolower($search);
             $filteredRows = $rows->filter(function ($row) use ($needle) {
-                return str_contains(mb_strtolower((string) $row->nik), $needle)
-                    || str_contains(mb_strtolower((string) $row->name), $needle)
-                    || str_contains(mb_strtolower((string) $row->coverage_id), $needle)
-                    || str_contains(mb_strtolower((string) $row->cov_desc), $needle)
-                    || str_contains(mb_strtolower((string) $row->pilar), $needle)
-                    || str_contains(mb_strtolower((string) $row->level_name), $needle);
+                return Str::contains(mb_strtolower((string) $row->nik), $needle)
+                    || Str::contains(mb_strtolower((string) $row->name), $needle)
+                    || Str::contains(mb_strtolower((string) $row->coverage_id), $needle)
+                    || Str::contains(mb_strtolower((string) $row->cov_desc), $needle)
+                    || Str::contains(mb_strtolower((string) $row->pilar), $needle)
+                    || Str::contains(mb_strtolower((string) $row->level_name), $needle)
+                    || ($row->is_unmapped === 1 && Str::contains('unmapped', $needle))
+                    || ($row->is_unmapped === 0 && empty($row->nik) && Str::contains('nn', $needle));
             });
         }
 
@@ -436,12 +424,14 @@ class DashboardService
             3 => 'level_name',
             4 => 'pilar',
             5 => 'divisi',
-            6 => 'total_netto',
+            6 => 'target_top',
+            7 => 'total_netto',
+            8 => 'achievement',
         ];
         $order = $request->get('order')[0] ?? null;
-        $orderColumn = $orderColumns[(int) ($order['column'] ?? 6)] ?? 'total_netto';
+        $orderColumn = $orderColumns[(int) ($order['column'] ?? 7)] ?? 'total_netto';
         $orderDir = strtolower($order['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-        $numericOrderColumns = ['total_outlet', 'total_transaksi', 'total_netto'];
+        $numericOrderColumns = ['total_outlet', 'total_transaksi', 'target_top', 'total_netto', 'achievement'];
 
         $sortValue = function ($row) use ($orderColumn, $numericOrderColumns) {
             $value = $row->{$orderColumn} ?? null;
@@ -523,6 +513,7 @@ class DashboardService
                 if (!isset($byOutlet[$key])) {
                     $byOutlet[$key] = (object) [
                         'id_outlet'   => $r->id_outlet,
+                        'id_konversi' => $r->id_konversi ?? $r->id_outlet,
                         'outlet_name' => $r->outlet_name,
                         'total_netto' => 0.0,
                         'products'    => [],

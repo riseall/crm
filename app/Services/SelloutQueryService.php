@@ -376,7 +376,64 @@ class SelloutQueryService
             ]);
     }
 
-    private function topMarketingBaseQuery(DashboardFilterRequest $request): Builder
+    public function applyTopMarketingScope(Builder $query, DashboardFilterRequest $request): void
+    {
+        $user = auth()->user();
+        if ($user && !$this->coverageAccess->isGlobalAccessUser($user)) {
+            $roots = $this->coverageAccess->rootCoverages($user);
+
+            if (empty($roots)) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
+
+            $query->where(function ($q) use ($roots) {
+                foreach ($roots as $root) {
+                    $q->orWhere('top.mr', 'like', $root . '%')
+                      ->orWhere('top.am', $root)
+                      ->orWhere('top.sam', $root)
+                      ->orWhere('top.rm', $root)
+                      ->orWhere('top.gm', $root);
+                }
+            });
+        }
+
+        if ($request->filled('coverage_id') && $request->get('coverage_id') !== 'UNMAPPED') {
+            $covId = $request->get('coverage_id');
+            $query->where(function ($q) use ($covId) {
+                $q->where('top.mr', 'like', $covId . '%')
+                  ->orWhere('top.am', $covId)
+                  ->orWhere('top.sam', $covId)
+                  ->orWhere('top.rm', $covId)
+                  ->orWhere('top.gm', $covId);
+            });
+        }
+
+        if ($request->filled('coverage_nik')) {
+            $nik = $request->get('coverage_nik');
+            $nikCoverages = DB::connection(self::CONN_DWH)
+                ->table('crm_mst_mappings')
+                ->where('cov_nik', $nik)
+                ->whereNull('deleted_at')
+                ->pluck('id_coverage')
+                ->filter()
+                ->all();
+
+            if (!empty($nikCoverages)) {
+                $query->where(function ($q) use ($nikCoverages) {
+                    foreach ($nikCoverages as $covId) {
+                        $q->orWhere('top.mr', 'like', $covId . '%')
+                          ->orWhere('top.am', $covId)
+                          ->orWhere('top.sam', $covId)
+                          ->orWhere('top.rm', $covId)
+                          ->orWhere('top.gm', $covId);
+                    }
+                });
+            }
+        }
+    }
+
+    public function topMarketingBaseQuery(DashboardFilterRequest $request, bool $applyScope = true): Builder
     {
         $startMonth = Carbon::parse($request->startDate())->startOfMonth()->toDateString();
         $endMonth = Carbon::parse($request->endDate())->startOfMonth()->toDateString();
@@ -388,6 +445,10 @@ class SelloutQueryService
                 [$startMonth, $endMonth]
             );
 
+        if ($applyScope) {
+            $this->applyTopMarketingScope($query, $request);
+        }
+
         $this->applyGlobalFilters($query, $request, 'top.pilar', null, 'top.kode_ph');
 
         return $query;
@@ -396,6 +457,24 @@ class SelloutQueryService
     public function topMarketingTarget(DashboardFilterRequest $request): float
     {
         return (float) $this->topMarketingBaseQuery($request)->sum('top.val_net');
+    }
+
+    public function topMarketingByLevel(DashboardFilterRequest $request, string $levelName): \Illuminate\Support\Collection
+    {
+        $levelCol = strtolower(trim($levelName));
+        if (!in_array($levelCol, ['gm', 'rm', 'sam', 'am', 'mr', 'pm'], true)) {
+            $levelCol = 'mr';
+        }
+
+        return $this->topMarketingBaseQuery($request)
+            ->whereNotNull("top.{$levelCol}")
+            ->where("top.{$levelCol}", '!=', '')
+            ->selectRaw("
+                TRIM(top.{$levelCol}) as coverage_id,
+                SUM(top.val_net) as total_top
+            ")
+            ->groupBy(DB::raw("TRIM(top.{$levelCol})"))
+            ->pluck('total_top', 'coverage_id');
     }
 
     public function topMarketingByRegion(DashboardFilterRequest $request)
@@ -634,12 +713,13 @@ class SelloutQueryService
             ->leftJoin('crm_mst_cust as master', 'so.id_konversi', '=', 'master.id_konversi')
             ->selectRaw('
                 so.id_outlet as id_outlet,
+                COALESCE(NULLIF(so.id_konversi, ""), master.id_konversi, so.id_outlet) as id_konversi,
                 COALESCE(MAX(master.nama_outlet), so.id_outlet) as outlet_name,
                 COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
                 COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
                 SUM(so.netto) as netto
             ')
-            ->groupBy('so.id_outlet', 'sku', 'product_name')
+            ->groupBy('so.id_outlet', 'so.id_konversi', 'sku', 'product_name')
             ->orderByDesc('netto')
             ->get();
     }

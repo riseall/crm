@@ -182,7 +182,7 @@
                             <div class="card-title collapsed" data-toggle="collapse"
                                 data-target="#collapse-{{ $index }}">
                                 <i class="fas fa-hospital text-primary mr-2"></i>
-                                {{ $outlet->outlet_name }} ({{ $outlet->id_outlet }}) - Total Netto: Rp
+                                {{ $outlet->outlet_name }} ({{ $outlet->id_konversi ?? $outlet->id_outlet }}) - Total Netto: Rp
                                 {{ number_format($outlet->total_netto, 0, ',', '.') }}
                             </div>
                         </div>

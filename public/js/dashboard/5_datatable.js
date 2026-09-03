@@ -23,6 +23,24 @@ Dashboard.Tables = (function ($, H) {
         }
     }
 
+    function formatNNName(covDesc, level) {
+        if (!covDesc) return "NN";
+        covDesc = String(covDesc).trim();
+        if (/^NN/i.test(covDesc)) return covDesc;
+
+        // Pola: PILAR-CBG<NOMOR> (contoh: ETHICAL-DPS2 -> NN2 MR ETHICAL DPS, OGB-DPS1 -> NN1 MR OGB DPS)
+        var match = covDesc.match(/^([A-Za-z]+)[-_]([A-Za-z]+)(\d*)$/);
+        if (match) {
+            var pilar = match[1].toUpperCase();
+            var cbg = match[2].toUpperCase();
+            var num = match[3] || "";
+            var lvl = level || "MR";
+            return "NN" + num + " " + lvl + " " + pilar + " " + cbg;
+        }
+
+        return "NN - " + covDesc;
+    }
+
     function initTable() {
         if (isInitialized) return;
         isInitialized = true;
@@ -50,11 +68,12 @@ Dashboard.Tables = (function ($, H) {
                 {
                     data: "nik",
                     render: function (v, t, r) {
-                        if (!v || r.is_unmapped === 1) {
-                            var covId = (r.coverage_id && r.coverage_id !== "UNMAPPED")
-                                ? '<small class="text-muted d-block font-weight-normal">' + r.coverage_id + '</small>'
-                                : '';
-                            return '<span class="badge badge-warning font-weight-bold">UNMAPPED</span>' + covId;
+                        var isUnmapped = r.is_unmapped === 1 || !r.coverage_id || r.coverage_id === "UNMAPPED";
+                        if (isUnmapped) {
+                            return '<span class="badge badge-warning font-weight-bold">UNMAPPED</span>';
+                        }
+                        if (!v || v === "NN" || v === "-") {
+                            return r.coverage_id || "-";
                         }
                         return v;
                     },
@@ -62,8 +81,13 @@ Dashboard.Tables = (function ($, H) {
                 {
                     data: "name",
                     render: function (v, t, r) {
-                        if (!v || r.is_unmapped === 1) {
+                        var isUnmapped = r.is_unmapped === 1 || !r.coverage_id || r.coverage_id === "UNMAPPED";
+                        if (isUnmapped) {
                             return '<span class="text-danger font-italic font-weight-bold">' + (r.cov_desc || 'Belum Termapping') + '</span>';
+                        }
+                        if (!v || v === "NN" || v === "N/A") {
+                            var displayName = formatNNName(r.cov_desc, r.level_name);
+                            return '<span class="text-danger font-italic font-weight-bold">' + displayName + '</span>';
                         }
                         return v;
                     },
@@ -77,9 +101,46 @@ Dashboard.Tables = (function ($, H) {
                 { data: "pilar" },
                 { data: "divisi", defaultContent: "-" },
                 {
+                    data: "target_top",
+                    className: "text-right text-nowrap",
+                    render: function (v) {
+                        return H.formatRupiah(v);
+                    },
+                },
+                {
                     data: "total_netto",
+                    className: "text-right text-nowrap",
                     render: function (v) {
                         return "<strong>" + H.formatRupiah(v) + "</strong>";
+                    },
+                },
+                {
+                    data: "achievement",
+                    className: "text-center text-nowrap",
+                    render: function (v, t, r) {
+                        var target = parseFloat(r.target_top) || 0;
+                        if (target <= 0) {
+                            return '<span class="badge badge-light text-muted">N/A</span>';
+                        }
+                        var ach = parseFloat(v) || 0;
+                        var badgeClass =
+                            ach >= 100
+                                ? "badge-light-success text-success"
+                                : ach >= 70
+                                ? "badge-light-warning text-warning"
+                                : "badge-light-danger text-danger";
+                        var formatted =
+                            ach.toLocaleString("id-ID", {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 1,
+                            }) + "%";
+                        return (
+                            '<span class="badge font-weight-bolder ' +
+                            badgeClass +
+                            '">' +
+                            formatted +
+                            "</span>"
+                        );
                     },
                 },
                 {
@@ -145,9 +206,10 @@ Dashboard.Tables = (function ($, H) {
                 },
             ],
             rowCallback: function (row, data) {
-                $(row).toggleClass("table-warning", data.is_unmapped === 1 || !data.nik);
+                var isUnmapped = data.is_unmapped === 1 || !data.coverage_id || data.coverage_id === "UNMAPPED";
+                $(row).toggleClass("table-warning", isUnmapped);
             },
-            order: [[6, "desc"]],
+            order: [[7, "desc"]],
         });
     }
 
