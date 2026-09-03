@@ -3,8 +3,10 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MappingController;
 use App\Http\Controllers\OutletController;
+use App\Http\Controllers\OutletExportController;
 use App\Http\Controllers\OutletPerformanceController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SelloutAdjustmentController;
 use App\Http\Controllers\SellingInController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TopMarketingController;
@@ -91,11 +93,27 @@ Route::middleware('auth')->group(function () {
         Route::get('/outlet', [OutletController::class, 'getOutlet'])->name('outlet');
         Route::get('/coverage', [OutletController::class, 'getCoverage'])->name('coverage');
         Route::get('/outlet-by-coverage/{coverageId}', [OutletController::class, 'getOutletByCoverage'])->name('outlet.by.coverage');
+        Route::get('/unmapped-sellout/data', [OutletController::class, 'unmappedSelloutData'])->name('unmapped.data');
+        Route::post('/unmapped-sellout/map', [OutletController::class, 'mapUnmappedSellout'])->name('unmapped.map');
+        Route::get('/unmapped-sellout/stats', [OutletController::class, 'unmappedSelloutStats'])->name('unmapped.stats');
+        Route::get('/unmapped-sellout/export', [OutletExportController::class, 'exportUnmappedMaster'])->name('unmapped.export');
+        Route::get('/uncovered-pilar/data', [OutletController::class, 'uncoveredPilarData'])->name('uncovered.data');
+        Route::post('/uncovered-pilar/assign', [OutletController::class, 'assignPilarCoverage'])->name('uncovered.assign');
         Route::post('/', [OutletController::class, 'store'])->name('store');
         Route::get('/{id}', [OutletController::class, 'show'])->name('show');
         Route::put('/{id}', [OutletController::class, 'update'])->name('update');
         Route::post('/bulk-update', [OutletController::class, 'bulkUpdateCoverage'])->name('bulk.update');
         Route::delete('/{id}', [OutletController::class, 'destroy'])->name('destroy');
+    });
+
+    // Sellout Adjustment
+    Route::prefix('sellout-adjustment')->name('sellout-adjustment.')->group(function () {
+        Route::get('/', [SelloutAdjustmentController::class, 'index'])->name('index');
+        Route::get('/data', [SelloutAdjustmentController::class, 'data'])->name('data');
+        Route::get('/stats', [SelloutAdjustmentController::class, 'stats'])->name('stats');
+        Route::get('/products', [SelloutAdjustmentController::class, 'getProductOptions'])->name('products');
+        Route::put('/{id}', [SelloutAdjustmentController::class, 'updateSingle'])->name('update-single');
+        Route::post('/bulk-update', [SelloutAdjustmentController::class, 'updateBulk'])->name('update-bulk');
     });
 
     // Selling In
@@ -128,7 +146,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/data', [VisitController::class, 'getVisitData'])->name('data');
         Route::get('/data-by-sales', [VisitController::class, 'getVisitDataBySales'])->name('data-by-sales');
     });
-
 
     Route::post('/notifications/coverage/read', function () {
         $user = request()->user();

@@ -8,6 +8,7 @@ class CrmMstCustDist extends Model
 {
     protected $connection = 'db_dwh';
     protected $table = 'crm_mst_cust_dist';
+    public $timestamps = false;
 
     protected $fillable = [
         'id_konversi',

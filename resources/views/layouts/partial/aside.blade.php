@@ -105,10 +105,37 @@
                                         <span class="menu-text">Outlet</span>
                                     </a>
                                 </li>
+                                <li class="menu-item" aria-haspopup="true">
+                                    <a href="{{ route('sellout-adjustment.index') }}" class="menu-link">
+                                        <i class="menu-bullet menu-bullet-dot">
+                                            <span></span>
+                                        </i>
+                                        <span class="menu-text">Adjust Sellout</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </li>
                 @endhasanyrole
+                {{-- <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('summary.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <polygon points="0 0 24 0 24 24 0 24" />
+                                    <path
+                                        d="M5,13 L5,20 C5,20.5522847 5.44771525,21 6,21 L8,21 C8.55228475,21 9,20.5522847 9,20 L9,13 C9,12.4477153 8.55228475,12 8,12 L6,12 C5.44771525,12 5,12.4477153 5,13 Z M10,9 L10,20 C10,20.5522847 10.4477153,21 11,21 L13,21 C13.5522847,21 14,20.5522847 14,20 L14,9 C14,8.44771525 13.5522847,8 13,8 L11,8 C10.4477153,8 10,8.44771525 10,9 Z"
+                                        fill="#000000" opacity="0.3" />
+                                    <path
+                                        d="M19.2928932,4.29289322 L16,4 L16,20 C16,20.5522847 16.4477153,21 17,21 L19,21 C19.5522847,21 20,20.5522847 20,20 L20,5.70710678 C20,5.18633956 19.5951595,4.75550552 19.0761624,4.70740015 L19.2928932,4.29289322 Z M19.2928932,4.29289322 C19.6834175,3.90236893 20.3165825,3.90236893 20.7071068,4.29289322 C21.0976311,4.68341751 21.0976311,5.31658249 20.7071068,5.70710678 L17.7071068,8.70710678 C17.3165825,9.09763107 16.6834175,9.09763107 16.2928932,8.70710678 C15.9023689,8.31658249 15.9023689,7.68341751 16.2928932,7.29289322 L19.2928932,4.29289322 Z"
+                                        fill="#000000" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Summary</span>
+                    </a>
+                </li> --}}
                 <li class="menu-item menu-item-active" aria-haspopup="true">
                     <a href="{{ route('dashboard.index') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
@@ -189,20 +216,22 @@
                         <span class="menu-text">Monitoring Stock GPJ vs Cabang</span>
                     </a>
                 </li>
-                {{-- <li class="menu-item" aria-haspopup="true">
+                <li class="menu-item" aria-haspopup="true">
                     <a href="{{ route('visits.index') }}" class="menu-link">
                         <span class="svg-icon menu-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
                                 width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
                                 <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <rect x="0" y="0" width="24" height="24"/>
-                                    <path d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.62,11.5 9.5,10.38 9.5,9 C9.5,7.62 10.62,6.5 12,6.5 C13.38,6.5 14.5,7.62 14.5,9 C14.5,10.38 13.38,11.5 12,11.5 Z" fill="#000000"/>
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <path
+                                        d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.62,11.5 9.5,10.38 9.5,9 C9.5,7.62 10.62,6.5 12,6.5 C13.38,6.5 14.5,7.62 14.5,9 C14.5,10.38 13.38,11.5 12,11.5 Z"
+                                        fill="#000000" />
                                 </g>
                             </svg>
                         </span>
                         <span class="menu-text">Monitoring Kunjungan</span>
                     </a>
-                </li> --}}
+                </li>
             </ul>
             <!--end::Menu Nav-->
         </div>

@@ -25,6 +25,27 @@
     #outletScrollList::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
     }
+    .custom-mode-card {
+        background-color: #ffffff;
+        border: 2px solid #ebedf2;
+        border-radius: 8px;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+    }
+    .custom-mode-card:hover {
+        border-color: #3699ff;
+        background-color: #fbfdff;
+    }
+    .custom-mode-card.active-primary {
+        border-color: #3699ff !important;
+        background-color: #f0f7ff !important;
+        box-shadow: 0 0 10px rgba(54, 153, 255, 0.15);
+    }
+    .custom-mode-card.active-success {
+        border-color: #1bc5bd !important;
+        background-color: #f0fbf9 !important;
+        box-shadow: 0 0 10px rgba(27, 197, 189, 0.15);
+    }
 </style>
 
 <x-modal id="modalMapping" title="Tambah Mapping" submitBtnId="btnSimpan">
@@ -57,6 +78,181 @@
     <div class="form-group">
         <label>Coverage Baru <span class="text-danger">*</span></label>
         <select id="new_coverage_id" class="form-control select2-coverage-modal" style="width:100%"></select>
+    </div>
+</x-modal>
+
+<x-modal id="modalMapUnmapped" title="Petakan Outlet Sellout ke Master Customer" size="modal-lg" submitBtnId="btnSubmitMapUnmapped"
+    submitBtnText="Simpan Pemetaan">
+    <!-- Info Ringkasan Outlet Dist -->
+    <div class="card card-custom bg-light border mb-4">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                <div class="d-flex align-items-center mb-1 mb-md-0">
+                    <span class="badge badge-primary font-weight-bolder px-2 py-1 mr-2" id="unmapped_info_dist">-</span>
+                    <span class="text-dark font-weight-bold" id="unmapped_info_cbg">-</span>
+                </div>
+                <div>
+                    <span class="badge badge-light-dark font-weight-bold" id="unmapped_info_segment">-</span>
+                </div>
+            </div>
+            <div class="row font-size-sm">
+                <div class="col-md-7 mb-2 mb-md-0">
+                    <span class="text-muted font-size-xs d-block">Nama Outlet di Distributor:</span>
+                    <strong id="unmapped_info_nama" class="text-dark font-size-base">-</strong>
+                </div>
+                <div class="col-md-5">
+                    <span class="text-muted font-size-xs d-block">Kode Outlet Dist:</span>
+                    <strong id="unmapped_info_outlet" class="text-dark">-</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Fields -->
+    <input type="hidden" id="map_dist">
+    <input type="hidden" id="map_id_cbg">
+    <input type="hidden" id="map_id_outlet">
+    <input type="hidden" name="map_mode" id="map_mode_val" value="existing">
+
+    <!-- Pilih Mode Pemetaan (Cards) -->
+    <div class="form-group mb-4">
+        <label class="font-weight-bolder text-dark font-size-sm text-uppercase d-block mb-2">Metode Pemetaan <span class="text-danger">*</span></label>
+        <div class="row">
+            <div class="col-sm-6 mb-2 mb-sm-0">
+                <div class="custom-mode-card active-primary p-3" id="cardModeExisting" data-mode="existing">
+                    <div class="d-flex align-items-center">
+                        <div class="symbol symbol-40 symbol-light-primary mr-3 flex-shrink-0">
+                            <span class="symbol-label font-size-h5">
+                                <i class="fas fa-link text-primary"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <div class="font-weight-bolder text-dark">Master Eksisting</div>
+                            <div class="text-muted font-size-xs">Hubungkan ke ID Konversi yang sudah ada</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="custom-mode-card p-3" id="cardModeNew" data-mode="new">
+                    <div class="d-flex align-items-center">
+                        <div class="symbol symbol-40 symbol-light-success mr-3 flex-shrink-0">
+                            <span class="symbol-label font-size-h5">
+                                <i class="fas fa-plus-circle text-success"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <div class="font-weight-bolder text-dark">Master Baru</div>
+                            <div class="text-muted font-size-xs">Buat data Master Customer baru</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 1: Hubungkan ke Master Eksisting -->
+    <div id="sectionExistingMaster" class="p-3 border rounded bg-white mb-3">
+        <div class="form-group mb-0">
+            <label class="font-weight-bold text-dark mb-1">Pilih Master Customer (ID Konversi) <span class="text-danger">*</span></label>
+            <select id="map_existing_id_konversi" class="form-control select2-unmapped-master" style="width: 100%"></select>
+            <span class="form-text text-muted font-size-xs mt-1">
+                <i class="fas fa-info-circle mr-1 text-primary"></i> Ketik min. 2 karakter untuk mencari ID Konversi atau Nama Master Outlet di database CRM
+            </span>
+        </div>
+    </div>
+
+    <!-- SECTION 2: Buat Master Outlet Baru -->
+    <div id="sectionNewMaster" class="p-3 border rounded bg-white mb-3" style="display: none;">
+        <div class="row">
+            <div class="col-md-6 form-group mb-3">
+                <label class="font-weight-bold text-dark">ID Konversi Baru <span class="text-danger">*</span></label>
+                <input type="text" id="map_new_id_konversi" class="form-control" placeholder="Contoh: KFTD_100123 / KODE">
+                <span class="form-text text-muted font-size-xs">ID unik master customer di CRM</span>
+            </div>
+            <div class="col-md-6 form-group mb-3">
+                <label class="font-weight-bold text-dark">Nama Master Outlet <span class="text-danger">*</span></label>
+                <input type="text" id="map_new_nama_outlet" class="form-control" placeholder="Nama Master Outlet">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 form-group mb-3">
+                <label class="font-weight-bold text-dark">Segment</label>
+                <select id="map_new_segment" class="form-control">
+                    <option value="">-- Pilih Segment --</option>
+                    <option value="APOTEK">APOTEK</option>
+                    <option value="RUMAH SAKIT">RUMAH SAKIT</option>
+                    <option value="KLINIK">KLINIK</option>
+                    <option value="TOKO OBAT">TOKO OBAT</option>
+                    <option value="PBF">PBF</option>
+                    <option value="DOKTER">DOKTER</option>
+                    <option value="INSTITUSI">INSTITUSI</option>
+                    <option value="LAIN-LAIN">LAIN-LAIN</option>
+                </select>
+            </div>
+            <div class="col-md-6 form-group mb-3">
+                <label class="font-weight-bold text-dark">Kota / Kabupaten</label>
+                <input type="text" id="map_new_kota" class="form-control" placeholder="Kota atau Kabupaten">
+            </div>
+        </div>
+        <div class="form-group mb-0">
+            <label class="font-weight-bold text-dark">Alamat Lengkap (Opsional)</label>
+            <textarea id="map_new_alamat" class="form-control" rows="2" placeholder="Alamat lengkap outlet..."></textarea>
+        </div>
+    </div>
+
+    <!-- SECTION 3: Coverage Assignment (Opsional/Direkomendasikan) -->
+    <div class="p-3 border rounded bg-light mb-1">
+        <div class="d-flex align-items-center mb-2">
+            <i class="fas fa-user-check text-primary mr-2"></i>
+            <h6 class="font-weight-bolder text-dark mb-0 font-size-sm">
+                Penugasan Coverage & Sales Rep <span class="text-muted font-weight-normal font-size-xs">(Opsional)</span>
+            </h6>
+        </div>
+        <div class="row">
+            <div class="col-md-4 form-group mb-2 mb-md-0">
+                <label class="font-weight-bold text-dark font-size-xs text-uppercase">Pilar</label>
+                <select id="map_pilar" class="form-control">
+                    <option value="ETHICAL">ETHICAL</option>
+                    <option value="OGB">OGB</option>
+                    <option value="CH">CH</option>
+                </select>
+            </div>
+            <div class="col-md-8 form-group mb-0">
+                <label class="font-weight-bold text-dark font-size-xs text-uppercase">Coverage (Sales Rep)</label>
+                <select id="map_id_coverage" class="form-control select2-unmapped-coverage" style="width: 100%"></select>
+                <span class="form-text text-muted font-size-xs mt-1">Pilih sales rep yang meng-cover outlet ini</span>
+            </div>
+        </div>
+    </div>
+</x-modal>
+
+<x-modal id="modalAssignPilarCoverage" title="Tetapkan Coverage Sales Rep (Pilar)" submitBtnId="btnSubmitAssignPilar"
+    submitBtnText="Simpan Coverage">
+    <div class="card card-custom bg-light border mb-4">
+        <div class="card-body p-3">
+            <div class="row font-size-sm">
+                <div class="col-md-7 mb-2 mb-md-0">
+                    <span class="text-muted font-size-xs d-block">ID Konversi & Nama Master:</span>
+                    <strong id="assign_info_id_konversi" class="text-primary font-weight-bolder font-size-base">-</strong>
+                    <div id="assign_info_nama_outlet" class="text-dark font-weight-bold">-</div>
+                </div>
+                <div class="col-md-5">
+                    <span class="text-muted font-size-xs d-block">Pilar Transaksi:</span>
+                    <span class="badge badge-primary font-weight-bolder font-size-sm" id="assign_info_pilar">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Fields -->
+    <input type="hidden" id="assign_id_konversi">
+    <input type="hidden" id="assign_pilar">
+
+    <div class="form-group mb-0">
+        <label class="font-weight-bold text-dark">Pilih Coverage / Sales Rep <span class="text-danger">*</span></label>
+        <select id="assign_id_coverage" class="form-control select2-assign-coverage" style="width: 100%"></select>
+        <span class="form-text text-muted font-size-xs mt-1">Pilih sales rep yang akan meng-cover outlet ini pada pilar tersebut</span>
     </div>
 </x-modal>
 
@@ -449,6 +645,244 @@
                     xhr.responseJSON.message :
                     fallback;
             }
+
+            // -------------------------------------------------------------
+            // Logika Modal Petakan Outlet Sellout Belum Termapping
+            // -------------------------------------------------------------
+            var $unmappedModal = $('#modalMapUnmapped');
+            var $mapExistingMaster = $('#map_existing_id_konversi');
+            var $mapCoverage = $('#map_id_coverage');
+
+            $mapExistingMaster.select2({
+                dropdownParent: $unmappedModal,
+                ajax: {
+                    url: '{{ route('outlet.outlet') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return { q: params.term };
+                    },
+                    processResults: function(data) {
+                        return { results: data.results };
+                    },
+                },
+                placeholder: 'Cari ID Konversi atau Nama Master...',
+                minimumInputLength: 2,
+                width: '100%'
+            });
+
+            initCoverageSelect($mapCoverage, $unmappedModal, 'Cari Coverage, NIK, atau Nama...', false);
+
+            // Handler Pilihan Metode Pemetaan (Card Toggle)
+            function setMapMode(mode) {
+                $('#map_mode_val').val(mode);
+                if (mode === 'new') {
+                    $('#cardModeExisting').removeClass('active-primary');
+                    $('#cardModeNew').addClass('active-success');
+                    $('#sectionExistingMaster').hide();
+                    $('#sectionNewMaster').slideDown(150);
+                } else {
+                    $('#cardModeNew').removeClass('active-success');
+                    $('#cardModeExisting').addClass('active-primary');
+                    $('#sectionNewMaster').hide();
+                    $('#sectionExistingMaster').slideDown(150);
+                }
+            }
+
+            $(document).on('click', '#cardModeExisting', function() {
+                setMapMode('existing');
+            });
+
+            $(document).on('click', '#cardModeNew', function() {
+                setMapMode('new');
+            });
+
+            $(document).on('click', '.btn-map-unmapped', function() {
+                var rawData = $(this).attr('data-outlet');
+                var outlet = {};
+                try {
+                    outlet = JSON.parse(rawData);
+                } catch(e) {
+                    console.error('JSON parse error:', e);
+                }
+
+                $('#unmapped_info_dist').text(outlet.dist || '-');
+                $('#unmapped_info_cbg').text(outlet.id_cbg || '-');
+                $('#unmapped_info_outlet').text(outlet.id_outlet || '-');
+                $('#unmapped_info_nama').text(outlet.nama_outlet || '-');
+                $('#unmapped_info_segment').text(outlet.segment_dist || '-');
+
+                $('#map_dist').val(outlet.dist || '');
+                $('#map_id_cbg').val(outlet.id_cbg || '');
+                $('#map_id_outlet').val(outlet.id_outlet || '');
+
+                // Reset mode to existing
+                setMapMode('existing');
+                $mapExistingMaster.val(null).trigger('change');
+                $mapExistingMaster.find('option').remove();
+
+                // Pre-fill new master fields
+                var suggestedId = (outlet.dist && outlet.id_outlet) ? outlet.dist + '_' + outlet.id_outlet : (outlet.id_outlet || '');
+                $('#map_new_id_konversi').val(suggestedId);
+                $('#map_new_nama_outlet').val(outlet.nama_outlet || '');
+                $('#map_new_kota').val('');
+                $('#map_new_alamat').val('');
+
+                // Map segment guess
+                var segDist = (outlet.segment_dist || '').toUpperCase();
+                var matchedSeg = '';
+                if (segDist.indexOf('APOT') !== -1) matchedSeg = 'APOTEK';
+                else if (segDist.indexOf('RS') !== -1 || segDist.indexOf('RUMAH SAKIT') !== -1) matchedSeg = 'RUMAH SAKIT';
+                else if (segDist.indexOf('KLINIK') !== -1) matchedSeg = 'KLINIK';
+                else if (segDist.indexOf('PBF') !== -1) matchedSeg = 'PBF';
+                else if (segDist.indexOf('TOKO OBAT') !== -1) matchedSeg = 'TOKO OBAT';
+                $('#map_new_segment').val(matchedSeg);
+
+                setSelect2Value($mapCoverage, '');
+                $('#map_pilar').val('ETHICAL');
+
+                $unmappedModal.modal('show');
+            });
+
+            $(document).on('click', '#btnSubmitMapUnmapped', function(e) {
+                e.preventDefault();
+                var $btn = $(this);
+                var mode = $('#map_mode_val').val() || 'existing';
+                var dist = $('#map_dist').val();
+                var idCbg = $('#map_id_cbg').val();
+                var idOutlet = $('#map_id_outlet').val();
+
+                var payload = {
+                    _token: '{{ csrf_token() }}',
+                    dist: dist,
+                    id_cbg: idCbg,
+                    id_outlet: idOutlet,
+                    mode: mode,
+                    id_coverage: $mapCoverage.val() || '',
+                    pilar: $('#map_pilar').val() || 'ETHICAL'
+                };
+
+                if (mode === 'existing') {
+                    var existingId = $mapExistingMaster.val();
+                    if (!existingId) {
+                        Swal.fire('Perhatian', 'Silakan pilih Master Outlet (ID Konversi) yang sudah ada.', 'warning');
+                        return;
+                    }
+                    payload.id_konversi = existingId;
+                } else {
+                    var newId = $('#map_new_id_konversi').val().trim();
+                    var newNama = $('#map_new_nama_outlet').val().trim();
+                    if (!newId) {
+                        Swal.fire('Perhatian', 'ID Konversi Baru wajib diisi.', 'warning');
+                        return;
+                    }
+                    if (!newNama) {
+                        Swal.fire('Perhatian', 'Nama Outlet Master wajib diisi.', 'warning');
+                        return;
+                    }
+                    payload.id_konversi = newId;
+                    payload.nama_outlet = newNama;
+                    payload.segment = $('#map_new_segment').val();
+                    payload.kota = $('#map_new_kota').val();
+                    payload.alamat = $('#map_new_alamat').val();
+                }
+
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...');
+
+                $.ajax({
+                    url: '{{ route('outlet.unmapped.map') }}',
+                    type: 'POST',
+                    data: payload,
+                    success: function(res) {
+                        $unmappedModal.modal('hide');
+                        Swal.fire('Berhasil', res.message, 'success');
+                        if (window.tableUnmapped) {
+                            window.tableUnmapped.ajax.reload(null, false);
+                        }
+                        reloadMappingTable();
+                        if (typeof window.updateUnmappedCounters === 'function') {
+                            window.updateUnmappedCounters();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Gagal', getErrorMessage(xhr, 'Gagal memproses pemetaan outlet.'), 'error');
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false).text('Simpan Pemetaan');
+                    }
+                });
+            });
+
+            // -------------------------------------------------------------
+            // Logika Modal Tetapkan Coverage Pilar (Tab 3)
+            // -------------------------------------------------------------
+            var $assignPilarModal = $('#modalAssignPilarCoverage');
+            var $assignCoverageSelect = $('#assign_id_coverage');
+
+            initCoverageSelect($assignCoverageSelect, $assignPilarModal, 'Cari Coverage, NIK, atau Nama...', false);
+
+            $(document).on('click', '.btn-assign-pilar', function() {
+                var rawData = $(this).attr('data-outlet');
+                var outlet = {};
+                try {
+                    outlet = JSON.parse(rawData);
+                } catch(e) {
+                    console.error('JSON parse error:', e);
+                }
+
+                $('#assign_info_id_konversi').text(outlet.id_konversi || '-');
+                $('#assign_info_nama_outlet').text(outlet.nama_outlet || '-');
+                $('#assign_info_pilar').text(outlet.pilar || '-');
+
+                $('#assign_id_konversi').val(outlet.id_konversi || '');
+                $('#assign_pilar').val(outlet.pilar || 'ETHICAL');
+
+                setSelect2Value($assignCoverageSelect, '');
+                $assignPilarModal.modal('show');
+            });
+
+            $(document).on('click', '#btnSubmitAssignPilar', function(e) {
+                e.preventDefault();
+                var $btn = $(this);
+                var idKonversi = $('#assign_id_konversi').val();
+                var pilar = $('#assign_pilar').val();
+                var idCoverage = $assignCoverageSelect.val();
+
+                if (!idCoverage) {
+                    Swal.fire('Perhatian', 'Silakan pilih Coverage / Sales Rep terlebih dahulu.', 'warning');
+                    return;
+                }
+
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...');
+
+                $.ajax({
+                    url: '{{ route('outlet.uncovered.assign') }}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        id_konversi: idKonversi,
+                        pilar: pilar,
+                        id_coverage: idCoverage
+                    },
+                    success: function(res) {
+                        $assignPilarModal.modal('hide');
+                        Swal.fire('Berhasil', res.message, 'success');
+                        if (window.tableUncovered) {
+                            window.tableUncovered.ajax.reload(null, false);
+                        }
+                        reloadMappingTable();
+                        if (typeof window.updateUnmappedCounters === 'function') {
+                            window.updateUnmappedCounters();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Gagal', getErrorMessage(xhr, 'Gagal menetapkan coverage pilar.'), 'error');
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false).text('Simpan Coverage');
+                    }
+                });
+            });
         });
     </script>
 @endpush

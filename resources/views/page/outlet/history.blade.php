@@ -54,5 +54,7 @@
     <script
         src="{{ asset('js/dashboard/date-range-filter.js') }}?v={{ filemtime(public_path('js/dashboard/date-range-filter.js')) }}">
     </script>
-    <script src="{{ asset('js/outlet/history.js') }}"></script>
+    <script
+        src="{{ asset('js/outlet/history.js') }}?v={{ filemtime(public_path('js/outlet/history.js')) }}">
+    </script>
 @endpush

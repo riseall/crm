@@ -104,6 +104,24 @@ $(document).ready(function () {
         return !str || str === "-" || str === "n/a" || str === "unmapped" || str === "null";
     }
 
+    function formatNNName(covDesc, level) {
+        if (!covDesc) return "NN";
+        covDesc = String(covDesc).trim();
+        if (/^NN/i.test(covDesc)) return covDesc;
+
+        // Pola: PILAR-CBG<NOMOR> (contoh: ETHICAL-DPS2 -> NN2 MR ETHICAL DPS, OGB-DPS1 -> NN1 MR OGB DPS)
+        var match = covDesc.match(/^([A-Za-z]+)[-_]([A-Za-z]+)(\d*)$/);
+        if (match) {
+            var pilar = match[1].toUpperCase();
+            var cbg = match[2].toUpperCase();
+            var num = match[3] || "";
+            var lvl = level || "MR";
+            return "NN" + num + " " + lvl + " " + pilar + " " + cbg;
+        }
+
+        return "NN - " + covDesc;
+    }
+
     var table = $("#tblHistoryOutlet").DataTable({
         processing: true,
         serverSide: true,
@@ -145,10 +163,15 @@ $(document).ready(function () {
                 name: "so.coverage_nik",
                 searchable: false,
                 className: "text-center",
-                render: function (data) {
-                    return isUnmappedValue(data)
-                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
-                        : data;
+                render: function (data, type, row) {
+                    var isUnmapped = !row.coverage_id || row.coverage_id === "UNMAPPED";
+                    if (isUnmapped) {
+                        return '<span class="text-muted font-weight-bold">Unmapped</span>';
+                    }
+                    if (isUnmappedValue(data) || data === "NN") {
+                        return row.coverage_id || "-";
+                    }
+                    return data;
                 },
             },
             {
@@ -156,10 +179,17 @@ $(document).ready(function () {
                 name: "so.user_name",
                 searchable: false,
                 className: "text-center",
-                render: function (data) {
-                    return isUnmappedValue(data)
-                        ? '<span class="text-muted font-weight-bold">Unmapped</span>'
-                        : data;
+                render: function (data, type, row) {
+                    var isUnmapped = !row.coverage_id || row.coverage_id === "UNMAPPED";
+                    if (isUnmapped) {
+                        return '<span class="text-muted font-weight-bold">Unmapped</span>';
+                    }
+                    if (isUnmappedValue(data) || data === "NN") {
+                        var levelName = row.coverage_level_name || (row.coverage_level == 5 ? 'MR' : (row.coverage_level == 4 ? 'AM' : (row.coverage_level == 3 ? 'SAM' : (row.coverage_level == 2 ? 'RM' : 'MR'))));
+                        var displayName = formatNNName(row.coverage_desc, levelName);
+                        return '<span class="text-danger font-italic font-weight-bold">' + displayName + '</span>';
+                    }
+                    return data;
                 },
             },
             {
@@ -182,7 +212,8 @@ $(document).ready(function () {
             },
         ],
         rowCallback: function (row, data) {
-            $(row).toggleClass("table-warning", isUnmappedValue(data.coverage_nik) || !data.coverage_id || data.coverage_id === "UNMAPPED");
+            var isUnmapped = !data.coverage_id || data.coverage_id === "UNMAPPED";
+            $(row).toggleClass("table-warning", isUnmapped);
         },
         drawCallback: function (settings) {
             var json = (settings && settings.json) ? settings.json : (table ? table.ajax.json() : null);

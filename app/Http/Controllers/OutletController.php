@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DashboardFilterRequest;
 use App\Models\CrmMstCust;
 use App\Models\CrmMstCustCov;
+use App\Models\CrmMstCustDist;
 use App\Models\Mapping;
 use App\Services\CoverageAccessService;
 use App\Services\SelloutQueryService;
+use App\Services\UnmappedSelloutService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,10 +21,14 @@ use Yajra\DataTables\Facades\DataTables;
 class OutletController extends Controller
 {
     private CoverageAccessService $coverageAccess;
+    private UnmappedSelloutService $unmappedService;
 
-    public function __construct(CoverageAccessService $coverageAccess)
-    {
+    public function __construct(
+        CoverageAccessService $coverageAccess,
+        UnmappedSelloutService $unmappedService
+    ) {
         $this->coverageAccess = $coverageAccess;
+        $this->unmappedService = $unmappedService;
     }
 
     private function ensureSoftDeletesColumnExists(): void
@@ -77,12 +83,24 @@ class OutletController extends Controller
         $totalBelumCoverage = (int) ($totals->total_belum_coverage ?? 0);
         $totalButuhPengganti = (int) ($totals->total_butuh_pengganti ?? 0);
 
+        $totalUnmappedSellout = $this->unmappedService->getUnmappedMasterCount();
+        $totalUncoveredPilar = $this->unmappedService->getUncoveredPilarCount();
+
         $coverage = Mapping::active()
             ->with('user:nik,name')
             ->get(['id', 'id_coverage', 'cov_desc', 'cov_nik', 'cov_level', 'cov_pilar']);
         $allCoverage = $coverage;
 
-        return view('page.outlet.index', compact('totalData', 'totalTercoverage', 'totalBelumCoverage', 'totalButuhPengganti', 'coverage', 'allCoverage'));
+        return view('page.outlet.index', compact(
+            'totalData',
+            'totalTercoverage',
+            'totalBelumCoverage',
+            'totalButuhPengganti',
+            'totalUnmappedSellout',
+            'totalUncoveredPilar',
+            'coverage',
+            'allCoverage'
+        ));
     }
 
     public function data(Request $request)
@@ -484,4 +502,267 @@ class OutletController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Mapping berhasil dihapus.']);
     }
+
+    public function unmappedSelloutData(Request $request)
+    {
+        $query = $this->unmappedService->getUnmappedMasterQuery();
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->editColumn('dist', function ($row) {
+                return $row->dist ?? '-';
+            })
+            ->editColumn('id_cbg', function ($row) {
+                return $row->id_cbg ?? '-';
+            })
+            ->editColumn('id_outlet', function ($row) {
+                return $row->id_outlet ?? '-';
+            })
+            ->editColumn('nama_outlet', function ($row) {
+                return $row->nama_outlet ?? '-';
+            })
+            ->editColumn('segment_dist', function ($row) {
+                return $row->segment_dist ?? '-';
+            })
+            ->addColumn('action', function ($row) {
+                $dataJson = htmlspecialchars(json_encode([
+                    'dist'         => $row->dist ?? '',
+                    'id_cbg'       => $row->id_cbg ?? '',
+                    'id_outlet'    => $row->id_outlet ?? '',
+                    'nama_outlet'  => $row->nama_outlet ?? '',
+                    'segment_dist' => $row->segment_dist ?? '',
+                ]), ENT_QUOTES, 'UTF-8');
+
+                return '<button type="button" class="btn btn-sm btn-primary font-weight-bolder btn-map-unmapped" data-outlet=\'' . $dataJson . '\'>'
+                    . '<i class="fas fa-link mr-1"></i> Petakan'
+                    . '</button>';
+            })
+            ->filterColumn('id_cbg', function ($query, $keyword) {
+                $query->where('so.id_cbg', 'like', "%{$keyword}%");
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function uncoveredPilarData(Request $request)
+    {
+        $query = $this->unmappedService->getUncoveredPilarQuery();
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->editColumn('id_konversi', function ($row) {
+                return $row->id_konversi ?? '-';
+            })
+            ->editColumn('nama_outlet', function ($row) {
+                return $row->nama_outlet ?? '-';
+            })
+            ->editColumn('segment', function ($row) {
+                return $row->segment ?? '-';
+            })
+            ->editColumn('pilar', function ($row) {
+                return '<span class="badge badge-light-primary font-weight-bold">' . ($row->pilar ?? '-') . '</span>';
+            })
+            ->addColumn('action', function ($row) {
+                $dataJson = htmlspecialchars(json_encode([
+                    'id_konversi' => $row->id_konversi ?? '',
+                    'nama_outlet' => $row->nama_outlet ?? '',
+                    'pilar'       => $row->pilar ?? '',
+                ]), ENT_QUOTES, 'UTF-8');
+
+                return '<button type="button" class="btn btn-sm btn-info font-weight-bolder btn-assign-pilar" data-outlet=\'' . $dataJson . '\'>'
+                    . '<i class="fas fa-user-plus mr-1"></i> Tetapkan Coverage'
+                    . '</button>';
+            })
+            ->filterColumn('id_konversi', function ($query, $keyword) {
+                $query->where('so.id_konversi', 'like', "%{$keyword}%");
+            })
+            ->rawColumns(['pilar', 'action'])
+            ->make(true);
+    }
+
+    public function unmappedSelloutStats()
+    {
+        return response()->json([
+            'total_unmapped_outlet' => $this->unmappedService->getUnmappedMasterCount(),
+            'total_uncovered_pilar' => $this->unmappedService->getUncoveredPilarCount(),
+        ]);
+    }
+
+    public function mapUnmappedSellout(Request $request)
+    {
+        $request->validate([
+            'dist'        => 'required|string',
+            'id_cbg'      => 'required|string',
+            'id_outlet'   => 'required|string',
+            'mode'        => 'required|in:existing,new',
+            'id_konversi' => 'required|string|max:50',
+            'nama_outlet' => 'required_if:mode,new|nullable|string|max:255',
+            'segment'     => 'nullable|string|max:100',
+            'kota'        => 'nullable|string|max:100',
+            'alamat'      => 'nullable|string',
+            'id_coverage' => 'nullable|string|exists:db_dwh.crm_mst_mappings,id_coverage',
+            'pilar'       => 'nullable|string',
+        ]);
+
+        $mode = $request->input('mode');
+        $idKonversi = trim((string) $request->input('id_konversi'));
+        $dist = trim((string) $request->input('dist'));
+        $idCbg = trim((string) $request->input('id_cbg'));
+        $idOutlet = trim((string) $request->input('id_outlet'));
+
+        DB::connection('db_dwh')->beginTransaction();
+        try {
+            if ($mode === 'new') {
+                $existingMaster = CrmMstCust::find($idKonversi);
+                if ($existingMaster) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "ID Konversi '{$idKonversi}' sudah terdaftar di Master Customer. Silakan gunakan opsi 'Hubungkan ke Master Eksisting' atau ganti ID Konversi."
+                    ], 422);
+                }
+
+                CrmMstCust::create([
+                    'id_konversi' => $idKonversi,
+                    'nama_outlet' => $request->input('nama_outlet'),
+                    'segment'     => $request->input('segment'),
+                    'kota'        => $request->input('kota'),
+                    'alamat'      => $request->input('alamat'),
+                ]);
+            } else {
+                $master = CrmMstCust::find($idKonversi);
+                if (!$master) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Master Outlet dengan ID Konversi '{$idKonversi}' tidak ditemukan."
+                    ], 404);
+                }
+            }
+
+            // 1. Simpan atau update crm_mst_cust_dist
+            $custDist = CrmMstCustDist::where('dist', $dist)
+                ->where('id_cbg', $idCbg)
+                ->where('id_outlet', $idOutlet)
+                ->first();
+
+            if ($custDist) {
+                $custDist->update(['id_konversi' => $idKonversi]);
+            } else {
+                CrmMstCustDist::create([
+                    'dist'          => $dist,
+                    'id_cbg'        => $idCbg,
+                    'id_outlet'     => $idOutlet,
+                    'id_konversi'   => $idKonversi,
+                    'id_outlet_cbg' => $dist . '_' . $idCbg . '_' . $idOutlet,
+                ]);
+            }
+
+            // 2. Hubungkan ke Coverage (crm_mst_cust_cov) jika dipilih
+            $idCoverage = trim((string) $request->input('id_coverage', ''));
+            if ($idCoverage !== '') {
+                $this->ensureSoftDeletesColumnExists();
+                $pilar = strtoupper(trim((string) $request->input('pilar', 'ETHICAL')));
+                if ($pilar === '') {
+                    $pilar = 'ETHICAL';
+                }
+
+                $existingCov = CrmMstCustCov::withTrashed()
+                    ->where('id_konversi', $idKonversi)
+                    ->where('pilar', $pilar)
+                    ->first();
+
+                if ($existingCov) {
+                    if ($existingCov->trashed()) {
+                        $existingCov->restore();
+                    }
+                    $existingCov->update(['id_coverage' => $idCoverage]);
+                } else {
+                    CrmMstCustCov::create([
+                        'id_konversi' => $idKonversi,
+                        'pilar'       => $pilar,
+                        'id_coverage' => $idCoverage,
+                    ]);
+                }
+            }
+
+            // 3. Auto-update tabel crm_sellout_summary
+            $updatedRows = DB::connection('db_dwh')
+                ->table('crm_sellout_summary')
+                ->where('dist', $dist)
+                ->whereRaw('TRIM(id_cbg) = ?', [$idCbg])
+                ->whereRaw('TRIM(id_outlet) = ?', [$idOutlet])
+                ->where(function ($q) {
+                    $q->whereNull('id_konversi')
+                        ->orWhere('id_konversi', '');
+                })
+                ->update([
+                    'id_konversi' => $idKonversi,
+                    'updated_at'  => now(),
+                ]);
+
+            DB::connection('db_dwh')->commit();
+            Cache::flush();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Outlet {$dist} ({$idOutlet} - {$idCbg}) berhasil dipetakan ke ID Konversi '{$idKonversi}'. {$updatedRows} baris transaksi sellout berhasil diperbarui!",
+                'updated_summary_count' => $updatedRows,
+            ]);
+        } catch (\Exception $e) {
+            DB::connection('db_dwh')->rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memproses pemetaan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function assignPilarCoverage(Request $request)
+    {
+        $request->validate([
+            'id_konversi' => 'required|string|exists:db_dwh.crm_mst_cust,id_konversi',
+            'pilar'       => 'required|string|in:ETHICAL,OGB,CH,OTC',
+            'id_coverage' => 'required|string|exists:db_dwh.crm_mst_mappings,id_coverage',
+        ]);
+
+        $idKonversi = trim((string) $request->input('id_konversi'));
+        $pilar = trim((string) $request->input('pilar'));
+        $idCoverage = trim((string) $request->input('id_coverage'));
+
+        DB::connection('db_dwh')->beginTransaction();
+        try {
+            $existing = CrmMstCustCov::withTrashed()
+                ->where('id_konversi', $idKonversi)
+                ->where('pilar', $pilar)
+                ->first();
+
+            if ($existing) {
+                if ($existing->trashed()) {
+                    $existing->restore();
+                }
+                $existing->id_coverage = $idCoverage;
+                $existing->save();
+            } else {
+                CrmMstCustCov::create([
+                    'id_konversi' => $idKonversi,
+                    'pilar'       => $pilar,
+                    'id_coverage' => $idCoverage,
+                ]);
+            }
+
+            DB::connection('db_dwh')->commit();
+            Cache::flush();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Coverage pilar '{$pilar}' berhasil ditetapkan untuk outlet {$idKonversi}.",
+            ]);
+        } catch (\Exception $e) {
+            DB::connection('db_dwh')->rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menetapkan coverage: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
+

@@ -11,6 +11,7 @@ class CrmMstCust extends Model
     protected $primaryKey = 'id_konversi';
     public $incrementing = false;
     protected $keyType = 'string';
+    public $timestamps = false;
 
     protected $fillable = [
         'id_konversi',
