@@ -48,7 +48,10 @@ Route::middleware('auth')->group(function () {
 
     // Users
     Route::prefix('users')->name('users.')->group(function () {
-        Route::resource('/', UserController::class)->only('index');
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
         Route::get('/data', [UserController::class, 'getData'])->name('data');
     });
 

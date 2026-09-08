@@ -25,7 +25,7 @@
     </div>
 
     <x-datatable-card title="Data Pengguna" subtitle="List semua pengguna terdaftar" table-id="table_pengguna"
-        create-url="#" create-label="Tambah User">
+        create-url="javascript:;" create-label="Tambah User" :show-create="true">
         <th>No</th>
         <th>NIK</th>
         <th>Name</th>
@@ -33,18 +33,68 @@
         <th>Jabatan</th>
         <th>Role</th>
         <th>Status</th>
-        {{-- <th>Aksi</th> --}}
+        <th>Aksi</th>
     </x-datatable-card>
+
+    <!-- Modal User -->
+    <form id="form_user">
+        @csrf
+        <input type="hidden" name="_method" id="form_method" value="POST">
+        <x-modal id="modal_user" title="Tambah User" size="modal-lg" submitBtnId="btnSimpan" submitBtnText="Simpan">
+            <div class="form-group row">
+                <div class="col-lg-6">
+                    <label>NIK / Anggota <span class="text-danger">*</span></label>
+                    <select class="form-control" name="nik" id="nik" style="width: 100%" required></select>
+                </div>
+                <div class="col-lg-6">
+                    <label>Nama <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control bg-light" name="name" id="name" required readonly />
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-lg-6">
+                    <label>Email <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control bg-light" name="email" id="email" required readonly />
+                </div>
+                <div class="col-lg-6">
+                    <label>Jabatan</label>
+                    <input type="text" class="form-control bg-light" name="jabatan" id="jabatan" readonly />
+                </div>
+            </div>
+            <div class="form-group row">
+                <div class="col-lg-6">
+                    <label>Role <span class="text-danger">*</span></label>
+                    <select class="form-control selectpicker" name="role" id="role" required>
+                        <option value="">Pilih Role</option>
+                        @foreach ($roles as $role)
+                            <option value="{{ $role }}">{{ $role }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-6">
+                    <label>Status</label>
+                    <div class="checkbox-inline mt-2">
+                        <label class="checkbox checkbox-success">
+                            <input type="checkbox" name="is_active" id="is_active" value="1" checked />
+                            <span></span> Active
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </x-modal>
+    </form>
 @endsection
 
 @push('scripts')
     <script>
         window.UserPageConfig = {
             routes: {
-                data: '{{ route('users.data') }}'
+                data: '{{ route('users.data') }}',
+                store: '{{ route('users.store') }}',
+                update: '{{ route('users.update', ':id') }}',
+                destroy: '{{ route('users.destroy', ':id') }}'
             }
         };
     </script>
     <script src="{{ asset('js/user/index.js') }}?v={{ filemtime(public_path('js/user/index.js')) }}"></script>
 @endpush
-
