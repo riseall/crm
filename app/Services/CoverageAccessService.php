@@ -10,7 +10,7 @@ class CoverageAccessService
 {
     public const LEVEL_ORDER = ['GM', 'RM', 'SAM', 'AM', 'MR'];
 
-    private const GLOBAL_ROLE_NAMES = ['Super Admin', 'Admin IT', 'Marketing Insight'];
+    private const GLOBAL_ROLE_NAMES = ['Super Admin', 'Admin IT', 'Marketing Insight', 'Direksi'];
     private const DRILLDOWN_RESTRICTED_ROLE_NAMES = [
         'Marketing Representative',
         'Medical Representative',

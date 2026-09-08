@@ -159,7 +159,7 @@ $(document).ready(function() {
                 type: 'POST',
                 data: {
                     _method: 'DELETE',
-                    _token: $('input[name="_token"]').val()
+                    _token: $('meta[name="csrf-token"]').attr('content') || $('input[name="_token"]').val()
                 },
                 success: function(response) {
                     table.ajax.reload(null, false);
@@ -167,8 +167,12 @@ $(document).ready(function() {
                         Swal.fire('Terhapus!', response.success, 'success');
                     }
                 },
-                error: function() {
-                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'Gagal menghapus', 'error');
+                error: function(xhr) {
+                    let msg = 'Gagal menghapus';
+                    if(xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', msg, 'error');
                 }
             });
         };
@@ -183,7 +187,7 @@ $(document).ready(function() {
                 cancelButtonColor: '#3085d6',
                 confirmButtonText: 'Ya, Hapus!'
             }).then((result) => {
-                if (result.isConfirmed) {
+                if (result.isConfirmed || result.value) {
                     confirmDelete();
                 }
             });

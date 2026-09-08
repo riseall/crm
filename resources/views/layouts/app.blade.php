@@ -72,7 +72,7 @@
                                 if (auth()->check()) {
                                     $hasAlertRole = auth()
                                         ->user()
-                                        ->hasAnyRole(['Super Admin', 'Admin IT', 'Marketing Insight']);
+                                        ->hasAnyRole(['Super Admin', 'Admin IT', 'Marketing Insight', 'Direksi']);
 
                                     if ($hasAlertRole) {
                                         $coverageNotificationPayload = $coverageAlertService->pendingAlertPayload();

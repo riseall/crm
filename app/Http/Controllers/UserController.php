@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 use Yajra\DataTables\DataTables;
 
@@ -79,9 +80,9 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'nik' => 'required|unique:users',
+            'nik' => ['required', Rule::unique('users')->whereNull('deleted_at')],
             'name' => 'required',
-            'email' => 'required|email|unique:users',
+            'email' => ['required', 'email', Rule::unique('users')->whereNull('deleted_at')],
             'jabatan' => 'nullable',
             'role' => 'required',
         ]);
@@ -98,9 +99,9 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $data = $request->validate([
-            'nik' => 'required|unique:users,nik,' . $user->id,
+            'nik' => ['required', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
             'name' => 'required',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)->whereNull('deleted_at')],
             'jabatan' => 'nullable',
             'role' => 'required',
         ]);

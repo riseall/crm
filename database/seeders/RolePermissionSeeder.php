@@ -25,7 +25,8 @@ class RolePermissionSeeder extends Seeder
             'Senior Area Manager',
             'Area Manager',
             'Medical Representative',
-            'Sales Representative'
+            'Sales Representative',
+            'Direksi'
         ];
 
         foreach ($roles as $role) {
