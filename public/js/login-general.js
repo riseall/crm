@@ -87,9 +87,9 @@ const KTLogin = (function () {
             KTUtil.getById(formId),
             {
                 fields: {
-                    username: {
+                    nik: {
                         validators: {
-                            notEmpty: { message: "Username is required" },
+                            notEmpty: { message: "NIK is required" },
                         },
                     },
                     password: {
@@ -100,11 +100,16 @@ const KTLogin = (function () {
                 },
                 plugins: {
                     trigger: new FormValidation.plugins.Trigger(),
-                    submitButton: new FormValidation.plugins.SubmitButton(),
+
                     bootstrap: new FormValidation.plugins.Bootstrap(),
                 },
             },
         );
+
+        formEl.on("submit", function (e) {
+            e.preventDefault();
+            $("#kt_login_signin_submit").trigger("click");
+        });
 
         $("#kt_login_signin_submit").on("click", function (e) {
             e.preventDefault();
@@ -116,8 +121,13 @@ const KTLogin = (function () {
             validation.validate().then((status) => {
                 if (status === "Valid") {
                     $.ajax({
-                        url: window.auth.login,
+                        url: (window.auth && window.auth.login) ? window.auth.login : (formEl.attr("action") || "/login"),
                         method: "POST",
+                        headers: {
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        dataType: "json",
                         data: formEl.serialize(),
                         beforeSend: function () {
                             showLoading(btn);
@@ -127,12 +137,35 @@ const KTLogin = (function () {
                                 response.redirect || window.auth.dashboard;
                         },
                         error: (xhr) => {
-                            if (xhr.status === 422 && xhr.responseJSON.errors) {
+                            if (typeof window.turnstile !== "undefined") {
+                                window.turnstile.reset(".cf-turnstile");
+                            }
+
+                            if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
                                 displayErrors(formEl, xhr.responseJSON.errors);
+                            } else if (xhr.status === 419) {
+                                showAlert(
+                                    "Sesi halaman login telah kedaluwarsa (CSRF expired). Halaman akan dimuat ulang.",
+                                    "warning",
+                                    () => {
+                                        window.location.reload();
+                                    }
+                                );
+                            } else if (xhr.status === 429) {
+                                showAlert(
+                                    xhr.responseJSON?.message ||
+                                    "Terlalu banyak percobaan login. Silakan tunggu 1 menit sebelum mencoba lagi.",
+                                    "warning"
+                                );
+                            } else if (xhr.status === 0) {
+                                showAlert(
+                                    "Koneksi gagal atau terputus (Network Error). Silakan periksa koneksi Anda atau muat ulang halaman.",
+                                    "error"
+                                );
                             } else {
                                 const errorMsg =
                                     xhr.responseJSON?.message ||
-                                    "Login gagal, silakan cek username dan password.";
+                                    (xhr.status ? `Terjadi kesalahan pada server (Status: ${xhr.status}). Silakan coba lagi.` : "Login gagal, silakan cek username dan password.");
                                 showAlert(errorMsg, "error");
                             }
                         },
