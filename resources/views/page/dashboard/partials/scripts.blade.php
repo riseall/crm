@@ -17,7 +17,8 @@
     src="{{ asset('js/dashboard/1_helper_rupiah.js') }}?v={{ filemtime(public_path('js/dashboard/1_helper_rupiah.js')) }}">
 </script>
 <script src="{{ asset('js/dashboard/2_card.js') }}?v={{ filemtime(public_path('js/dashboard/2_card.js')) }}"></script>
-<script src="{{ asset('js/dashboard/3_chart.js') }}?v={{ filemtime(public_path('js/dashboard/3_chart.js')) }}"></script>
+<script src="{{ asset('js/dashboard/3_chart.js') }}?v={{ filemtime(public_path('js/dashboard/3_chart.js')) }}">
+</script>
 <script
     src="{{ asset('js/dashboard/4_drilldown.js') }}?v={{ filemtime(public_path('js/dashboard/4_drilldown.js')) }}">
 </script>

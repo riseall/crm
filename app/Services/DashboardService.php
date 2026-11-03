@@ -39,26 +39,16 @@ class DashboardService
     // -------------------------------------------------------
     public function getSummaryCards(DashboardFilterRequest $request): array
     {
-        $range = [$request->prevStartDate(), $request->endDate()];
         $currentStart = $request->startDate();
         $currentEnd = $request->endDate();
         $prevStart = $request->prevStartDate();
         $prevEnd = $request->prevEndDate();
 
-        $summary = $this->sellout->baseChartQuery($request, $range)
-            ->selectRaw("
-                SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as total_netto,
-                SUM(CASE WHEN so.tgl_faktur BETWEEN ? AND ? THEN so.netto ELSE 0 END) as prev_netto
-            ", [
-                $currentStart,
-                $currentEnd,
-                $prevStart,
-                $prevEnd,
-            ])
-            ->first();
+        $currNetto = (float) $this->sellout->baseChartQuery($request, [$currentStart, $currentEnd])
+            ->sum('so.netto');
+        $prevNetto = (float) $this->sellout->baseChartQuery($request, [$prevStart, $prevEnd])
+            ->sum('so.netto');
 
-        $currNetto = (float) ($summary->total_netto ?? 0);
-        $prevNetto = (float) ($summary->prev_netto ?? 0);
         $topValue = $this->sellout->topMarketingTarget($request);
         $diffNetto = $prevNetto > 0
             ? (($currNetto - $prevNetto) / $prevNetto) * 100
@@ -151,8 +141,8 @@ class DashboardService
     public function getChartPerPilar(DashboardFilterRequest $request): array
     {
         $results = $this->sellout->baseChartQuery($request)
-            // GUNAKAN product_pilar (dari produk) + COALESCE agar data unmapped masuk ke "NO PILAR"
-            ->selectRaw('COALESCE(so.product_pilar, "UNMAPPED") as pilar_name, SUM(so.netto) as total_netto')
+            // GUNAKAN pilar_sub (dari produk) + COALESCE agar data unmapped masuk ke "UNMAPPED"
+            ->selectRaw("COALESCE(NULLIF(TRIM(so.pilar_sub), ''), 'UNMAPPED') as pilar_name, SUM(so.netto) as total_netto")
             ->groupBy('pilar_name')
             ->get();
 
