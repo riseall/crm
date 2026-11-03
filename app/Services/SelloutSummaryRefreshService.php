@@ -28,6 +28,7 @@ class SelloutSummaryRefreshService
         'desc',
         'satuan',
         'pilar_sub',
+        'code_pelayanan',
         'dec_pelayanan',
         'divisi',
         'sub_divisi',
@@ -105,6 +106,7 @@ class SelloutSummaryRefreshService
                 'segment_dist' => 'k.desc_cust_grp4',
                 'code_product' => 'k.material',
                 'satuan' => 'k.sales_unit',
+                'code_pelayanan' => 'k.code_pelayanan',
                 'dec_pelayanan' => 'k.dec_pelayanan',
                 'batch' => 'k.supplier_batch',
                 'qty' => 'k.quantity',
@@ -137,6 +139,7 @@ class SelloutSummaryRefreshService
                 'segment_dist' => 'a.desc_cust_grp3',
                 'code_product' => 'a.material',
                 'satuan' => 'a.sales_unit',
+                'code_pelayanan' => 'a.code_pelayanan',
                 'dec_pelayanan' => 'a.dec_pelayanan',
                 'batch' => 'a.batch',
                 'qty' => 'a.quantity',
@@ -172,6 +175,7 @@ class SelloutSummaryRefreshService
                 'segment_dist' => 'm.segmen',
                 'code_product' => 'm.kode_brg_metd',
                 'satuan' => 'm.satuan_metd',
+                'code_pelayanan' => "''",
                 'dec_pelayanan' => "''",
                 'batch' => 'm.batch_ph',
                 'qty' => 'm.qty',
@@ -239,6 +243,7 @@ class SelloutSummaryRefreshService
                 vp.pt_desc AS `desc`,
                 {$s['satuan']} AS satuan,
                 (CASE WHEN vp.pilar_sub = 'GENERIK' THEN 'OGB' ELSE vp.pilar_sub END) AS pilar_sub,
+                {$s['code_pelayanan']} AS code_pelayanan,
                 {$s['dec_pelayanan']} AS dec_pelayanan,
                 sub.divisi AS divisi,
                 sub.sub_divisi AS sub_divisi,
@@ -281,6 +286,16 @@ class SelloutSummaryRefreshService
             ON DUPLICATE KEY UPDATE
                 {$onDuplicateSql}";
 
-        DB::connection(self::CONN_DWH)->statement($sql, [$start, $end]);
+        DB::connection(self::CONN_DWH)->transaction(function () use ($source, $start, $end, $sql) {
+            DB::connection(self::CONN_DWH)->table(self::SUMMARY_TABLE)
+                ->where(function ($q) use ($source) {
+                    $q->where('dist', $source)
+                      ->orWhere('source_table', $source);
+                })
+                ->whereBetween('tgl_faktur', [$start, $end])
+                ->delete();
+
+            DB::connection(self::CONN_DWH)->statement($sql, [$start, $end]);
+        });
     }
 }
