@@ -229,7 +229,7 @@
                                 </g>
                             </svg>
                         </span>
-                        <span class="menu-text">Monitoring Kunjungan</span>
+                        <span class="menu-text">Kunjungan VS Realisasi</span>
                     </a>
                 </li>
             </ul>

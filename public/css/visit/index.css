@@ -1,10 +1,10 @@
 /* ===== Design Tokens ===== */
 :root {
-    --visit-tier-1: #0ea5b8;
-    --visit-tier-2: #16a34a;
-    --visit-tier-3: #eab308;
-    --visit-tier-4: #ea580c;
-    --visit-tier-5: #dc2626;
+    --visit-tier-1: #dc2626; /* Merah (Kunjungan Minimal/Rendah) */
+    --visit-tier-2: #ea580c; /* Orange */
+    --visit-tier-3: #eab308; /* Kuning */
+    --visit-tier-4: #84cc16; /* Hijau Muda */
+    --visit-tier-5: #16a34a; /* Hijau (Kunjungan Tinggi/Banyak) */
     --visit-radius: 12px;
     --visit-shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.08);
     --visit-shadow-md: 0 4px 18px rgba(0, 0, 0, 0.16);
@@ -17,6 +17,13 @@
     border-radius: var(--visit-radius);
     z-index: 1;
     box-shadow: var(--visit-shadow-sm);
+    overflow: hidden;
+}
+
+/* IQAir & Maps Style Seamless Blended Heatmap */
+.leaflet-heatmap-layer {
+    pointer-events: none !important;
+    opacity: 0.78;
 }
 
 /* ===== Floating AQI-style Intensity Card ===== */
@@ -25,16 +32,14 @@
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 10;
+    z-index: 10 !important;
     width: 250px;
     max-width: calc(100% - 24px);
     padding: 8px 14px;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.30);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--visit-radius);
-    box-shadow: var(--visit-shadow-md);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     pointer-events: auto;
 }
 
@@ -113,47 +118,52 @@
     transform: translateX(15px);
 }
 
-/* ===== Map Pin Badge Marker ===== */
+/* ===== Google Maps & IQAir Style Circular Marker Badge ===== */
+.aqi-div-icon,
 .custom-pin-marker {
     background: transparent !important;
     border: none !important;
 }
 
-.pin-badge-wrapper {
-    display: inline-flex;
-    flex-direction: column;
+.aqi-marker-badge {
+    display: flex;
     align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    color: #ffffff;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease;
+    user-select: none;
+    will-change: transform;
+    contain: layout style;
 }
 
-.pin-badge-wrapper:hover {
-    transform: scale(1.25);
+.aqi-marker-badge:hover {
+    transform: scale(1.22);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.40);
     z-index: 9999 !important;
 }
 
-.pin-badge-body {
-    display: flex;
-    align-items: center;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
-}
-
-.pin-badge-arrow {
-    width: 0;
-    height: 0;
-    margin-top: -1px;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 5px solid var(--visit-tier-5);
+.aqi-marker-badge.text-dark-contrast {
+    color: #1e293b !important;
 }
 
 /* ===== Popup Styling ===== */
+.leaflet-popup-pane {
+    z-index: 700 !important;
+}
+
+.leaflet-popup {
+    z-index: 701 !important;
+}
+
 .visit-popup {
     min-width: 220px;
     font-family: inherit;

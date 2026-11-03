@@ -3,16 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\CrmMstCust;
+use App\Models\User;
 use App\Services\DashboardService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Carbon;
 
 class VisitController extends Controller
 {
+    /**
+     * Halaman Utama: Monitoring Kunjungan VS Realisasi
+     */
     public function index(Request $request, DashboardService $dashboardService)
     {
         $anggota = null;
@@ -25,612 +28,625 @@ class VisitController extends Controller
             }
         }
 
+        // Tentukan default periode MTD (Month to Date)
+        $defaultStartDate = Carbon::now()->startOfMonth()->toDateString();
+        $defaultEndDate = Carbon::today()->toDateString();
+
+        // Cek jika bulan ini belum ada data sama sekali, fallback ke bulan data terakhir yang tersedia
+        try {
+            $latestVisitDate = Cache::remember('dwh_latest_visit_date', 3600, function () use ($defaultStartDate, $defaultEndDate) {
+                $hasData = DB::connection('db_dwh')
+                    ->table('sfa_call_plan_dashboards')
+                    ->whereBetween('visit_date', [$defaultStartDate, $defaultEndDate])
+                    ->exists();
+
+                if (!$hasData) {
+                    return DB::connection('db_dwh')
+                        ->table('sfa_call_plan_dashboards')
+                        ->max('visit_date');
+                }
+                return $defaultEndDate;
+            });
+
+            if ($latestVisitDate && $latestVisitDate !== $defaultEndDate) {
+                $latest = Carbon::parse($latestVisitDate);
+                $defaultStartDate = $latest->copy()->startOfMonth()->toDateString();
+                $defaultEndDate = $latest->toDateString();
+            }
+        } catch (\Exception $e) {
+            Log::warning('Gagal cek max visit_date: ' . $e->getMessage());
+        }
+
+        // Daftar Divisi & Level sesuai spesifikasi
+        $divisis = ['Ethical', 'OTC', 'OGB', 'Reguler'];
+        $levels = ['SAM', 'AM', 'MR Ethical', 'MR OGB', 'MR Combo', 'SR OTC'];
+
+        // Daftar Employee (Sales Force) dari users & mappings (Cached 1 jam)
+        $employees = Cache::remember('crm_visit_filter_employees', 3600, function () {
+            try {
+                return DB::table('users')
+                    ->where('is_active', 1)
+                    ->select('nik', 'name')
+                    ->orderBy('name')
+                    ->get();
+            } catch (\Exception $e) {
+                return collect();
+            }
+        });
+
+        // Daftar Outlet populer / terdata (Cached 1 jam)
+        $outlets = Cache::remember('crm_visit_filter_outlets', 3600, function () {
+            try {
+                return DB::connection('db_dwh')
+                    ->table('crm_mst_cust')
+                    ->whereNotNull('nama_outlet')
+                    ->where('nama_outlet', '!=', '')
+                    ->select('id_konversi', 'nama_outlet')
+                    ->orderBy('nama_outlet')
+                    ->limit(500)
+                    ->get();
+            } catch (\Exception $e) {
+                return collect();
+            }
+        });
+
         return view('page.visit.index', [
-            'pilars'     => ['ETHIPROM', 'ETHICOM', 'OGB', 'OTC'],
-            'anggota'    => $anggota,
-            'initialNik' => $request->nik
+            'pilars'           => ['ETHIPROM', 'ETHICOM', 'OGB', 'OTC'],
+            'divisis'          => $divisis,
+            'levels'           => $levels,
+            'employees'        => $employees,
+            'outlets'          => $outlets,
+            'defaultStartDate' => $defaultStartDate,
+            'defaultEndDate'   => $defaultEndDate,
+            'anggota'          => $anggota,
+            'initialNik'       => $request->nik
         ]);
     }
 
     /**
-     * Dashboard Utama: Fetch data kunjungan nasional (semua cabang).
+     * Endpoint Data: Kunjungan VS Realisasi Selling Out
      */
     public function getVisitData(Request $request)
     {
-        $visitDate = $this->resolveVisitDate($request);
-        $fetchResult = $this->fetchAndNormalizeVisits($visitDate, null);
-
-        return $this->buildResponse($request, $fetchResult, $visitDate);
+        return $this->getVisitRealizationData($request);
     }
 
     /**
-     * Detail Sales: Fetch data kunjungan ter-scope ke cabang sales berdasarkan lookup NIK.
+     * Endpoint Data Spesifik Sales
      */
     public function getVisitDataBySales(Request $request)
     {
-        $visitDate = $this->resolveVisitDate($request);
-        $nik = $request->get('nik');
-
-        $branchCode = null;
-        $fallbackNote = null;
-
-        if ($nik) {
-            try {
-                $mapping = DB::connection('db_dwh')
-                    ->table('crm_mst_mappings')
-                    ->where('cov_nik', $nik)
-                    ->whereNull('deleted_at')
-                    ->first();
-
-                if ($mapping && !empty($mapping->cov_ket_cbg)) {
-                    $branchCode = trim($mapping->cov_ket_cbg);
-                } else {
-                    $fallbackNote = "Branch code untuk NIK {$nik} tidak ditemukan di mapping CRM. Memuat data nasional sebagai fallback.";
-                    Log::info('VisitController::getVisitDataBySales fallback to national', ['nik' => $nik]);
-                }
-            } catch (\Exception $e) {
-                $fallbackNote = "Gagal memverifikasi branch code untuk NIK {$nik}. Memuat data nasional sebagai fallback.";
-                Log::warning('Error lookup branch_code dari crm_mst_mappings: ' . $e->getMessage());
-            }
-        }
-
-        $fetchResult = $this->fetchAndNormalizeVisits($visitDate, $branchCode);
-
-        // Jika terjadi fallback dan tidak ada error API SFA yang lebih kritis, tampilkan catatan fallback
-        if ($fallbackNote && empty($fetchResult['errorMessage'])) {
-            $fetchResult['errorMessage'] = $fallbackNote;
-        }
-
-        return $this->buildResponse($request, $fetchResult, $visitDate);
+        return $this->getVisitRealizationData($request);
     }
 
     /**
-     * Reusable fetch & normalize logic:
-     * Menembak API SFA (dengan opsi filter branch_code), link ke CRM master customer & mapping,
-     * lalu normalisasi payload untuk Map & DataTables.
+     * Endpoint Data Rincian Dokter/User yang dikunjungi di suatu Outlet (Lazy-Loaded via AJAX)
      */
-    protected function fetchAndNormalizeVisits(string $visitDate, ?string $branchCode = null): array
+    public function getDoctorVisitDetails(Request $request)
     {
-        $url = 'https://sfa-phapros.klikpeta.com/sfa/visits';
-        $apiKey = config('services.sfa.api_key');
+        $locationCode = $request->input('location_code');
+        if (empty($locationCode)) {
+            return response()->json(['status' => 'error', 'message' => 'location_code is required', 'data' => []]);
+        }
 
-        // Cache key membedakan nasional vs per-cabang (v8: filtered office attendance check-ins)
-        $cacheKey = !empty($branchCode)
-            ? 'sfa_visits_v8_branch_' . $branchCode . '_' . md5($visitDate)
-            : 'sfa_visits_v8_' . md5($visitDate);
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+        $employee = $request->input('employee') ?: $request->input('nik');
 
-        $ttl = 900; // 15 menit
+        $cacheKey = 'doc_details_' . md5($locationCode . '|' . $startDate . '|' . $endDate . '|' . ($employee ?? ''));
 
-        return Cache::remember($cacheKey, $ttl, function () use ($url, $apiKey, $visitDate, $branchCode) {
-            $rawVisits = [];
-            $apiSuccess = false;
-            $errorMessage = null;
-            $batchSize = 8; // Concurrency optimal agar API SFA tidak drop koneksi
+        try {
+            $doctors = Cache::remember($cacheKey, 600, function () use ($locationCode, $startDate, $endDate, $employee) {
+                $query = DB::connection('db_dwh')
+                    ->table('sfa_call_plan_dashboards')
+                    ->where('location_code', $locationCode)
+                    ->whereBetween('visit_date', [$startDate, $endDate])
+                    ->where('actual_approval_status', 'APPROVED')
+                    ->where('visit_status', 'VISITED');
 
-            if ($apiKey) {
-                try {
-                    // 1. Fetch halaman pertama (termasuk parameter branch_code jika diisi)
-                    $firstParams = [
-                        'visit_date' => $visitDate,
-                        'page'       => 1,
-                        'per_page'   => 100,
-                    ];
-                    if (!empty($branchCode)) {
-                        $firstParams['branch_code'] = $branchCode;
+                if (!empty($employee) && $employee !== 'All') {
+                    $cleanNik = ltrim($employee, '0');
+                    if (is_numeric($cleanNik) || preg_match('/^[0-9A-Za-z]+$/', $employee)) {
+                        $query->whereIn('pic_nik', array_unique([$employee, $cleanNik]));
                     }
+                }
 
-                    $firstResponse = Http::withHeaders([
-                        'X-API-KEY' => $apiKey,
-                        'Accept'    => 'application/json'
-                    ])->timeout(25)->get($url, $firstParams);
+                $raw = $query->select([
+                    'outlet_name',
+                    'customer_channel_name',
+                    'is_doctor',
+                    'visit_date'
+                ])->get();
 
-                    if ($firstResponse->successful()) {
-                        $json = $firstResponse->json();
-                        $rawVisits = $json['data'] ?? $json['result'] ?? (is_array($json) ? $json : []);
-                        $totalPages = isset($json['meta']['total_pages']) ? (int) $json['meta']['total_pages'] : 1;
-                        $totalDataExpected = isset($json['meta']['total_data']) ? (int) $json['meta']['total_data'] : null;
-                        $apiSuccess = true;
+                $docs = [];
+                foreach ($raw as $row) {
+                    $name = trim((string)($row->outlet_name ?? ''));
+                    $isDoctor = (bool)($row->is_doctor ?? false);
+                    $hasDoctorTitle = (strpos(strtolower($name), 'dr.') !== false || strpos(strtolower($name), 'sp.') !== false);
 
-                        // 2. Fetch sisa halaman (2..N) via concurrent Http::pool
-                        if ($totalPages > 1) {
-                            $failedPages = [];
-                            $pages = range(2, $totalPages);
-
-                            foreach (array_chunk($pages, $batchSize) as $pageBatch) {
-                                $responses = Http::pool(
-                                    fn($pool) =>
-                                    collect($pageBatch)->map(
-                                        function ($page) use ($pool, $apiKey, $url, $visitDate, $branchCode) {
-                                            $pageParams = [
-                                                'visit_date' => $visitDate,
-                                                'page'       => $page,
-                                                'per_page'   => 100,
-                                            ];
-                                            if (!empty($branchCode)) {
-                                                $pageParams['branch_code'] = $branchCode;
-                                            }
-
-                                            return $pool->withHeaders([
-                                                'X-API-KEY' => $apiKey,
-                                                'Accept'    => 'application/json'
-                                            ])->timeout(25)->get($url, $pageParams);
-                                        }
-                                    )->all()
-                                );
-
-                                foreach ($responses as $i => $response) {
-                                    $page = $pageBatch[$i];
-                                    if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
-                                        $pageJson = $response->json();
-                                        $pageVisits = $pageJson['data'] ?? $pageJson['result'] ?? [];
-                                        $rawVisits = array_merge($rawVisits, $pageVisits);
-                                    } else {
-                                        $failedPages[] = $page;
-                                    }
-                                }
-                            }
-
-                            // 3. Retry loop jika ada halaman batch yang gagal/timeout
-                            if (!empty($failedPages)) {
-                                $retryPages = $failedPages;
-                                $failedPages = [];
-
-                                foreach ($retryPages as $retryPage) {
-                                    try {
-                                        $pageParams = [
-                                            'visit_date' => $visitDate,
-                                            'page'       => $retryPage,
-                                            'per_page'   => 100,
-                                        ];
-                                        if (!empty($branchCode)) {
-                                            $pageParams['branch_code'] = $branchCode;
-                                        }
-
-                                        $retryRes = Http::withHeaders([
-                                            'X-API-KEY' => $apiKey,
-                                            'Accept'    => 'application/json'
-                                        ])->timeout(25)->get($url, $pageParams);
-
-                                        if ($retryRes->successful()) {
-                                            $pageJson = $retryRes->json();
-                                            $pageVisits = $pageJson['data'] ?? $pageJson['result'] ?? [];
-                                            $rawVisits = array_merge($rawVisits, $pageVisits);
-                                        } else {
-                                            $failedPages[] = $retryPage;
-                                            Log::warning('SFA retry page gagal', [
-                                                'page'        => $retryPage,
-                                                'branch_code' => $branchCode,
-                                                'status'      => $retryRes->status()
-                                            ]);
-                                        }
-                                    } catch (\Exception $e) {
-                                        $failedPages[] = $retryPage;
-                                        Log::warning('SFA retry page exception', [
-                                            'page'        => $retryPage,
-                                            'branch_code' => $branchCode,
-                                            'error'       => $e->getMessage()
-                                        ]);
-                                    }
-                                }
-                            }
-
-                            if (!empty($failedPages)) {
-                                $errorMessage = 'SFA API: ' . count($failedPages) . ' dari ' . $totalPages . ' halaman gagal diambil (halaman: ' . implode(',', $failedPages) . '). Data kemungkinan tidak lengkap.';
-                            }
+                    if ($name !== '' && ($isDoctor || $hasDoctorTitle)) {
+                        if (!isset($docs[$name])) {
+                            $docs[$name] = [
+                                'user_name'       => $name,
+                                'specialist'      => !empty($row->customer_channel_name) ? trim($row->customer_channel_name) : '-',
+                                'visit_count'     => 0,
+                                'last_visit_date' => $row->visit_date ?? '-',
+                            ];
                         }
-
-                        // 4. Guard jika selisih data akibat page gagal
-                        if ($totalDataExpected !== null && count($rawVisits) < $totalDataExpected && !empty($failedPages)) {
-                            Log::warning('SFA visits count mismatch due to failed pages', [
-                                'visit_date'  => $visitDate,
-                                'branch_code' => $branchCode,
-                                'expected'    => $totalDataExpected,
-                                'fetched'     => count($rawVisits),
-                            ]);
-                            if (!$errorMessage) {
-                                $errorMessage = 'Data kunjungan tidak lengkap: ' . $totalDataExpected . ' tercatat di SFA, ' . count($rawVisits) . ' berhasil diambil.';
-                            }
+                        $docs[$name]['visit_count'] += 1;
+                        if (!empty($row->visit_date) && $row->visit_date > $docs[$name]['last_visit_date']) {
+                            $docs[$name]['last_visit_date'] = $row->visit_date;
                         }
+                    }
+                }
+
+                return array_values($docs);
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'data'   => $doctors,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Error in getDoctorVisitDetails: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => $e->getMessage(), 'data' => []], 500);
+        }
+    }
+
+    /**
+     * Query & normalisasi data Kunjungan VS Realisasi Selling Out
+     * Berbasis tabel lokal DWH sfa_call_plan_dashboards & crm_sellout_summary
+     */
+    public function getVisitRealizationData(Request $request)
+    {
+        // Amankan alokasi memori PHP untuk query rentang tanggal panjang (misal 1 tahun)
+        @ini_set('memory_limit', '512M');
+
+        // 1. Resolusi rentang tanggal
+        [$startDate, $endDate] = $this->resolveDateRange($request);
+
+        $divisi = $request->get('divisi');
+        $level = $request->get('level');
+        $employee = $request->get('employee') ?: $request->get('nik');
+        $outlet = $request->get('outlet');
+
+        // Cache key unik per kombinasi filter
+        $cacheParams = md5(implode('|', [
+            $startDate,
+            $endDate,
+            $divisi ?? '',
+            $level ?? '',
+            $employee ?? '',
+            $outlet ?? ''
+        ]));
+        $cacheKey = 'visit_realization_v1_' . $cacheParams;
+        $ttl = 600; // 10 menit
+
+        $result = Cache::remember($cacheKey, $ttl, function () use ($startDate, $endDate, $divisi, $level, $employee, $outlet) {
+            try {
+                // 2. Query kunjungan dari sfa_call_plan_dashboards
+                $query = DB::connection('db_dwh')
+                    ->table('sfa_call_plan_dashboards')
+                    ->whereBetween('visit_date', [$startDate, $endDate])
+                    ->where('actual_approval_status', 'APPROVED')
+                    ->where('visit_status', 'VISITED');
+
+                // Pengecualian lokasi absensi kantor internal
+                $query->where(function ($q) {
+                    $q->whereNull('location_name')->orWhere('location_name', 'not like', '%KANTOR%');
+                })->where(function ($q) {
+                    $q->whereNull('outlet_name')->orWhere('outlet_name', 'not like', '%KANTOR%');
+                })->where(function ($q) {
+                    $q->whereNull('location_name')->orWhere('location_name', 'not like', 'PHAPROS%');
+                })->where(function ($q) {
+                    $q->whereNull('outlet_name')->orWhere('outlet_name', 'not like', 'PHAPROS%');
+                });
+
+                // Filter Level
+                if (!empty($level) && $level !== 'All') {
+                    $this->applyLevelFilter($query, $level);
+                }
+
+                // Filter Divisi
+                if (!empty($divisi) && $divisi !== 'All') {
+                    $query->where('pilar_name', 'like', '%' . $divisi . '%');
+                }
+
+                // Filter Employee (NIK atau Nama)
+                if (!empty($employee) && $employee !== 'All') {
+                    $cleanNik = ltrim($employee, '0');
+                    if (is_numeric($cleanNik) || preg_match('/^[0-9A-Za-z]+$/', $employee)) {
+                        $query->whereIn('pic_nik', array_unique([$employee, $cleanNik]));
                     } else {
-                        $errorBody = $firstResponse->json();
-                        $msg = is_array($errorBody) ? ($errorBody['message'] ?? ('HTTP ' . $firstResponse->status())) : ('HTTP ' . $firstResponse->status());
-                        $errorMessage = 'SFA API Error: ' . $msg;
-                        Log::warning('SFA Visit API returned status ' . $firstResponse->status(), [
-                            'branch_code' => $branchCode,
-                            'body'        => $firstResponse->body()
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    $errorMessage = 'SFA Connection Error: ' . $e->getMessage();
-                    Log::error('SFA Visit API Exception: ' . $e->getMessage(), ['branch_code' => $branchCode]);
-                }
-            } else {
-                $errorMessage = 'KLIKPETA_API_KEY tidak terkonfigurasi di file .env.';
-            }
-
-            // 5. Deduplikasi Data Kunjungan (Menghapus record ganda dari SFA API pagination)
-            $dedupedVisits = [];
-            foreach ($rawVisits as $item) {
-                $vId = null;
-                if (!empty($item['id'])) {
-                    $vId = 'id_' . $item['id'];
-                } else {
-                    $nik = isset($item['nik_pic']) ? $item['nik_pic'] : (isset($item['nik']) ? $item['nik'] : (isset($item['sales_nik']) ? $item['sales_nik'] : ''));
-                    $loc = isset($item['location_code']) ? $item['location_code'] : (isset($item['outlet_code']) ? $item['outlet_code'] : '');
-                    $vDate = isset($item['visit_date']) ? $item['visit_date'] : $visitDate;
-                    $vTime = isset($item['visit_time']) ? $item['visit_time'] : '';
-                    $lat = isset($item['visit_latitude']) ? $item['visit_latitude'] : (isset($item['lat']) ? $item['lat'] : 0);
-                    $lng = isset($item['visit_longitude']) ? $item['visit_longitude'] : (isset($item['lng']) ? $item['lng'] : 0);
-                    $vId = "sig_{$nik}_{$loc}_{$vDate}_{$vTime}_{$lat}_{$lng}";
-                }
-
-                if (isset($dedupedVisits[$vId])) {
-                    // Gabungkan product detailing jika ada
-                    if (!empty($item['product_detailing']) && is_array($item['product_detailing'])) {
-                        $existing = isset($dedupedVisits[$vId]['product_detailing']) && is_array($dedupedVisits[$vId]['product_detailing'])
-                            ? $dedupedVisits[$vId]['product_detailing']
-                            : [];
-                        $merged = array_merge($existing, $item['product_detailing']);
-                        $dedupedVisits[$vId]['product_detailing'] = collect($merged)->unique(function ($p) {
-                            return ($p['code'] ?? '') . '_' . ($p['name'] ?? '');
-                        })->values()->all();
-                    }
-                } else {
-                    $dedupedVisits[$vId] = $item;
-                }
-            }
-            $visits = array_values($dedupedVisits);
-
-            // 🐎 Ponytail: Filter out absensi/kunjungan kantor internal (KANTOR-*, PHAPROS CAB., dll).
-            // Data ini adalah absensi pegawai di kantor cabang/pusat, bukan kunjungan sales ke outlet/pelanggan.
-            $visits = array_values(array_filter($visits, function ($item) {
-                $code = strtoupper(trim((string) (
-                    isset($item['location_code']) && !empty($item['location_code'])
-                        ? $item['location_code']
-                        : (isset($item['outlet_code']) && !empty($item['outlet_code'])
-                            ? $item['outlet_code']
-                            : (isset($item['customer_id']) ? $item['customer_id'] : ''))
-                )));
-                $name = strtoupper(trim((string) (
-                    isset($item['outlet_name']) && !empty($item['outlet_name'])
-                        ? $item['outlet_name']
-                        : (isset($item['location_name']) && !empty($item['location_name'])
-                            ? $item['location_name']
-                            : '')
-                )));
-
-                if ($code !== '' && strpos($code, 'KANTOR') !== false) {
-                    return false;
-                }
-                if ($name !== '' && strpos($name, 'KANTOR') !== false) {
-                    return false;
-                }
-                if ($name !== '' && strpos($name, 'PHAPROS') === 0) {
-                    return false;
-                }
-
-                return true;
-            }));
-
-
-            // Link with CRM Master Customer using id_konversi (matched via SFA location_code)
-            $locationCodes = collect($visits)
-                ->map(function ($item) {
-                    return !empty($item['location_code'])
-                        ? $item['location_code']
-                        : (!empty($item['outlet_code']) ? $item['outlet_code'] : null);
-                })
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-
-            $masterCustMap = collect();
-            if (!empty($locationCodes)) {
-                try {
-                    $masterCustMap = CrmMstCust::whereIn('id_konversi', $locationCodes)
-                        ->with(['coverages.mapping.user'])
-                        ->get()
-                        ->keyBy('id_konversi');
-                } catch (\Exception $e) {
-                    Log::warning('Error querying CrmMstCust via id_konversi: ' . $e->getMessage());
-                }
-            }
-
-            // Users lookup from auth table (connection: mysql)
-            $userByNik = collect();
-            try {
-                $userByNik = DB::table('users')->pluck('name', 'nik');
-            } catch (\Exception $e) {
-                Log::warning('Error querying users table: ' . $e->getMessage());
-            }
-
-            // Link with CRM Mappings using NIK PIC & Names
-            $mappingByNik = collect();
-            $mappingByName = collect();
-            try {
-                $allMappings = DB::connection('db_dwh')
-                    ->table('crm_mst_mappings')
-                    ->whereNull('deleted_at')
-                    ->get();
-
-                $mappingByNik = $allMappings->keyBy('cov_nik');
-                $mappingByName = $allMappings->keyBy(fn($m) => mb_strtolower(trim($m->cov_desc ?? '')));
-            } catch (\Exception $e) {
-                Log::warning('Error querying crm_mst_mappings: ' . $e->getMessage());
-            }
-
-            // Query Sellout Netto from crm_sellout_summary via id_konversi and pilar
-            $selloutPilarMap = collect();
-            $selloutOutletMap = collect();
-            if (!empty($locationCodes)) {
-                try {
-                    $selloutPilarRows = DB::connection('db_dwh')
-                        ->table('crm_sellout_summary')
-                        ->whereIn('id_konversi', $locationCodes)
-                        ->groupBy('id_konversi', 'pilar_sub')
-                        ->select('id_konversi', 'pilar_sub', DB::raw('SUM(netto) as total_netto'))
-                        ->get();
-
-                    $selloutPilarMap = $selloutPilarRows->groupBy('id_konversi');
-
-                    $selloutOutletMap = DB::connection('db_dwh')
-                        ->table('crm_sellout_summary')
-                        ->whereIn('id_konversi', $locationCodes)
-                        ->groupBy('id_konversi')
-                        ->select('id_konversi', DB::raw('SUM(netto) as total_netto'))
-                        ->pluck('total_netto', 'id_konversi');
-                } catch (\Exception $e) {
-                    Log::warning('Error querying crm_sellout_summary: ' . $e->getMessage());
-                }
-            }
-
-            // Normalize live visit items for Map and DataTable (Strict PHP 7.4 compatible)
-            $normalizedVisits = collect($visits)->map(function ($item, $idx) use ($visitDate, $masterCustMap, $selloutPilarMap, $selloutOutletMap, $userByNik, $mappingByNik, $mappingByName) {
-                $lat = (float) ($item['visit_latitude'] ?? $item['lat'] ?? 0);
-                $lng = (float) ($item['visit_longitude'] ?? $item['lng'] ?? $item['long'] ?? 0);
-                $locationCode = isset($item['location_code']) && !empty($item['location_code'])
-                    ? $item['location_code']
-                    : (isset($item['outlet_code']) && !empty($item['outlet_code']) ? $item['outlet_code'] : null);
-                $cust = ($locationCode && $masterCustMap->has($locationCode)) ? $masterCustMap->get($locationCode) : null;
-
-                // Resolve SFA identity
-                $sfaNik = isset($item['nik_pic']) && trim((string)$item['nik_pic']) !== ''
-                    ? trim((string)$item['nik_pic'])
-                    : (isset($item['nik']) ? trim((string)$item['nik']) : (isset($item['sales_nik']) ? trim((string)$item['sales_nik']) : null));
-                $sfaName = isset($item['nama_pic']) && trim((string)$item['nama_pic']) !== ''
-                    ? trim((string)$item['nama_pic'])
-                    : (isset($item['sales_name']) ? trim((string)$item['sales_name']) : (isset($item['user_name']) ? trim((string)$item['user_name']) : null));
-
-                // Resolve Mapping from visiting sales NIK / Name
-                $matchedMapping = null;
-                if ($sfaNik && $mappingByNik->has($sfaNik)) {
-                    $matchedMapping = $mappingByNik->get($sfaNik);
-                } elseif ($sfaName) {
-                    $nameKey = mb_strtolower(trim($sfaName));
-                    if ($mappingByName->has($nameKey)) {
-                        $matchedMapping = $mappingByName->get($nameKey);
+                        $query->where('pic_nama', 'like', '%' . $employee . '%');
                     }
                 }
 
-                $nik = $sfaNik ? $sfaNik : ($matchedMapping ? $matchedMapping->cov_nik : (isset($item['branch_code']) ? $item['branch_code'] : '-'));
-                $officialName = ($nik && $userByNik->has($nik))
-                    ? $userByNik->get($nik)
-                    : ($matchedMapping ? $matchedMapping->cov_desc : $sfaName);
-                $salesName = $officialName ? $officialName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force');
-
-                // Match specific coverage in master cust
-                $matchedCov = null;
-                if ($cust && $cust->coverages && $cust->coverages->isNotEmpty()) {
-                    if ($nik && $nik !== '-') {
-                        $matchedCov = $cust->coverages->first(function ($c) use ($nik) {
-                            return optional($c->mapping)->cov_nik == $nik;
-                        });
-                    }
-                    if (!$matchedCov && $matchedMapping && !empty($matchedMapping->cov_pilar)) {
-                        $pilarTarget = $matchedMapping->cov_pilar;
-                        $matchedCov = $cust->coverages->first(function ($c) use ($pilarTarget) {
-                            return $c->pilar == $pilarTarget;
-                        });
-                    }
-                    if (!$matchedCov) {
-                        $matchedCov = $cust->coverages->first();
-                    }
+                // Filter Outlet (Kode atau Nama)
+                if (!empty($outlet) && $outlet !== 'All') {
+                    $query->where('location_code', $outlet);
                 }
 
-                // Resolve Pilar accurately: SFA payload -> Sales Mapping Pilar -> Coverage Pilar -> Cust Divisi
-                $pilar = !empty($item['pilar'])
-                    ? $item['pilar']
-                    : ($matchedMapping && !empty($matchedMapping->cov_pilar)
-                        ? $matchedMapping->cov_pilar
-                        : ($matchedCov && !empty($matchedCov->pilar)
-                            ? $matchedCov->pilar
-                            : ($cust && !empty($cust->divisi) ? $cust->divisi : '-')));
-
-                // Resolve Outlet Name prioritizing crm_mst_cust (nama_outlet)
-                $outletName = ($cust && !empty($cust->nama_outlet))
-                    ? $cust->nama_outlet
-                    : (isset($item['outlet_name']) && !empty($item['outlet_name'])
-                        ? $item['outlet_name']
-                        : (isset($item['location_name']) && !empty($item['location_name'])
-                            ? $item['location_name']
-                            : ('Outlet #' . ($idx + 1))));
-                $customerId = $locationCode ? $locationCode : (isset($item['outlet_code']) ? $item['outlet_code'] : '-');
-                $targetKonversi = $locationCode ? $locationCode : (isset($item['outlet_code']) ? $item['outlet_code'] : null);
-
-                // Calculate Netto matching NIK & Pilar
-                $totalNetto = 0.0;
-                if ($targetKonversi) {
-                    if ($pilar && $pilar !== '-' && $selloutPilarMap->has($targetKonversi)) {
-                        $pilarRows = $selloutPilarMap->get($targetKonversi);
-                        $matchingRows = $pilarRows->filter(function ($r) use ($pilar) {
-                            $ps = strtoupper(trim((string)$r->pilar_sub));
-                            $p = strtoupper(trim((string)$pilar));
-                            return $ps === $p || ($p === 'ETHICAL' && in_array($ps, ['ETHICOM', 'ETHIPROM'], true));
-                        });
-                        if ($matchingRows->isNotEmpty()) {
-                            $totalNetto = (float) $matchingRows->sum('total_netto');
-                        } else {
-                            $totalNetto = (float) ($selloutOutletMap->get($targetKonversi) ?? 0.0);
-                        }
-                    } elseif ($selloutOutletMap->has($targetKonversi)) {
-                        $totalNetto = (float) $selloutOutletMap->get($targetKonversi);
-                    }
-                }
-
-                return [
-                    'id'                  => isset($item['id']) ? $item['id'] : ($idx + 1),
-                    'nik'                 => $nik ? $nik : (isset($item['branch_code']) ? $item['branch_code'] : '-'),
-                    'sfa_nik'             => $sfaNik,
-                    'sales_name'          => $salesName ? $salesName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force'),
-                    'pic_name'            => $sfaName ? $sfaName : (isset($item['branch_name']) ? $item['branch_name'] : 'Sales Force'),
-                    'outlet_name'         => $outletName,
-                    'customer_id'         => $customerId,
-                    'location_code'       => $locationCode,
-                    'id_konversi'         => $locationCode,
-                    'total_netto'         => $totalNetto,
-                    'outlet_code'         => isset($item['outlet_code']) ? $item['outlet_code'] : '-',
-                    'location_name'       => isset($item['location_name']) ? $item['location_name'] : '-',
-                    'branch_code'         => isset($item['branch_code']) ? $item['branch_code'] : '-',
-                    'branch_name'         => isset($item['branch_name']) ? $item['branch_name'] : '-',
-                    'latitude'            => $lat,
-                    'longitude'           => $lng,
-                    'visit_date'          => isset($item['visit_date']) ? $item['visit_date'] : $visitDate,
-                    'visit_time'          => isset($item['visit_time']) ? $item['visit_time'] : '-',
-                    'visit_resume'        => isset($item['visit_resume']) ? $item['visit_resume'] : '-',
-                    'customer_discussion' => isset($item['customer_discussion']) ? $item['customer_discussion'] : '-',
-                    'product_detailing'   => isset($item['product_detailing']) && is_array($item['product_detailing']) ? $item['product_detailing'] : [],
-                    'jabatan_pic'         => isset($item['jabatan_pic']) ? $item['jabatan_pic'] : 'MR',
-                    'supervisor_name'     => isset($item['supervisor_name']) ? $item['supervisor_name'] : '-',
-                    'supervisor_nik'      => isset($item['supervisor_nik']) ? $item['supervisor_nik'] : '-',
-                    'supervisor_jabatan'  => isset($item['supervisor_jabatan']) ? $item['supervisor_jabatan'] : 'AM',
-                    'approval_status'     => isset($item['approval_status']) ? $item['approval_status'] : null,
-                    'pilar'               => $pilar ? $pilar : '-',
-                    'status'              => !empty($item['approval_status']) ? $item['approval_status'] : (isset($item['status']) ? $item['status'] : 'Selesai'),
+                $columns = [
+                    'location_code',
+                    'location_name',
+                    'outlet_name',
+                    'is_doctor',
+                    'customer_channel_name',
+                    'visit_date',
+                    'visit_latitude',
+                    'visit_longitude',
+                    'pic_nik',
+                    'pic_nama',
+                    'pic_jabatan',
+                    'pilar_name',
                 ];
-            });
 
-            // Double safety filter pada normalized visits (menangkap jika nama terisi dari master cust)
-            $normalizedVisits = $normalizedVisits->filter(function ($v) {
-                $code = strtoupper(trim((string) (isset($v['customer_id']) ? $v['customer_id'] : (isset($v['location_code']) ? $v['location_code'] : ''))));
-                $name = strtoupper(trim((string) (isset($v['outlet_name']) ? $v['outlet_name'] : '')));
+                $rawVisits = $query->select($columns)->get();
 
-                if ($code !== '' && strpos($code, 'KANTOR') !== false) {
-                    return false;
-                }
-                if ($name !== '' && strpos($name, 'KANTOR') !== false) {
-                    return false;
-                }
-                if ($name !== '' && strpos($name, 'PHAPROS') === 0) {
-                    return false;
-                }
+                // 3. Ambil data Selling Out dari crm_sellout_summary
+                $locationCodes = $rawVisits->pluck('location_code')->filter()->unique()->values()->all();
+                $selloutMap = $this->fetchSelloutSummaryMap($locationCodes, $startDate, $endDate);
 
-                return true;
-            })->values();
-
-            return [
-                'apiSuccess'       => $apiSuccess,
-                'errorMessage'     => $errorMessage,
-                'normalizedVisits' => $normalizedVisits,
-            ];
+                // 4. Agregasi untuk Tabel, Map, dan KPI Cards
+                return $this->aggregateVisitRealization($rawVisits, $selloutMap, $startDate, $endDate);
+            } catch (\Exception $e) {
+                Log::error('VisitController::getVisitRealizationData error: ' . $e->getMessage());
+                return [
+                    'summary'     => [
+                        'jumlah_user_terkunjungi' => 0,
+                        'total_realisasi'         => 0,
+                        'produktivitas_per_level' => 0,
+                        'total_produktivitas_ff'  => 0,
+                        'jumlah_ff'               => 0,
+                    ],
+                    'map_markers' => [],
+                    'table_data'  => [],
+                    'error'       => $e->getMessage()
+                ];
+            }
         });
-    }
 
-    /**
-     * Helper untuk memproses parameter tanggal dari request.
-     */
-    protected function resolveVisitDate(Request $request): string
-    {
-        $visitDate = $request->get('visit_date', Carbon::today()->toDateString());
-        if ($request->get('filter') === 'today') {
-            $visitDate = Carbon::today()->toDateString();
-        } elseif ($request->get('filter') === 'month_start') {
-            $visitDate = Carbon::now()->startOfMonth()->toDateString();
-        }
-
-        return $visitDate;
-    }
-
-    /**
-     * Helper untuk memformat output JSON standar (search DataTables, summary metrics, heatmap).
-     */
-    protected function buildResponse(Request $request, array $fetchResult, string $visitDate)
-    {
-        $apiSuccess = $fetchResult['apiSuccess'];
-        $errorMessage = $fetchResult['errorMessage'];
-        $normalizedVisits = $fetchResult['normalizedVisits'];
-
-        // Search filter for datatable ajax requests
+        // 5. Search filter opsional untuk DataTables AJAX request
         $search = $request->input('search.value');
-        if ($search) {
+        $tableData = $result['table_data'];
+        if (!empty($search)) {
             $needle = mb_strtolower(trim($search));
-            $needleInt = ltrim($needle, '0');
-
-            $normalizedVisits = $normalizedVisits->filter(function ($r) use ($needle, $needleInt) {
-                $nik = mb_strtolower($r['nik'] ?? '');
-                $sfaNik = mb_strtolower($r['sfa_nik'] ?? '');
-                $crmNik = mb_strtolower($r['crm_nik'] ?? '');
-                $salesName = mb_strtolower($r['sales_name'] ?? '');
-
-                return ($needle !== '' && (
-                    str_contains($nik, $needle) ||
-                    str_contains($sfaNik, $needle) ||
-                    str_contains($crmNik, $needle) ||
-                    str_contains($salesName, $needle) ||
-                    str_contains(mb_strtolower($r['outlet_name'] ?? ''), $needle) ||
-                    str_contains(mb_strtolower($r['customer_id'] ?? ''), $needle) ||
-                    str_contains(mb_strtolower(isset($r['location_code']) ? $r['location_code'] : ''), $needle) ||
-                    str_contains(mb_strtolower(isset($r['outlet_code']) ? $r['outlet_code'] : ''), $needle) ||
-                    str_contains(mb_strtolower(isset($r['branch_name']) ? $r['branch_name'] : ''), $needle) ||
-                    str_contains(mb_strtolower($r['visit_resume'] ?? ''), $needle)
-                ))
-                    || ($needleInt !== '' && (
-                        str_contains($nik, $needleInt) ||
-                        str_contains($sfaNik, $needleInt) ||
-                        str_contains($crmNik, $needleInt)
-                    ));
-            });
+            $tableData = array_values(array_filter($tableData, function ($r) use ($needle) {
+                return strpos(mb_strtolower($r['employee'] ?? ''), $needle) !== false
+                    || strpos(mb_strtolower($r['outlet'] ?? ''), $needle) !== false
+                    || strpos(mb_strtolower($r['nik'] ?? ''), $needle) !== false;
+            }));
         }
-
-        // Summary metrics
-        $totalVisits = $normalizedVisits->count();
-        $uniqueOutlets = $normalizedVisits->pluck('customer_id')->unique()->count();
-        $activeSales = $normalizedVisits->pluck('nik')->unique()->count();
-
-        // Heatmap points array [lat, lng, intensity]
-        $heatmapPoints = $normalizedVisits
-            ->filter(function ($v) {
-                return !empty($v['latitude']) && !empty($v['longitude']);
-            })
-            ->map(function ($v) {
-                return [(float) $v['latitude'], (float) $v['longitude'], 1];
-            })
-            ->values()
-            ->all();
-
-        // 🐎 Ponytail: Calculate dummy targets since SFA API lacks it for now.
-        $planVisits = $totalVisits > 0 ? (int)ceil($totalVisits * 1.25) : 0;
-        $efektivitas = $planVisits > 0 ? round(($totalVisits / $planVisits) * 100, 1) : 0;
-        $produktivitas = $activeSales > 0 ? round($totalVisits / $activeSales, 1) : 0;
 
         return response()->json([
             'status'          => 'success',
-            'api_connected'   => $apiSuccess,
-            'error_message'   => $errorMessage,
-            'date_applied'    => $visitDate,
             'draw'            => (int) $request->input('draw', 1),
-            'recordsTotal'    => $totalVisits,
-            'recordsFiltered' => $totalVisits,
-            'data'            => $normalizedVisits->values()->all(),
-            'heatmap_points'  => $heatmapPoints,
-            'summary'         => [
-                'plan_visits'    => $planVisits,
-                'total_visits'   => $totalVisits,
-                'efektivitas'    => $efektivitas,
-                'produktivitas'  => $produktivitas,
-                'unique_outlets' => $uniqueOutlets,
-                'active_sales'   => $activeSales,
+            'recordsTotal'    => count($result['table_data']),
+            'recordsFiltered' => count($tableData),
+            'summary'         => $result['summary'],
+            'map_markers'     => $result['map_markers'],
+            'table_data'      => $tableData,
+            'filters'         => [
+                'start_date' => $startDate,
+                'end_date'   => $endDate,
             ]
         ]);
+    }
+
+    /**
+     * Resolusi tanggal dari request: prioritas date range start_date & end_date,
+     * fallback visit_date tunggal, atau default MTD.
+     */
+    protected function resolveDateRange(Request $request): array
+    {
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            return [
+                Carbon::parse($request->input('start_date'))->toDateString(),
+                Carbon::parse($request->input('end_date'))->toDateString(),
+            ];
+        }
+
+        if ($request->filled('visit_date')) {
+            $date = Carbon::parse($request->input('visit_date'))->toDateString();
+            return [$date, $date];
+        }
+
+        // Default MTD
+        $startDate = Carbon::now()->startOfMonth()->toDateString();
+        $endDate = Carbon::today()->toDateString();
+
+        try {
+            $latestVisitDate = Cache::remember('dwh_latest_visit_date', 3600, function () use ($startDate, $endDate) {
+                $hasData = DB::connection('db_dwh')
+                    ->table('sfa_call_plan_dashboards')
+                    ->whereBetween('visit_date', [$startDate, $endDate])
+                    ->exists();
+
+                if (!$hasData) {
+                    return DB::connection('db_dwh')
+                        ->table('sfa_call_plan_dashboards')
+                        ->max('visit_date');
+                }
+                return $endDate;
+            });
+
+            if ($latestVisitDate && $latestVisitDate !== $endDate) {
+                $latest = Carbon::parse($latestVisitDate);
+                $startDate = $latest->copy()->startOfMonth()->toDateString();
+                $endDate = $latest->toDateString();
+            }
+        } catch (\Exception $e) {
+            // Silence exception, keep default
+        }
+
+        return [$startDate, $endDate];
+    }
+
+    /**
+     * Terapkan filter Level ke query builder
+     */
+    protected function applyLevelFilter($query, string $level): void
+    {
+        switch ($level) {
+            case 'SAM':
+                $query->where(function ($q) {
+                    $q->where('pic_jabatan', 'SAM')->orWhere('pic_jabatan', 'like', '%SENIOR AREA MANAGER%');
+                });
+                break;
+            case 'AM':
+                $query->where(function ($q) {
+                    $q->where('pic_jabatan', 'AM')->orWhere('pic_jabatan', 'like', '%AREA MANAGER%');
+                });
+                break;
+            case 'MR Ethical':
+                $query->where(function ($q) {
+                    $q->where(function ($sq) {
+                        $sq->where('pic_jabatan', 'MR')->orWhere('pic_jabatan', 'like', '%MEDICAL%');
+                    })->where('pilar_name', 'like', '%ETHIC%');
+                });
+                break;
+            case 'MR OGB':
+                $query->where(function ($q) {
+                    $q->where(function ($sq) {
+                        $sq->where('pic_jabatan', 'MR')->orWhere('pic_jabatan', 'like', '%MEDICAL%');
+                    })->where('pilar_name', 'like', '%OGB%');
+                });
+                break;
+            case 'MR Combo':
+                $query->where(function ($q) {
+                    $q->where(function ($sq) {
+                        $sq->where('pic_jabatan', 'MR')->orWhere('pic_jabatan', 'like', '%MEDICAL%');
+                    })->where(function ($sq) {
+                        $sq->where('pilar_name', 'like', '%COMBO%')
+                            ->orWhere('pilar_name', 'like', '%ETHIC%')
+                            ->orWhere('pilar_name', 'like', '%OGB%');
+                    });
+                });
+                break;
+            case 'SR OTC':
+                $query->where(function ($q) {
+                    $q->where('pic_jabatan', 'SR')
+                        ->orWhere('pic_jabatan', 'like', '%SALES REP%')
+                        ->orWhere('pilar_name', 'like', '%OTC%');
+                });
+                break;
+        }
+    }
+
+    /**
+     * Query batch data Selling Out dari crm_sellout_summary
+     */
+    protected function fetchSelloutSummaryMap(array $locationCodes, string $startDate, string $endDate): array
+    {
+        if (empty($locationCodes)) {
+            return [];
+        }
+
+        $selloutMap = [];
+        try {
+            $selloutQuery = DB::connection('db_dwh')
+                ->table('crm_sellout_summary')
+                ->whereBetween('tgl_faktur', [$startDate, $endDate]);
+
+            // Jika lokasi sedikit (misal filter cabang/sales tertentu), query whereIn langsung di SQL.
+            // Jika lokasi banyak/semua, biarkan tgl_faktur (yang berindeks) yang scan di SQL,
+            // lalu filter di PHP dengan O(1) hash lookup untuk menghindari ribuan parameter in-clause.
+            $filterInSql = count($locationCodes) <= 300;
+            if ($filterInSql) {
+                $selloutQuery->whereIn('id_konversi', $locationCodes);
+            }
+
+            $selloutRows = $selloutQuery
+                ->select('id_konversi', 'pilar_sub', DB::raw('SUM(netto) as total_netto'))
+                ->groupBy('id_konversi', 'pilar_sub')
+                ->get();
+
+            $locLookup = $filterInSql ? null : array_flip($locationCodes);
+
+            foreach ($selloutRows as $sr) {
+                $loc = (string) $sr->id_konversi;
+                if ($locLookup !== null && !isset($locLookup[$loc])) {
+                    continue;
+                }
+
+                $pilar = trim((string) $sr->pilar_sub);
+                $netto = (float) $sr->total_netto;
+
+                if (!isset($selloutMap[$loc])) {
+                    $selloutMap[$loc] = [
+                        'total_netto' => 0.0,
+                        'breakdown'   => [
+                            'Ethi-KOM'  => 0.0,
+                            'Ethi-PROM' => 0.0,
+                            'OGB'       => 0.0,
+                            'OTC'       => 0.0,
+                        ]
+                    ];
+                }
+
+                $selloutMap[$loc]['total_netto'] += $netto;
+                if (isset($selloutMap[$loc]['breakdown'][$pilar])) {
+                    $selloutMap[$loc]['breakdown'][$pilar] += $netto;
+                } else {
+                    $selloutMap[$loc]['breakdown'][$pilar] = $netto;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Error querying crm_sellout_summary: ' . $e->getMessage());
+        }
+
+        return $selloutMap;
+    }
+
+    /**
+     * Agregasi data kunjungan dan selling out ke format UI
+     */
+    protected function aggregateVisitRealization($rawVisits, array $selloutMap, string $startDate, string $endDate): array
+    {
+        $tableGroups = [];
+        $allVisitedDoctors = [];
+        $allFfNiks = [];
+
+        foreach ($rawVisits as $row) {
+            $emp = !empty($row->pic_nama) ? trim($row->pic_nama) : ($row->pic_nik ?? 'Sales Force');
+            $outlet = !empty($row->location_name) ? trim($row->location_name) : ($row->outlet_name ?? 'Outlet');
+            $locCode = $row->location_code ? trim((string)$row->location_code) : null;
+            $key = $emp . '||' . $outlet;
+
+            if (!empty($row->pic_nik)) {
+                $allFfNiks[$row->pic_nik] = true;
+            }
+
+            if (!isset($tableGroups[$key])) {
+                $sellingOutData = ($locCode && isset($selloutMap[$locCode])) ? $selloutMap[$locCode] : null;
+                $realisasiNetto = $sellingOutData ? $sellingOutData['total_netto'] : 0.0;
+                $breakdown = $sellingOutData ? $sellingOutData['breakdown'] : [];
+
+                $tableGroups[$key] = [
+                    'employee'              => $emp,
+                    'nik'                   => $row->pic_nik ?? '-',
+                    'outlet'                => $outlet,
+                    'location_code'         => $locCode,
+                    'latitude'              => (float) ($row->visit_latitude ?? 0),
+                    'longitude'             => (float) ($row->visit_longitude ?? 0),
+                    'total_kunjungan'       => 0,
+                    'realisasi_selling_out' => $realisasiNetto,
+                    'selling_breakdown'     => $breakdown,
+                    'doctor_count'          => 0,
+                    'users_visited'         => [],
+                    '_doctor_names'         => [],
+                    '_map_user_labels'      => [],
+                ];
+            }
+
+            $tableGroups[$key]['total_kunjungan'] += 1;
+
+            // Jika kunjungan dokter/user (is_doctor = 1 atau nama mengandung indikasi dokter)
+            $isDoctor = (bool) ($row->is_doctor ?? false);
+            $doctorName = trim((string) ($row->outlet_name ?? ''));
+
+            $hasDoctorTitle = (strpos(strtolower($doctorName), 'dr.') !== false || strpos(strtolower($doctorName), 'sp.') !== false);
+            if ($doctorName !== '' && ($isDoctor || $hasDoctorTitle)) {
+                $allVisitedDoctors[$doctorName] = true;
+                $tableGroups[$key]['_doctor_names'][$doctorName] = true;
+
+                $uLabel = $doctorName . (!empty($row->customer_channel_name) && trim($row->customer_channel_name) !== '-' ? ', ' . trim($row->customer_channel_name) : '');
+                $tableGroups[$key]['_map_user_labels'][$uLabel] = true;
+            }
+        }
+
+        // Agregasi titik peta unik
+        $mapMarkers = [];
+        foreach ($tableGroups as $tg) {
+            $loc = $tg['outlet'];
+            $lat = $tg['latitude'];
+            $lng = $tg['longitude'];
+            if (empty($lat) || empty($lng) || ($lat == 0.0 && $lng == 0.0)) {
+                continue;
+            }
+
+            $mapKey = !empty($tg['location_code']) ? $tg['location_code'] : ($lat . '_' . $lng);
+            if (!isset($mapMarkers[$mapKey])) {
+                $mapMarkers[$mapKey] = [
+                    'outlet_name'       => $loc,
+                    'latitude'          => $lat,
+                    'longitude'         => $lng,
+                    'total_kunjungan'   => 0,
+                    'selling_out_total' => $tg['realisasi_selling_out'],
+                    'selling_breakdown' => $tg['selling_breakdown'],
+                    'users'             => [],
+                ];
+            }
+
+            $mapMarkers[$mapKey]['total_kunjungan'] += $tg['total_kunjungan'];
+            if (!empty($tg['_map_user_labels'])) {
+                foreach ($tg['_map_user_labels'] as $uLabel => $v) {
+                    $mapMarkers[$mapKey]['users'][$uLabel] = true;
+                }
+            }
+        }
+
+        foreach ($mapMarkers as &$mm) {
+            $allLabels = array_keys($mm['users']);
+            if (count($allLabels) > 8) {
+                $sliced = array_slice($allLabels, 0, 8);
+                $sliced[] = '+ ' . (count($allLabels) - 8) . ' dokter lainnya';
+                $mm['users'] = $sliced;
+            } else {
+                $mm['users'] = $allLabels;
+            }
+        }
+        unset($mm);
+
+        // Summary KPI Cards
+        $jumlahUserTerkunjungi = count($allVisitedDoctors);
+
+        $visitedUniqueOutlets = collect($tableGroups)->pluck('location_code')->filter()->unique()->all();
+        $totalRealisasi = 0.0;
+        foreach ($visitedUniqueOutlets as $locCode) {
+            if (isset($selloutMap[$locCode])) {
+                $totalRealisasi += (float) $selloutMap[$locCode]['total_netto'];
+            }
+        }
+
+        $jumlahFfFiltered = count($allFfNiks);
+        $produktivitasPerLevel = $jumlahFfFiltered > 0 ? ($totalRealisasi / $jumlahFfFiltered) : 0.0;
+
+        // Subtitle: Total produktivitas FF (SAM, AM, dan MR)
+        $totalFfCompany = Cache::remember('crm_total_ff_company', 86400, function () use ($jumlahFfFiltered) {
+            try {
+                $cnt = DB::table('users')->where('is_active', 1)->where(function ($q) {
+                    $q->where('jabatan', 'like', '%SAM%')
+                        ->orWhere('jabatan', 'like', '%AM%')
+                        ->orWhere('jabatan', 'like', '%MR%')
+                        ->orWhere('jabatan', 'like', '%SR%')
+                        ->orWhere('jabatan', 'like', '%MANAGER%')
+                        ->orWhere('jabatan', 'like', '%REPRESENTATIVE%');
+                })->count();
+                return $cnt > 0 ? $cnt : max($jumlahFfFiltered, 1);
+            } catch (\Exception $e) {
+                return max($jumlahFfFiltered, 1);
+            }
+        });
+        $totalProduktivitasFf = $totalRealisasi / max($totalFfCompany, 1);
+
+        $tableDataList = [];
+        foreach ($tableGroups as $tg) {
+            $tg['doctor_count'] = count($tg['_doctor_names']);
+            unset($tg['_doctor_names'], $tg['_map_user_labels']);
+            $tableDataList[] = $tg;
+        }
+
+        return [
+            'summary'     => [
+                'jumlah_user_terkunjungi' => $jumlahUserTerkunjungi,
+                'total_realisasi'         => $totalRealisasi,
+                'produktivitas_per_level' => $produktivitasPerLevel,
+                'total_produktivitas_ff'  => $totalProduktivitasFf,
+                'jumlah_ff'               => $jumlahFfFiltered,
+            ],
+            'map_markers' => array_values($mapMarkers),
+            'table_data'  => $tableDataList,
+        ];
     }
 }

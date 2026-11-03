@@ -50,13 +50,10 @@ Dashboard.Charts = (function ($, H) {
         var el = document.querySelector("#chartPerBulan");
         if (!el) return;
 
-        var isLaptop = window.innerHeight <= 850 || window.innerWidth <= 1536;
-        var chartHeight = isLaptop ? 250 : 320;
-
         chartTrend = new ApexCharts(el, {
             chart: {
                 type: "area",
-                height: chartHeight,
+                height: 320,
                 toolbar: {
                     show: true,
                     tools: {

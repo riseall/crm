@@ -158,6 +158,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [VisitController::class, 'index'])->name('index');
         Route::get('/data', [VisitController::class, 'getVisitData'])->name('data');
         Route::get('/data-by-sales', [VisitController::class, 'getVisitDataBySales'])->name('data-by-sales');
+        Route::get('/detail-doctors', [VisitController::class, 'getDoctorVisitDetails'])->name('detail-doctors');
     });
 
     Route::post('/notifications/coverage/read', function () {

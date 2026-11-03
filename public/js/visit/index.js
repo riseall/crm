@@ -4,60 +4,66 @@ $(document).ready(function() {
     const config = window.VisitPageConfig || {
         initialNik: '',
         initialName: '',
-        isDetail: false,
         today: new Date().toISOString().slice(0, 10),
         routes: {
-            data: '/visits/data',
-            dataBySales: '/visits/data-by-sales'
+            data: '/visits/data'
         }
     };
 
+    /**
+     * Skala Intensitas Kunjungan (Inverted Sesuai Aturan Pengguna):
+     * Kunjungan Semakin BANYAK = Semakin HIJAU
+     * Kunjungan Semakin SEDIKIT = Semakin MERAH
+     */
     const VISIT_TIERS = [{
             min: 15,
-            color: '#dc2626',
-            badge: 'badge-danger',
+            color: '#16a34a', // Hijau pekat (Kunjungan Banyak)
+            badge: 'badge-success',
             label: 'Sangat Sering',
             heat: 1.00
         },
         {
             min: 10,
-            color: '#ea580c',
-            badge: 'badge-warning',
+            color: '#84cc16', // Hijau muda
+            badge: 'badge-light-success',
             label: 'Sering Dikunjungi',
-            heat: 0.85
+            heat: 0.75
         },
         {
             min: 5,
-            color: '#eab308',
+            color: '#eab308', // Kuning
             badge: 'badge-warning',
             label: 'Sedang Dikunjungi',
-            heat: 0.65
+            heat: 0.50
         },
         {
             min: 2,
-            color: '#16a34a',
-            badge: 'badge-success',
+            color: '#ea580c', // Orange
+            badge: 'badge-light-danger',
             label: 'Jarang Dikunjungi',
-            heat: 0.40
+            heat: 0.28
         },
         {
             min: 0,
-            color: '#0ea5b8',
-            badge: 'badge-info',
+            color: '#dc2626', // Merah (Kunjungan Sedikit)
+            badge: 'badge-danger',
             label: 'Minimal Visit',
-            heat: 0.25
+            heat: 0.12
         },
     ];
 
-    const getVisitTier = (count) => VISIT_TIERS.find(tier => count >= tier.min);
+    const getVisitTier = (count) => VISIT_TIERS.find(tier => count >= tier.min) || VISIT_TIERS[VISIT_TIERS.length - 1];
 
-    const heatmapGradient = () =>
-        VISIT_TIERS.reduce((gradient, tier) => {
-            gradient[tier.heat] = tier.color;
-            return gradient;
-        }, {});
+    const heatmapGradient = () => ({
+        0.05: 'rgba(239, 68, 68, 0.72)',   // Vivid Soft Crimson (Merah)
+        0.25: 'rgba(249, 115, 22, 0.74)',  // Soft Coral (Orange)
+        0.45: 'rgba(250, 204, 21, 0.76)',  // Soft Amber Yellow (Kuning)
+        0.70: 'rgba(132, 204, 22, 0.78)',  // Soft Lime Green (Hijau Muda)
+        0.95: 'rgba(16, 185, 129, 0.82)',  // Soft Emerald (Hijau Pekat)
+        1.00: 'rgba(5, 150, 105, 0.85)'    // Deep Forest Green
+    });
 
-    /** Format numeric value to Rupiah currency string. */
+    /** Format angka ke Rupiah standar */
     const formatRupiah = (val) => {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -66,53 +72,71 @@ $(document).ready(function() {
         }).format(val || 0);
     };
 
-    /** Render a "lat, lng" value as a clickable Google Maps link. */
-    const coordinateLink = (lat, lng, className = 'small font-weight-bold text-primary') => {
-        if (!lat || !lng) return '<span class="text-muted">-</span>';
-        return `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="${className}">
-            <i class="fas fa-external-link-alt mr-1"></i>${lat}, ${lng}
-        </a>`;
+    /** Format angka ringkas Rupiah (M = Miliar, Jt = Juta) */
+    const formatShortRupiah = (val) => {
+        if (!val || val === 0) return 'Rp 0';
+        const absVal = Math.abs(val);
+        if (absVal >= 1000000000) {
+            return 'Rp ' + (val / 1000000000).toLocaleString('id-ID', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            }) + ' M';
+        }
+        if (absVal >= 1000000) {
+            return 'Rp ' + (val / 1000000).toLocaleString('id-ID', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            }) + ' Jt';
+        }
+        return formatRupiah(val);
     };
 
-    // ===== State =====
+    // ===== State Map & DataTables =====
     let map = null;
     let heatLayer = null;
-    const heatGroup = L.layerGroup();
     const markerGroup = L.layerGroup();
+    let currentMapMarkers = [];
     let showHeatmap = true;
-    let showMarkers = false;
+    let showMarkers = true;
     let tblVisit = null;
-    let visitDataStore = [];
-    let currentFilteredVisits = []; // Store the filtered view
-
-    // Read NIK & Name filter parameter if in detail mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialNik = urlParams.get('nik') || config.initialNik || '';
-    const initialName = config.initialName || '';
 
     initMap();
     initDatatable();
     loadVisitData();
 
     function initMap() {
-        // Initial view focused on Java / Indonesia
+        // Fokus awal wilayah Indonesia / Jawa
         map = L.map('visitMap').setView([-6.2088, 106.8456], 6);
+
+        // Buat pane khusus untuk heatmap di bawah markerPane (600) & popupPane (700)
+        if (!map.getPane('heatmapPane')) {
+            const hPane = map.createPane('heatmapPane');
+            hPane.style.zIndex = 205; // Tepat di atas tile OSM (200), di bawah SEMUA marker & popup
+            hPane.style.pointerEvents = 'none';
+
+            // Sisipkan fisik DOM tepat sebelum markerPane agar rendering z-index dan GPU layer 100% konsisten
+            const mPane = map.getPane('markerPane');
+            if (mPane && mPane.parentNode) {
+                mPane.parentNode.insertBefore(hPane, mPane);
+            }
+        }
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
+            attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        heatGroup.addTo(map);
         markerGroup.addTo(map);
 
-        // Smart hybrid layer switcher: continuous heatmap on zoom out,
-        // custom pin badges on zoom in.
+        // Responsif re-render marker LOD saat level zoom berubah (debounced 80ms)
+        let zoomTimer = null;
         map.on('zoomend', function() {
-            showMarkers = map.getZoom() >= 10;
-            $('#btnToggleMarkers').toggleClass('active', showMarkers);
-            if (currentFilteredVisits.length > 0) {
-                updateMapLayers(currentFilteredVisits, false);
-            }
+            clearTimeout(zoomTimer);
+            zoomTimer = setTimeout(function() {
+                if (currentMapMarkers && currentMapMarkers.length > 0) {
+                    renderLodMarkers();
+                }
+            }, 80);
         });
 
         setTimeout(() => map.invalidateSize(), 300);
@@ -125,7 +149,7 @@ $(document).ready(function() {
             responsive: true,
             data: [],
             order: [
-                [1, 'desc']
+                [3, 'desc'] // Urutkan berdasarkan Total Kunjungan terbanyak
             ],
             columns: [{
                     data: null,
@@ -135,37 +159,43 @@ $(document).ready(function() {
                     render: (d, t, r, meta) => meta.row + 1
                 },
                 {
-                    data: null,
-                    render: (d) =>
-                        `<div><strong>${d.visit_date}</strong></div>
-                         <div class="small text-muted">${d.visit_time}</div>`
+                    data: 'employee',
+                    render: (d, t, r) =>
+                        `<div><strong class="text-dark font-size-sm">${d || '-'}</strong></div>
+                         <span class="badge badge-light-primary font-weight-bold">${r.nik || '-'}</span>`
                 },
                 {
-                    data: null,
-                    render: (d) =>
-                        `<div><strong>${d.sales_name}</strong></div>
-                         <span class="badge badge-light-primary font-weight-bold">${d.nik}</span>`
+                    data: 'outlet',
+                    render: (d, t, r) =>
+                        `<div><strong class="text-dark">${d || '-'}</strong></div>
+                         <span class="badge badge-light-secondary font-weight-normal text-muted">${r.location_code || 'Outlet'}</span>`
                 },
                 {
-                    data: null,
-                    render: (d) =>
-                        `<div><strong>${d.outlet_name}</strong></div>
-                         <span class="badge badge-light-success font-weight-bold">${d.customer_id}</span>`
+                    data: 'total_kunjungan',
+                    className: 'text-center font-weight-bolder text-dark font-size-h6',
+                    render: (d) => `<span class="badge badge-light-info font-weight-bolder font-size-sm px-3 py-2">${d || 0}</span>`
+                },
+                {
+                    data: 'realisasi_selling_out',
+                    className: 'text-right font-weight-bolder text-success font-size-sm',
+                    render: (d) => formatRupiah(d || 0)
                 },
                 {
                     data: null,
                     className: 'text-center',
                     orderable: false,
                     searchable: false,
-                    render: (d, t, row, meta) =>
-                        `<button type="button" class="btn btn-icon btn-sm btn-outline-primary font-weight-bolder btn-view-detail" data-idx="${meta.row}">
-                            <i class="fas fa-eye icon-md"></i>
-                        </button>`
+                    render: (d, t, r) => {
+                        const countUsers = r.doctor_count !== undefined ? r.doctor_count : (r.users_visited || []).length;
+                        return `<button type="button" class="btn btn-icon btn-sm btn-light-primary btn-expand-row" title="Lihat ${countUsers} dokter/user">
+                            <i class="fas fa-plus icon-xs"></i>
+                        </button>`;
+                    }
                 }
             ]
         });
 
-        // Penomoran baris berurutan otomatis (1, 2, 3...) meski tabel di-sorting atau di-search
+        // Penomoran baris otomatis berurutan (1, 2, 3...)
         tblVisit.on('order.dt search.dt draw.dt', function() {
             tblVisit.column(0, {
                 search: 'applied',
@@ -174,268 +204,438 @@ $(document).ready(function() {
                 cell.innerHTML = i + 1;
             });
         });
-    }
 
-    function loadVisitData() {
-        const visitDate = $('#filter_visit_date').val();
-        const pilar = $('#filter_pilar').val();
+        // Event listener klik tombol (+) untuk expand child row (Gambar 2)
+        $('#tblVisit tbody').on('click', '.btn-expand-row', function() {
+            const btn = $(this);
+            const tr = btn.closest('tr');
+            const row = tblVisit.row(tr);
 
-        const isSalesDetail = Boolean(initialNik);
-        const targetUrl = isSalesDetail ? (config.routes.dataBySales || '/visits/data-by-sales') :
-            (config.routes.data || '/visits/data');
+            if (row.child.isShown()) {
+                row.child.hide();
+                tr.removeClass('shown');
+                btn.removeClass('expanded');
+            } else {
+                const rowData = row.data();
+                if (rowData.users_visited && rowData.users_visited.length > 0) {
+                    row.child(formatChildRow(rowData)).show();
+                    tr.addClass('shown');
+                    btn.addClass('expanded');
+                } else if (config.routes.detailDoctors && rowData.location_code) {
+                    // Lazy-load detail dokter via AJAX on-demand
+                    row.child(`<div class="table-child-row-wrapper m-2 p-3 text-center text-muted font-size-sm">
+                        <i class="fas fa-spinner fa-spin mr-2 text-primary"></i> Memuat rincian dokter/user...
+                    </div>`).show();
+                    tr.addClass('shown');
+                    btn.addClass('expanded');
 
-        $.ajax({
-            url: targetUrl,
-            type: 'GET',
-            data: {
-                visit_date: visitDate,
-                nik: initialNik || undefined,
-                pilar: pilar,
-                search: {
-                    value: initialNik || ''
-                }
-            },
-            success: function(res) {
-                if (res.status !== 'success') return;
-
-                visitDataStore = res.data || [];
-
-                // 🐎 Ponytail: Filter out absensi kantor (KANTOR-*, PHAPROS CAB., dll)
-                visitDataStore = visitDataStore.filter(function(v) {
-                    const code = String(v.customer_id || v.location_code || v.outlet_code || '').toUpperCase();
-                    const name = String(v.outlet_name || v.location_name || '').toUpperCase();
-                    if (code.indexOf('KANTOR') !== -1) return false;
-                    if (name.indexOf('KANTOR') !== -1) return false;
-                    if (name.indexOf('PHAPROS') === 0) return false;
-                    return true;
-                });
-
-                // Apply local filters if needed
-                let filtered = visitDataStore;
-                if ($('#filter_pilar').length) {
-                    const pilarVal = $('#filter_pilar').val();
-                    if (pilarVal) {
-                        const pilars = Array.isArray(pilarVal) ? pilarVal.filter(Boolean) : [
-                            pilarVal
-                        ];
-                        if (pilars.length > 0 && pilars[0] !== '') {
-                            filtered = filtered.filter(v => pilars.includes(v.pilar));
+                    const [startDate, endDate] = getSelectedDateRange();
+                    $.ajax({
+                        url: config.routes.detailDoctors,
+                        type: 'GET',
+                        data: {
+                            location_code: rowData.location_code,
+                            start_date: startDate,
+                            end_date: endDate,
+                            employee: rowData.nik || ''
+                        },
+                        success: function(res) {
+                            if (res.status === 'success' && res.data) {
+                                rowData.users_visited = res.data;
+                            } else {
+                                rowData.users_visited = [];
+                            }
+                            if (row.child.isShown()) {
+                                row.child(formatChildRow(rowData)).show();
+                            }
+                        },
+                        error: function() {
+                            if (row.child.isShown()) {
+                                row.child(`<div class="table-child-row-wrapper m-2 p-3 text-danger small">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i> Gagal memuat rincian dokter.
+                                </div>`).show();
+                            }
                         }
-                    }
-                }
-
-                if (initialNik || initialName) {
-                    const termNik = initialNik ? String(initialNik).trim().toLowerCase() : '';
-                    const termNikInt = termNik ? termNik.replace(/^0+/, '') : '';
-                    const termName = initialName ? String(initialName).trim().toLowerCase() : '';
-
-                    filtered = filtered.filter(v => {
-                        const vNik = String(v.nik || '').toLowerCase();
-                        const vSfaNik = String(v.sfa_nik || '').toLowerCase();
-                        const vCrmNik = String(v.crm_nik || '').toLowerCase();
-                        const vName = String(v.sales_name || '').toLowerCase();
-
-                        const matchNik = termNik && (
-                            vNik.includes(termNik) ||
-                            vSfaNik.includes(termNik) ||
-                            vCrmNik.includes(termNik) ||
-                            (termNikInt && (vNik.includes(termNikInt) || vSfaNik.includes(termNikInt) || vCrmNik.includes(termNikInt)))
-                        );
-                        const matchName = termName && vName.includes(termName);
-
-                        return matchNik || matchName;
                     });
+                } else {
+                    row.child(formatChildRow(rowData)).show();
+                    tr.addClass('shown');
+                    btn.addClass('expanded');
                 }
-
-                currentFilteredVisits = filtered;
-
-                updateSummaryCards(filtered);
-                tblVisit.clear().rows.add(filtered).draw();
-
-                // fitBounds only on initial data load / filter submit
-                updateMapLayers(filtered, true);
-
-                if (res.error_message) {
-                    toastr.warning(res.error_message);
-                } else if (filtered.length === 0) {
-                    toastr.info('Tidak ada data kunjungan pada tanggal ' + (visitDate || ''));
-                }
-            },
-            error: function() {
-                toastr.error('Gagal memuat data kunjungan');
             }
         });
     }
 
-    function updateSummaryCards(visits) {
-        const totalVisits = visits.length;
-        const activeSales = new Set(visits.map(v => v.nik)).size;
+    /**
+     * Render Sub-table Breakdown Dokter/User yang dikunjungi di Outlet tersebut
+     */
+    function formatChildRow(d) {
+        const users = d.users_visited || [];
+        if (users.length === 0) {
+            return `
+                <div class="table-child-row-wrapper m-2">
+                    <span class="text-muted font-italic small">
+                        <i class="fas fa-info-circle mr-1"></i> Tidak ada dokter / user spesifik yang tercatat pada kunjungan ini.
+                    </span>
+                </div>
+            `;
+        }
 
-        // 🐎 Ponytail: Calculate dummy targets since SFA API lacks it for now.
-        const planVisits = totalVisits > 0 ? Math.ceil(totalVisits * 1.25) : 0;
-        const efektivitas = planVisits > 0 ? ((totalVisits / planVisits) * 100).toFixed(1) : 0;
-        const produktivitas = activeSales > 0 ? (totalVisits / activeSales).toFixed(1) : 0;
-
-        $('#card_plan_visits').text(planVisits);
-        $('#card_total_visits').text(totalVisits);
-        $('#card_efektivitas').text(efektivitas + '%');
-        $('#card_produktivitas').text(produktivitas);
-    }
-
-    /** Group raw visit rows into one entry per outlet/coordinate. */
-    function groupVisitsByOutlet(visits) {
-        const outletMap = {};
-        const latLngs = [];
-
-        visits.forEach((v) => {
-            if (!v.latitude || !v.longitude) return;
-
-            const lat = parseFloat(v.latitude);
-            const lng = parseFloat(v.longitude);
-            latLngs.push([lat, lng]);
-
-            const key = v.id_konversi || v.location_code || v.customer_id ||
-                `${lat.toFixed(4)}_${lng.toFixed(4)}`;
-            if (!outletMap[key]) {
-                outletMap[key] = {
-                    lat,
-                    lng,
-                    outlet_name: v.outlet_name || 'Outlet',
-                    customer_id: v.customer_id || '-',
-                    nik: v.nik || '-',
-                    pilar: v.pilar || '-',
-                    user_name: v.sales_name || v.pic_name || v.nik || '-',
-                    total_netto: parseFloat(v.total_netto) || 0,
-                    visits: [],
-                    count: 0
-                };
-            }
-            outletMap[key].count += 1;
-            outletMap[key].visits.push(v);
+        let rowsHtml = '';
+        users.forEach((u, i) => {
+            rowsHtml += `
+                <tr>
+                    <td class="text-center font-weight-bold text-muted">${i + 1}</td>
+                    <td class="font-weight-bolder text-dark">
+                        <i class="fas fa-user-md text-primary mr-2"></i>${u.user_name}
+                    </td>
+                    <td>
+                        <span class="badge badge-light-info font-weight-bold">${u.specialist || '-'}</span>
+                    </td>
+                    <td class="text-center font-weight-bolder text-success">
+                        ${u.visit_count}x Kunjungan
+                    </td>
+                    <td class="text-center text-muted small">
+                        ${u.last_visit_date || '-'}
+                    </td>
+                </tr>
+            `;
         });
-
-        return {
-            outletMap,
-            latLngs
-        };
-    }
-
-    function buildPopupHtml(item, tier) {
-        const userName = item.user_name || (item.visits[0] && (item.visits[0].sales_name || item.visits[0]
-            .pic_name || item.visits[0].nik)) || '-';
-        const formattedNetto = formatRupiah(item.total_netto || 0);
-        const pilarBadge = item.pilar && item.pilar !== '-' ?
-            `<span class="badge badge-light-primary font-weight-bold ml-1">${item.pilar}</span>` : '';
 
         return `
-            <div class="visit-popup p-1">
-                <div class="font-weight-bolder text-dark font-size-sm mb-2 pb-1 border-bottom d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center text-truncate mr-2">
-                        <i class="fas fa-store-alt text-primary mr-2 font-size-xs"></i>
-                        <span class="text-truncate" title="${item.outlet_name}">${item.outlet_name}</span>
-                    </div>
-                    ${pilarBadge}
+            <div class="table-child-row-wrapper m-2">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="font-weight-bolder text-dark font-size-sm">
+                        <i class="fas fa-hospital-user text-primary mr-1"></i> Rincian Dokter / User Terkunjungi di <u>${d.outlet}</u>
+                    </span>
+                    <span class="badge badge-primary font-weight-bolder">${users.length} Dokter Terdata</span>
                 </div>
-                <div class="d-flex justify-content-between align-items-center py-1">
-                    <span class="text-muted font-size-xs"><i class="fas fa-walking text-primary mr-1"></i> Total Kunjungan</span>
-                    <span class="badge ${tier.badge} font-weight-bolder px-2 py-1">${item.count}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-1">
-                    <span class="text-muted font-size-xs"><i class="fas fa-user-tie text-info mr-1"></i> User</span>
-                    <span class="font-weight-bold font-size-xs text-dark text-right text-truncate ml-2" style="max-width: 130px;" title="${userName}">${userName}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-1">
-                    <span class="text-muted font-size-xs"><i class="fas fa-coins text-warning mr-1"></i> Netto</span>
-                    <span class="font-weight-bolder font-size-xs text-success ml-2">${formattedNetto}</span>
+                <div style="max-height: 320px; overflow-y: auto;" class="border rounded bg-white shadow-xs">
+                    <table class="table table-sm table-bordered table-hover mb-0">
+                        <thead class="thead-light" style="position: sticky; top: 0; z-index: 2;">
+                            <tr>
+                                <th style="width: 40px;" class="text-center">No</th>
+                                <th>Nama User / Dokter</th>
+                                <th>Spesialisasi</th>
+                                <th style="width: 140px;" class="text-center">Total Kunjungan</th>
+                                <th style="width: 130px;" class="text-center">Tgl Terakhir</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
                 </div>
             </div>
         `;
     }
 
-    function buildPinIcon(item, tier) {
-        return L.divIcon({
-            className: 'custom-pin-marker',
-            iconSize: [40, 32],
-            iconAnchor: [20, 32],
-            popupAnchor: [0, -28],
-            html: `
-                <div class="pin-badge-wrapper">
-                    <div class="pin-badge-body" style="background-color: ${tier.color}">
-                        <i class="fas fa-map-marker-alt text-white mr-1" style="font-size:10px;"></i>
-                        <span>${item.count}</span>
-                    </div>
-                    <div class="pin-badge-arrow" style="border-top-color: ${tier.color}"></div>
-                </div>
-            `
+    /**
+     * Ambil rentang tanggal aktif dari form filter
+     */
+    function getSelectedDateRange() {
+        const s = $('#filter_start_date').val();
+        const e = $('#filter_end_date').val();
+        return [
+            s || config.today,
+            e || config.today
+        ];
+    }
+
+    /**
+     * AJAX Fetch Data Kunjungan VS Realisasi
+     */
+    function loadVisitData() {
+        const startDate = $('#filter_start_date').val();
+        const endDate = $('#filter_end_date').val();
+        const divisi = $('#filter_divisi').val();
+        const level = $('#filter_level').val();
+        const employee = $('#filter_employee').val();
+        const outlet = $('#filter_outlet').val();
+
+        if (typeof KTApp !== 'undefined') {
+            KTApp.block('#tblVisit', {
+                overlayColor: '#000000',
+                state: 'primary',
+                message: 'Memuat data kunjungan & realisasi...'
+            });
+        }
+
+        $.ajax({
+            url: config.routes.data || '/visits/data',
+            type: 'GET',
+            data: {
+                start_date: startDate,
+                end_date: endDate,
+                divisi: divisi,
+                level: level,
+                employee: employee,
+                outlet: outlet,
+            },
+            success: function(res) {
+                if (typeof KTApp !== 'undefined') KTApp.unblock('#tblVisit');
+                if (res.status !== 'success') return;
+
+                // 1. Update 3 Summary KPI Cards (Gambar 1)
+                updateSummaryCards(res.summary);
+
+                // 2. Update Map Markers & Inverted Heatmap (Gambar 1)
+                updateMapMarkers(res.map_markers || []);
+
+                // 3. Update Detail Table (Gambar 2)
+                tblVisit.clear().rows.add(res.table_data || []).draw();
+
+                if (!res.table_data || res.table_data.length === 0) {
+                    toastr.info('Tidak ada data kunjungan pada periode yang dipilih.');
+                }
+            },
+            error: function() {
+                if (typeof KTApp !== 'undefined') KTApp.unblock('#tblVisit');
+                toastr.error('Gagal memuat data kunjungan & realisasi.');
+            }
         });
     }
 
-    function updateMapLayers(visits, shouldFitBounds = false) {
+    /**
+     * Update 3 Summary KPI Cards
+     */
+    function updateSummaryCards(summary) {
+        if (!summary) return;
+
+        // Card 1: Jumlah User yang Ter-kunjungi
+        $('#card_user_terkunjungi').text((summary.jumlah_user_terkunjungi || 0).toLocaleString('id-ID'));
+
+        // Card 2: Total Realisasi Selling Out
+        const totalRealisasi = summary.total_realisasi || 0;
+        $('#card_total_realisasi').text(formatShortRupiah(totalRealisasi));
+
+        // Card 3: Produktivitas per Level & Total FF
+        const prodLevel = summary.produktivitas_per_level || 0;
+        const prodFf = summary.total_produktivitas_ff || 0;
+        $('#card_produktivitas_level').text(formatShortRupiah(prodLevel) + '/bln');
+        $('#card_produktivitas_ff').text(formatShortRupiah(prodFf) + '/bln');
+    }
+
+    /**
+     * Circular Bubble Marker ala Google Maps AQI & IQAir Earth
+     */
+    function buildAqiMarker(item, tier) {
+        // Kontras teks otomatis: teks gelap untuk background kuning/lime terang
+        const isLightBg = tier.color === '#eab308' || tier.color === '#84cc16';
+        const contrastClass = isLightBg ? 'text-dark-contrast' : '';
+        const count = item.total_kunjungan || 0;
+
+        return L.divIcon({
+            className: 'aqi-div-icon',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            popupAnchor: [0, -16],
+            html: `<div class="aqi-marker-badge ${contrastClass}" style="background-color: ${tier.color};">${count}</div>`
+        });
+    }
+
+    /**
+     * Smart Adaptive Grid LOD Thinning (Anti-Clumping di Semua Tingkat Zoom)
+     * Mengatur jarak minimum antar-badge (~24-50px di layar)
+     * Memastikan marker 30px tidak pernah saling menumpuk menjadi gumpalan
+     * dan total DOM node selalu terjaga ringan (< 150 node) untuk 60 FPS
+     */
+    function filterMarkersForLod(items, zoom) {
+        if (!items || items.length === 0) return [];
+
+        // Ukuran sel piksel layar agar marker 30px tidak pernah tabrakan
+        const cellSize = zoom >= 13 ? 24 : (zoom >= 10 ? 32 : (zoom >= 8 ? 40 : 50));
+        const grid = {};
+
+        items.forEach(item => {
+            const lat = parseFloat(item.latitude);
+            const lng = parseFloat(item.longitude);
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
+            const pt = map.project([lat, lng], zoom);
+            const cellKey = Math.floor(pt.x / cellSize) + '_' + Math.floor(pt.y / cellSize);
+
+            if (!grid[cellKey] || (Number(item.total_kunjungan) > Number(grid[cellKey].total_kunjungan))) {
+                grid[cellKey] = item;
+            }
+        });
+
+        return Object.values(grid);
+    }
+
+    /**
+     * Render marker bubble lingkaran bernomor dengan LOD adaptif
+     */
+    function renderLodMarkers() {
         markerGroup.clearLayers();
-        if (heatLayer && map.hasLayer(heatLayer)) {
-            map.removeLayer(heatLayer);
-        }
+        if (!showMarkers || !currentMapMarkers || currentMapMarkers.length === 0) return;
 
-        const {
-            outletMap,
-            latLngs
-        } = groupVisitsByOutlet(visits);
-        const heatPoints = [];
+        const currentZoom = map.getZoom();
+        const visibleItems = filterMarkersForLod(currentMapMarkers, currentZoom);
 
-        Object.values(outletMap).forEach((item) => {
-            const tier = getVisitTier(item.count);
-            heatPoints.push([item.lat, item.lng, tier.heat]);
+        visibleItems.forEach(item => {
+            const lat = parseFloat(item.latitude);
+            const lng = parseFloat(item.longitude);
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
-            const marker = L.marker([item.lat, item.lng], {
-                icon: buildPinIcon(item, tier)
-            }).bindPopup(buildPopupHtml(item, tier));
+            const tier = getVisitTier(item.total_kunjungan);
+            const marker = L.marker([lat, lng], {
+                icon: buildAqiMarker(item, tier),
+                pane: 'markerPane'
+            });
+
+            // Lazy popup evaluation: only built when clicked!
+            marker.bindPopup(function() {
+                return buildPopupHtml(item, tier);
+            });
+
             markerGroup.addLayer(marker);
         });
 
-        // Canvas heatmap layer (smooth continuous regional heat cloud)
-        if (showHeatmap && heatPoints.length > 0) {
-            try {
-                heatLayer = L.heatLayer(heatPoints, {
-                    radius: 34,
-                    blur: 24,
-                    maxZoom: 9,
-                    max: 1.0,
-                    minOpacity: 0.30,
-                    gradient: heatmapGradient()
-                }).addTo(map);
-            } catch (e) {
-                console.warn('Heatmap engine warning:', e);
+        if (!map.hasLayer(markerGroup)) {
+            markerGroup.addTo(map);
+        }
+    }
+
+    /**
+     * Custom Popup HTML sesuai spesifikasi:
+     * Nama RS, Total Kunjungan, Daftar User dokter (is_doctor=1), Selling Out total & breakdown pilar old
+     */
+    function buildPopupHtml(item, tier) {
+        const usersList = (item.users || []).map(u =>
+            `<div class="mb-1 text-truncate" title="${u}">
+                <i class="fas fa-circle text-primary mr-1" style="font-size: 5px; vertical-align: middle;"></i>
+                <span>${u}</span>
+            </div>`
+        ).join('') || '<span class="text-muted font-italic small">- Tidak ada dokter tercatat -</span>';
+
+        const formattedSellingOut = formatRupiah(item.selling_out_total || 0);
+
+        let breakdownHtml = '';
+        if (item.selling_breakdown) {
+            const bd = item.selling_breakdown;
+            if (bd['Ethi-KOM'] > 0) {
+                breakdownHtml += `<div class="d-flex justify-content-between"><span>Ethi-KOM:</span> <span class="font-weight-bold text-dark">${formatRupiah(bd['Ethi-KOM'])}</span></div>`;
+            }
+            if (bd['Ethi-PROM'] > 0) {
+                breakdownHtml += `<div class="d-flex justify-content-between"><span>Ethi-PROM:</span> <span class="font-weight-bold text-dark">${formatRupiah(bd['Ethi-PROM'])}</span></div>`;
+            }
+            if (bd['OGB'] > 0) {
+                breakdownHtml += `<div class="d-flex justify-content-between"><span>OGB:</span> <span class="font-weight-bold text-dark">${formatRupiah(bd['OGB'])}</span></div>`;
+            }
+            if (bd['OTC'] > 0) {
+                breakdownHtml += `<div class="d-flex justify-content-between"><span>OTC:</span> <span class="font-weight-bold text-dark">${formatRupiah(bd['OTC'])}</span></div>`;
             }
         }
 
-        if (showMarkers) {
-            if (!map.hasLayer(markerGroup)) markerGroup.addTo(map);
-        } else if (map.hasLayer(markerGroup)) {
-            map.removeLayer(markerGroup);
+        return `
+            <div class="visit-popup p-2" style="min-width: 250px; max-width: 320px;">
+                <div class="font-weight-bolder text-dark font-size-sm mb-2 pb-1 border-bottom d-flex align-items-center">
+                    <i class="fas fa-hospital-alt text-primary mr-2"></i>
+                    <span class="text-truncate" title="${item.outlet_name}">${item.outlet_name}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1">
+                    <span class="text-muted font-size-xs font-weight-bold">TOTAL KUNJUNGAN:</span>
+                    <span class="badge ${tier.badge} font-weight-bolder px-2 py-1">${item.total_kunjungan}</span>
+                </div>
+                <div class="py-1">
+                    <span class="text-muted font-size-xs font-weight-bold d-block mb-1">USER (DOKTER):</span>
+                    <div class="pl-2 small text-dark" style="max-height: 100px; overflow-y: auto;">
+                        ${usersList}
+                    </div>
+                </div>
+                <div class="pt-2 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted font-size-xs font-weight-bold">SELLING OUT:</span>
+                        <span class="font-weight-bolder text-success font-size-xs">${formattedSellingOut}</span>
+                    </div>
+                    ${breakdownHtml ? `<div class="pl-2 font-size-xs text-muted" style="background:#f8f9fa; padding:4px; border-radius:4px;">${breakdownHtml}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Update Peta Leaflet: Markers (LOD) & Seamless Inverted Heatmap Layer
+     */
+    function updateMapMarkers(markersData) {
+        currentMapMarkers = markersData || [];
+
+        // 1. Render Marker Bubble Lingkaran dengan LOD (Zoom-Aware)
+        renderLodMarkers();
+
+        // 2. Render Heatmap Layer dengan Seamless Blending ala IQAir Earth
+        if (heatLayer && map.hasLayer(heatLayer)) {
+            map.removeLayer(heatLayer);
+            heatLayer = null;
         }
 
-        // Auto fit bounds to visit locations ONLY on initial data load / filter submit
-        if (shouldFitBounds && latLngs.length > 0) {
+        const latLngs = [];
+        const coordMap = {};
+
+        currentMapMarkers.forEach((item) => {
+            const lat = parseFloat(item.latitude);
+            const lng = parseFloat(item.longitude);
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+
+            latLngs.push([lat, lng]);
+            const key = lat.toFixed(4) + '_' + lng.toFixed(4);
+            const tier = getVisitTier(item.total_kunjungan);
+            if (!coordMap[key] || tier.heat > coordMap[key][2]) {
+                coordMap[key] = [lat, lng, tier.heat];
+            }
+        });
+
+        const heatPoints = Object.values(coordMap);
+
+        // Heatmap layer dengan gradien terbalik, zoom-adaptive radius, & natural Gaussian falloff
+        if (showHeatmap && heatPoints.length > 0) {
+            try {
+                heatLayer = L.heatLayer(heatPoints, {
+                    pane: 'heatmapPane',
+                    radius: 28,
+                    blur: 32,
+                    maxZoom: 12,
+                    max: 1.0,
+                    minOpacity: 0.20,
+                    gradient: heatmapGradient()
+                }).addTo(map);
+
+                // Pastikan canvas heatmap berada di heatmapPane dan tembus event mouse
+                if (heatLayer && heatLayer._canvas) {
+                    heatLayer._canvas.style.pointerEvents = 'none';
+                    const hPane = map.getPane('heatmapPane');
+                    if (hPane && heatLayer._canvas.parentNode !== hPane) {
+                        hPane.appendChild(heatLayer._canvas);
+                    }
+                }
+            } catch (e) {
+                console.warn('Leaflet heat warning:', e);
+            }
+        }
+
+        if (latLngs.length > 0) {
             setTimeout(function() {
                 map.invalidateSize();
                 map.fitBounds(L.latLngBounds(latLngs), {
                     padding: [35, 35],
-                    maxZoom: 7
+                    maxZoom: 9
                 });
-            }, 150);
+            }, 200);
         }
     }
 
-    // ===== Event bindings =====
+    // ===== Event Bindings =====
 
     $('#btnFilterVisit').on('click', function() {
         loadVisitData();
     });
 
-    window.addEventListener('filter:reset', function(event) {
-        if (event.detail && event.detail.id && event.detail.id !== 'btnResetVisit') return;
-        $('#filter_visit_date').val(config.today || new Date().toISOString().slice(0, 10));
-        $('#filter_pilar').val('').trigger('change');
+    $('#btnResetVisit').on('click', function() {
+        $('#filter_start_date').val(config.today ? config.today.slice(0, 8) + '01' : '');
+        $('#filter_end_date').val(config.today || '');
+        $('#filter_divisi').val('All').selectpicker('refresh');
+        $('#filter_level').val('All').selectpicker('refresh');
+        $('#filter_employee').val('All').selectpicker('refresh');
+        $('#filter_outlet').val('All').selectpicker('refresh');
         loadVisitData();
     });
 
@@ -443,7 +643,22 @@ $(document).ready(function() {
         showHeatmap = typeof force === 'boolean' ? force : !showHeatmap;
         $('#btnToggleHeatmap').toggleClass('active', showHeatmap);
         $('#chkAqiHeatmapToggle').prop('checked', showHeatmap);
-        if (currentFilteredVisits.length > 0) updateMapLayers(currentFilteredVisits, false);
+        if (heatLayer) {
+            if (showHeatmap) {
+                if (!map.hasLayer(heatLayer)) {
+                    heatLayer.addTo(map);
+                    if (heatLayer._canvas) {
+                        heatLayer._canvas.style.pointerEvents = 'none';
+                        const hPane = map.getPane('heatmapPane');
+                        if (hPane && heatLayer._canvas.parentNode !== hPane) {
+                            hPane.appendChild(heatLayer._canvas);
+                        }
+                    }
+                }
+            } else if (map.hasLayer(heatLayer)) {
+                map.removeLayer(heatLayer);
+            }
+        }
     }
 
     $('#chkAqiHeatmapToggle').change(function() {
@@ -457,98 +672,6 @@ $(document).ready(function() {
     $('#btnToggleMarkers').click(function() {
         showMarkers = !showMarkers;
         $(this).toggleClass('active', showMarkers);
-        if (currentFilteredVisits.length > 0) updateMapLayers(currentFilteredVisits, false);
-    });
-
-    $('#lnkLearnMoreAqi').click(function() {
-        toastr.info(
-            'Indeks Kepadatan Kunjungan dihitung dari akumulasi frekuensi kunjungan sales ke outlet di area tersebut. Skala: 0-4 (Rendah/Hijau), 5-11 (Sedang/Orange), 12+ (Tinggi/Merah).'
-        );
-    });
-
-    $('#tblVisit').on('click', '.btn-view-detail', function() {
-        const idx = $(this).data('idx');
-        const row = tblVisit.row(idx).data();
-        if (!row) return;
-
-        $('#modal_sales_name').text(row.sales_name || 'Sales Force');
-        $('#modal_nik').html(`<i class="far fa-id-badge mr-1"></i><span>${row.nik || '-'}</span>`);
-
-        const branchText = row.branch_name ?
-            `${row.branch_name} ${row.branch_code ? '(' + row.branch_code + ')' : ''}` : (row.branch_code || '-');
-        $('#modal_branch').html(`<i class="fas fa-building mr-1"></i><span>${branchText}</span>`);
-
-        $('#modal_outlet_name').text(row.outlet_name || 'Nama Outlet Tidak Tercatat');
-        $('#modal_customer_id').html(
-            `<i class="fas fa-barcode mr-1"></i><span>${row.id_konversi || row.customer_id || '-'}</span>`
-        );
-        $('#modal_outlet_code').html(
-            `<i class="fas fa-tag mr-1"></i><span>${row.outlet_code && row.outlet_code !== '-' ? row.outlet_code : 'SFA'}</span>`
-        );
-
-        const visitTime = row.visit_time && row.visit_time !== '-' ? ` · Pukul ${row.visit_time}` : '';
-        $('#modal_visit_datetime').text(`${row.visit_date || '-'}${visitTime}`);
-
-        $('#modal_pilar').text(row.pilar || '-');
-
-        // Status Badge styling
-        const rawStatus = (row.status || row.approval_status || 'Selesai').toString().toUpperCase();
-        const isApproved = rawStatus.includes('APPROV') || rawStatus.includes('SELESAI');
-        $('#modal_status')
-            .text(rawStatus)
-            .removeClass('badge-success badge-warning badge-secondary badge-light-primary')
-            .addClass(isApproved ? 'badge-success' : 'badge-warning');
-
-        // Coordinates & Google Maps Action Button
-        const hasCoordinates = Boolean(row.latitude && row.longitude && parseFloat(row.latitude) !== 0);
-        if (hasCoordinates) {
-            const lat = parseFloat(row.latitude).toFixed(6);
-            const lng = parseFloat(row.longitude).toFixed(6);
-            $('#modal_coordinates').html(coordinateLink(lat, lng, 'font-weight-bolder text-primary small'));
-            $('#btn_modal_open_gmaps')
-                .attr('href', `https://maps.google.com/?q=${lat},${lng}`)
-                .removeClass('disabled')
-                .show();
-        } else {
-            $('#modal_coordinates').html(
-                '<span class="text-muted font-italic small">Tidak ada koordinat</span>');
-            $('#btn_modal_open_gmaps')
-                .attr('href', '#')
-                .addClass('disabled')
-                .hide();
-        }
-
-        // Visit Resume
-        if (row.visit_resume && row.visit_resume.trim() !== '' && row.visit_resume !== '-') {
-            $('#modal_visit_resume').removeClass('detail-note-empty').text(row.visit_resume);
-        } else {
-            $('#modal_visit_resume').addClass('detail-note-empty').text('Tidak ada ringkasan kunjungan');
-        }
-
-        // Customer Discussion
-        if (row.customer_discussion && row.customer_discussion.trim() !== '' && row.customer_discussion !== '-') {
-            $('#modal_customer_discussion').removeClass('detail-note-empty').text(row.customer_discussion);
-        } else {
-            $('#modal_customer_discussion').addClass('detail-note-empty').text('Tidak ada catatan diskusi outlet');
-        }
-
-        // Product Detailing
-        if (Array.isArray(row.product_detailing) && row.product_detailing.length > 0) {
-            const productsHtml = row.product_detailing.map(p =>
-                `<span class="product-detailing-pill">
-                    <i class="fas fa-capsules"></i>
-                    <span>${p.name || p.code}</span>
-                    ${p.code ? `<span class="badge badge-secondary ml-2 py-1 px-2 font-weight-normal">${p.code}</span>` : ''}
-                </span>`
-            ).join('');
-            $('#modal_product_detailing').html(productsHtml);
-            $('#modal_product_detailing_container').show();
-        } else {
-            $('#modal_product_detailing').html(
-                '<span class="text-muted font-italic small"><i class="fas fa-info-circle mr-1"></i>Tidak ada product detailing yang dicatat</span>'
-            );
-        }
-
-        $('#modalVisitDetail').modal('show');
+        renderLodMarkers();
     });
 });
