@@ -32,6 +32,11 @@
 
 <body id="kt_body"
     class="header-fixed header-mobile-fixed subheader-enabled subheader-fixed aside-enabled aside-fixed aside-minimize-hoverable page-loading">
+    <script>
+        if (window.innerWidth >= 992 && (window.innerWidth <= 1536 || window.innerHeight <= 850)) {
+            document.body.classList.add('aside-minimize');
+        }
+    </script>
 
     <div class="page-loader page-loader-logo">
         <h1 style="font-size:7rem">CRM</h1>
@@ -62,7 +67,7 @@
                     <!--begin::Entry-->
                     <div class="d-flex flex-column-fluid">
                         <!--begin::Container-->
-                        <div class="container">
+                        <div class="{{ $containerClass ?? 'container-fluid' }}">
                             @php
                                 $coverageAlertService = app(\App\Services\CoverageReplacementAlertService::class);
                                 $coverageNotificationPayload = collect();

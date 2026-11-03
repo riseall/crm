@@ -147,3 +147,20 @@
         justify-content: center;
     }
 }
+
+/* ===== Laptop & Small Screen Optimization for Stock Page ===== */
+@media screen and (min-width: 992px) and (max-width: 1536px),
+       screen and (min-width: 992px) and (max-height: 850px) {
+    .sk-equal-card .card-body {
+        min-height: 250px !important;
+    }
+    .sk-chart {
+        min-height: 220px !important;
+    }
+    .sk-list-stack {
+        min-height: 220px !important;
+    }
+    .sk-warning-item {
+        min-height: 46px !important;
+    }
+}
