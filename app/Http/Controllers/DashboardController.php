@@ -52,12 +52,23 @@ class DashboardController extends Controller
             return [
                 'summary'          => $this->service->getSummaryCards($request),
                 'chart_hari'       => $this->service->getChartPerHari($request),
-                'chart_bulan'      => $this->service->getChartPerBulan($request),
+                'chart_bulan'      => null,
                 'chart_pilar'      => $this->service->getChartPerPilar($request),
                 'chart_divisi'     => $this->service->getChartPerDivisi($request),
                 'chart_segment'    => $this->service->getChartPerSegment($request),
                 'achievement_race' => $this->service->getAchievementRace($request),
             ];
+        });
+
+        return response()->json($data);
+    }
+
+    public function getChartPerBulan(DashboardFilterRequest $request, SelloutQueryService $selloutQuery)
+    {
+        $cacheKey = $selloutQuery->annualCacheKey('chart_per_bulan', $request);
+
+        $data = Cache::remember($cacheKey, 1800, function () use ($request) {
+            return $this->service->getChartPerBulan($request);
         });
 
         return response()->json($data);

@@ -50,10 +50,13 @@ Dashboard.Charts = (function ($, H) {
         var el = document.querySelector("#chartPerBulan");
         if (!el) return;
 
+        var isLaptop = window.innerHeight <= 850 || window.innerWidth <= 1536;
+        var chartHeight = isLaptop ? 250 : 320;
+
         chartTrend = new ApexCharts(el, {
             chart: {
                 type: "area",
-                height: 320,
+                height: chartHeight,
                 toolbar: {
                     show: true,
                     tools: {
@@ -148,11 +151,10 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
-    function loadChartTrend() {
-        if (!chartTrend || !consolidatedData) return Promise.resolve();
+    var isLoadingChartBulan = false;
 
-        var res = chartMode === "hari" ? consolidatedData.chart_hari : consolidatedData.chart_bulan;
-        if (!res) return Promise.resolve();
+    function renderTrendSeries(res) {
+        if (!chartTrend || !res) return Promise.resolve();
 
         var title =
             res.mode === "hari"
@@ -160,14 +162,56 @@ Dashboard.Charts = (function ($, H) {
                 : "Netto per Bulan - " + res.period;
         $("#chartTrendTitle").text(title);
 
-        var showLabel = res.data.length <= 31;
+        var showLabel = res.data && res.data.length <= 31;
         return Promise.resolve(chartTrend.updateOptions({
-            xaxis: { categories: res.labels },
+            xaxis: { categories: res.labels || [] },
             dataLabels: { enabled: showLabel },
         })).then(function () {
-            return chartTrend.updateSeries([{ name: "Netto", data: res.data }]);
+            return chartTrend.updateSeries([{ name: "Netto", data: res.data || [] }]);
         });
     }
+
+    function fetchChartBulan() {
+        if (!routes.chartBulan || isLoadingChartBulan) return Promise.resolve();
+
+        isLoadingChartBulan = true;
+        $("#chartTrendTitle").html('Netto per Bulan <span class="spinner-border spinner-border-sm text-primary ml-2" role="status"></span>');
+
+        var filters = typeof Dashboard.Helpers !== "undefined" && typeof Dashboard.Helpers.getFilters === "function"
+            ? Dashboard.Helpers.getFilters()
+            : {};
+
+        return $.get(routes.chartBulan, filters)
+            .then(function (res) {
+                if (consolidatedData) {
+                    consolidatedData.chart_bulan = res;
+                }
+                if (chartMode === "bulan") {
+                    return renderTrendSeries(res);
+                }
+            })
+            .catch(function (err) {
+                console.error("Gagal memuat chart bulan:", err);
+                $("#chartTrendTitle").text("Netto per Bulan - Gagal memuat data");
+            })
+            .always(function () {
+                isLoadingChartBulan = false;
+            });
+    }
+
+    function loadChartTrend() {
+        if (!chartTrend || !consolidatedData) return Promise.resolve();
+
+        if (chartMode === "bulan") {
+            if (consolidatedData.chart_bulan) {
+                return renderTrendSeries(consolidatedData.chart_bulan);
+            }
+            return fetchChartBulan();
+        }
+
+        return renderTrendSeries(consolidatedData.chart_hari);
+    }
+
 
     function initChartDivisi() {
         var el = document.querySelector("#chartPerDivisi");

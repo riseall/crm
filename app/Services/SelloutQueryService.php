@@ -304,10 +304,71 @@ class SelloutQueryService
         ?string $coverageId = null
     ): Builder {
         $range = $dateRange ?? [$request->startDate(), $request->endDate()];
+        [$start, $end] = $this->normalizeDateRange($range);
 
-        return $this->wrapAsSellout(
-            $this->enrichedSummaryQuery($request, $range, false, false, true, $months, $coverageId)
-        );
+        $query = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so');
+
+        $isUnmappedOnly = ($coverageId === 'UNMAPPED' || $request->get('coverage_id') === 'UNMAPPED');
+
+        $user = auth()->user();
+        $needsOutletFilter = ($user && !$this->coverageAccess->isGlobalAccessUser($user))
+            || $request->filled('level')
+            || $request->filled('coverage_nik')
+            || ($coverageId !== null && trim($coverageId) !== '');
+
+        if ($needsOutletFilter) {
+            $query = $this->applyChartJoins($query);
+        }
+
+        $needsMappingJoin = $request->filled('level')
+            || $request->filled('coverage_nik')
+            || ($coverageId !== null && trim($coverageId) !== '');
+
+        if ($needsMappingJoin) {
+            $query->leftJoin(
+                DB::raw($this->dwhTable('crm_mst_mappings') . ' as mc'),
+                $this->mappingJoinCallback()
+            );
+        }
+
+        $query->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        if (!empty($months)) {
+            $year = (int) Carbon::parse($start)->year;
+
+            $query->where(function ($q) use ($months, $year) {
+                foreach ($months as $month) {
+                    $q->orWhereBetween('so.tgl_faktur', [
+                        Carbon::create($year, (int) $month, 1)->startOfMonth()->toDateTimeString(),
+                        Carbon::create($year, (int) $month, 1)->endOfMonth()->toDateTimeString(),
+                    ]);
+                }
+            });
+        }
+
+        if ($request->filled('coverage_nik')) {
+            $query->where('mc.cov_nik', $request->get('coverage_nik'));
+        } elseif ($isUnmappedOnly) {
+            $query->where(function ($q) {
+                $q->whereNull('mc.id_coverage')
+                  ->orWhereNull('mo.id_coverage');
+            });
+        } elseif ($coverageId !== null && trim($coverageId) !== '') {
+            $query->where('mc.id_coverage', $coverageId);
+        }
+
+        if ($request->filled('outlet_id')) {
+            $query->where('so.id_outlet', $request->get('outlet_id'));
+        }
+
+        if ($request->filled('level') && !$isUnmappedOnly) {
+            $query->where('mc.cov_level', $this->levelToNum($request->get('level')));
+        }
+
+        $this->applyGlobalFilters($query, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+        return $query;
     }
 
     public function drilldownAggregateQuery(
@@ -497,15 +558,23 @@ class SelloutQueryService
             ELSE COALESCE(NULLIF(TRIM(so.regional), ''), 'LAINNYA')
         END";
 
+        $user = auth()->user();
+        $isGlobal = $user && $this->coverageAccess->isGlobalAccessUser($user);
+
         $query = DB::connection(self::CONN_DWH)
             ->table(self::SUMMARY_TABLE . ' as so')
-            ->leftJoin(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'), function ($join) {
-                $join->on('so.id_konversi', '=', 'mo.id_konversi')
-                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
-            })
             ->whereBetween('so.tgl_faktur', [$start, $end]);
 
-        $query = $this->coverageAccess->applyScope($query, 'mo.id_coverage');
+        if (!$isGlobal) {
+            $query->whereExists(function ($exists) {
+                $exists->select(DB::raw(1))
+                    ->from(DB::raw($this->dwhTable('crm_mst_cust_cov') . ' as mo'))
+                    ->whereColumn('mo.id_konversi', 'so.id_konversi')
+                    ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
+
+                $this->coverageAccess->applyScope($exists, 'mo.id_coverage');
+            });
+        }
 
         $this->applyGlobalFilters($query, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
 
@@ -625,6 +694,29 @@ class SelloutQueryService
             $userKey,
             $request->startDate(),
             $request->endDate(),
+            $request->get('level', ''),
+            json_encode($request->get('pilar', [])),
+            json_encode($request->get('distributor', [])),
+            json_encode($request->get('product', [])),
+            $request->get('coverage_id', ''),
+            $extra ?? '',
+        ];
+
+        return 'dashboard:' . $prefix . ':' . md5(implode('|', $params));
+    }
+
+    public function annualCacheKey(string $prefix, DashboardFilterRequest $request, ?string $extra = null): string
+    {
+        /** @var \App\Models\User */
+        $user = Auth::user();
+        $userKey = $user
+            ? ($user->id . '|' . $user->nik . '|' . $user->getRoleNames()->sort()->implode(','))
+            : 'guest';
+
+        $params = [
+            self::CACHE_VERSION,
+            $userKey,
+            $request->tahun(),
             $request->get('level', ''),
             json_encode($request->get('pilar', [])),
             json_encode($request->get('distributor', [])),

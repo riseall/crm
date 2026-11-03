@@ -26,9 +26,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return redirect()->route('login');
-});
+// Route::get('/', function () {
+//     return redirect()->route('login');
+// });
+
+Route::redirect('/', 'login');
 
 Route::middleware('auth')->group(function () {
     // Dashboard
@@ -39,6 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['auth'])->prefix('dashboard')->name('dashboard.')->group(function () {
         Route::get('/',                  [DashboardController::class, 'index'])->name('index');
         Route::get('/consolidated-data', [DashboardController::class, 'getConsolidatedData'])->name('consolidated');
+        Route::get('/chart/bulan',       [DashboardController::class, 'getChartPerBulan'])->name('chart.bulan');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');
