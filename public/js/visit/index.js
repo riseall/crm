@@ -138,6 +138,11 @@ $(document).ready(function() {
 
         // Saat pergerakan/zoom berhenti (debounced 120ms), render marker LOD hanya di area viewport aktif
         map.on('moveend', function() {
+            // Jangan re-render jika ada popup yang sedang terbuka agar tidak auto-close
+            if (map._popup && map.hasLayer(map._popup)) {
+                return;
+            }
+
             clearTimeout(moveTimer);
             moveTimer = setTimeout(function() {
                 if (currentMapMarkers && currentMapMarkers.length > 0) {
@@ -515,6 +520,8 @@ $(document).ready(function() {
             // Lazy popup evaluation: only built when clicked!
             marker.bindPopup(function() {
                 return buildPopupHtml(item, tier);
+            }, {
+                autoPan: false
             });
 
             markerGroup.addLayer(marker);

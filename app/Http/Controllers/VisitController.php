@@ -550,7 +550,7 @@ class VisitController extends Controller
                 $allVisitedDoctors[$doctorName] = true;
                 $tableGroups[$key]['_doctor_names'][$doctorName] = true;
 
-                $uLabel = $doctorName . (!empty($row->customer_channel_name) && trim($row->customer_channel_name) !== '-' ? ', ' . trim($row->customer_channel_name) : '');
+                $uLabel = $doctorName;
                 $tableGroups[$key]['_map_user_labels'][$uLabel] = true;
             }
         }
