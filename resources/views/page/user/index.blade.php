@@ -92,7 +92,8 @@
                 data: '{{ route('users.data') }}',
                 store: '{{ route('users.store') }}',
                 update: '{{ route('users.update', ':id') }}',
-                destroy: '{{ route('users.destroy', ':id') }}'
+                destroy: '{{ route('users.destroy', ':id') }}',
+                anggota: '{{ route('mapping.anggota') }}'
             }
         };
     </script>

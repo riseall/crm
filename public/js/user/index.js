@@ -201,7 +201,7 @@ $(document).ready(function() {
         allowClear: true,
         dropdownParent: $('#modal_user'),
         ajax: {
-            url: '/mapping/anggota',
+            url: config.routes.anggota || '/mapping/anggota',
             dataType: 'json',
             delay: 250,
             data: function (params) {
