@@ -587,14 +587,7 @@ class VisitController extends Controller
         }
 
         foreach ($mapMarkers as &$mm) {
-            $allLabels = array_keys($mm['users']);
-            if (count($allLabels) > 8) {
-                $sliced = array_slice($allLabels, 0, 8);
-                $sliced[] = '+ ' . (count($allLabels) - 8) . ' dokter lainnya';
-                $mm['users'] = $sliced;
-            } else {
-                $mm['users'] = $allLabels;
-            }
+            $mm['users'] = array_keys($mm['users']);
         }
         unset($mm);
 

@@ -128,15 +128,25 @@ $(document).ready(function() {
 
         markerGroup.addTo(map);
 
-        // Responsif re-render marker LOD saat level zoom berubah (debounced 80ms)
-        let zoomTimer = null;
-        map.on('zoomend', function() {
-            clearTimeout(zoomTimer);
-            zoomTimer = setTimeout(function() {
+        // Kinetic Decoupling: Saat zoom dimulai, sembunyikan marker agar animasi zoom berjalan 60 FPS GPU murni tanpa beban DOM
+        let moveTimer = null;
+        map.on('zoomstart', function() {
+            $('#visitMap').addClass('map-zooming');
+            markerGroup.clearLayers();
+            if (map.closePopup) map.closePopup();
+        });
+
+        // Saat pergerakan/zoom berhenti (debounced 120ms), render marker LOD hanya di area viewport aktif
+        map.on('moveend', function() {
+            clearTimeout(moveTimer);
+            moveTimer = setTimeout(function() {
                 if (currentMapMarkers && currentMapMarkers.length > 0) {
                     renderLodMarkers();
                 }
-            }, 80);
+                requestAnimationFrame(function() {
+                    $('#visitMap').removeClass('map-zooming');
+                });
+            }, 120);
         });
 
         setTimeout(() => map.invalidateSize(), 300);
@@ -441,11 +451,31 @@ $(document).ready(function() {
     function filterMarkersForLod(items, zoom) {
         if (!items || items.length === 0) return [];
 
+        // Viewport Bounding Box Clipping: Hanya proses item yang berada dalam pandangan layar (+10% margin)
+        let candidates = items;
+        if (map) {
+            try {
+                const bounds = map.getBounds().pad(0.10);
+                const south = bounds.getSouth();
+                const north = bounds.getNorth();
+                const west = bounds.getWest();
+                const east = bounds.getEast();
+
+                candidates = items.filter(item => {
+                    const lat = parseFloat(item.latitude);
+                    const lng = parseFloat(item.longitude);
+                    return lat >= south && lat <= north && lng >= west && lng <= east;
+                });
+            } catch (e) {
+                candidates = items;
+            }
+        }
+
         // Ukuran sel piksel layar agar marker 30px tidak pernah tabrakan
         const cellSize = zoom >= 13 ? 24 : (zoom >= 10 ? 32 : (zoom >= 8 ? 40 : 50));
         const grid = {};
 
-        items.forEach(item => {
+        candidates.forEach(item => {
             const lat = parseFloat(item.latitude);
             const lng = parseFloat(item.longitude);
             if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
@@ -536,9 +566,9 @@ $(document).ready(function() {
                     <span class="text-muted font-size-xs font-weight-bold">TOTAL KUNJUNGAN:</span>
                     <span class="badge ${tier.badge} font-weight-bolder px-2 py-1">${item.total_kunjungan}</span>
                 </div>
-                <div class="py-1">
+                <div class="py-1 text-left">
                     <span class="text-muted font-size-xs font-weight-bold d-block mb-1">USER (DOKTER):</span>
-                    <div class="pl-2 small text-dark" style="max-height: 100px; overflow-y: auto;">
+                    <div class="pl-2 small text-dark" style="max-height: 120px; overflow-y: auto;">
                         ${usersList}
                     </div>
                 </div>

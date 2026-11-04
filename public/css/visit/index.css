@@ -1,10 +1,15 @@
 /* ===== Design Tokens ===== */
 :root {
-    --visit-tier-1: #dc2626; /* Merah (Kunjungan Minimal/Rendah) */
-    --visit-tier-2: #ea580c; /* Orange */
-    --visit-tier-3: #eab308; /* Kuning */
-    --visit-tier-4: #84cc16; /* Hijau Muda */
-    --visit-tier-5: #16a34a; /* Hijau (Kunjungan Tinggi/Banyak) */
+    --visit-tier-1: #dc2626;
+    /* Merah (Kunjungan Minimal/Rendah) */
+    --visit-tier-2: #ea580c;
+    /* Orange */
+    --visit-tier-3: #eab308;
+    /* Kuning */
+    --visit-tier-4: #84cc16;
+    /* Hijau Muda */
+    --visit-tier-5: #16a34a;
+    /* Hijau (Kunjungan Tinggi/Banyak) */
     --visit-radius: 12px;
     --visit-shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.08);
     --visit-shadow-md: 0 4px 18px rgba(0, 0, 0, 0.16);
@@ -36,7 +41,7 @@
     width: 250px;
     max-width: calc(100% - 24px);
     padding: 8px 14px;
-    background: rgba(255, 255, 255, 0.30);
+    background: rgba(255, 255, 255, 0.70);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: var(--visit-radius);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -116,6 +121,16 @@
 
 .aqi-toggle-switch input:checked+.aqi-slider::before {
     transform: translateX(15px);
+}
+
+/* Marker Pane Kinetic Decoupling during Zoom */
+.leaflet-marker-pane {
+    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#visitMap.map-zooming .leaflet-marker-pane {
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 /* ===== Google Maps & IQAir Style Circular Marker Badge ===== */
