@@ -52,7 +52,7 @@ Dashboard.Charts = (function ($, H) {
 
         chartTrend = new ApexCharts(el, {
             chart: {
-                type: "area",
+                type: "line",
                 height: 320,
                 toolbar: {
                     show: true,
@@ -66,7 +66,7 @@ Dashboard.Charts = (function ($, H) {
                 },
                 animations: { enabled: true, easing: "easeinout", speed: 500 },
             },
-            series: [{ name: "Netto", data: [] }],
+            series: [{ name: "Realisasi", type: "area", data: [] }],
             xaxis: {
                 categories: [],
                 labels: { rotate: -30, style: { fontSize: "11px" } },
@@ -78,9 +78,9 @@ Dashboard.Charts = (function ($, H) {
                     },
                 },
             },
-            colors: ["#5B7CFA"],
+            colors: ["#5B7CFA", "#0A1D56"],
             fill: {
-                type: "gradient",
+                type: ["gradient", "solid"],
                 gradient: {
                     shade: "dark",
                     type: "vertical",
@@ -90,17 +90,36 @@ Dashboard.Charts = (function ($, H) {
                     opacityTo: 0.05,
                 },
             },
-            stroke: { curve: "smooth", width: 2.5, colors: ["#5B7CFA"] },
+            stroke: {
+                curve: ["smooth", "straight"],
+                width: [2.5, 2],
+                dashArray: [0, 4],
+                colors: ["#5B7CFA", "#0A1D56"],
+            },
             markers: {
-                size: 4,
-                colors: ["#fff"],
-                strokeColors: "#5B7CFA",
+                size: [4, 0],
+                colors: ["#fff", "#0A1D56"],
+                strokeColors: ["#5B7CFA", "#0A1D56"],
                 strokeWidth: 2,
                 hover: { size: 6 },
             },
+            legend: {
+                show: true,
+                position: "top",
+                horizontalAlign: "left",
+                fontSize: "12px",
+            },
             dataLabels: {
                 enabled: true,
-                formatter: function (v) {
+                formatter: function (v, opt) {
+                    if (v == null) return "";
+                    if (opt && opt.seriesIndex === 1) {
+                        var seriesData = (opt.w.config.series[1] && opt.w.config.series[1].data) || [];
+                        if (opt.dataPointIndex === seriesData.length - 1) {
+                            return H.formatShort(v);
+                        }
+                        return "";
+                    }
                     return v > 0 ? H.formatShort(v) : "";
                 },
                 style: {
@@ -122,7 +141,7 @@ Dashboard.Charts = (function ($, H) {
             tooltip: {
                 y: {
                     formatter: function (v) {
-                        return H.formatRupiah(v);
+                        return v == null ? "-" : H.formatRupiah(v);
                     },
                 },
                 theme: "light",
@@ -153,18 +172,89 @@ Dashboard.Charts = (function ($, H) {
     function renderTrendSeries(res) {
         if (!chartTrend || !res) return Promise.resolve();
 
-        var title =
-            res.mode === "hari"
-                ? "Netto per Hari - " + res.period
-                : "Netto per Bulan - " + res.period;
+        var isHari = res.mode === "hari";
+        var title = isHari
+            ? "Netto per Hari - " + res.period
+            : "Netto per Bulan - " + res.period;
         $("#chartTrendTitle").text(title);
 
         var showLabel = res.data && res.data.length <= 31;
+
+        if (isHari) {
+            var hasTop = res.top_data && res.top_data.length > 0 && res.top_value > 0;
+            var seriesList = [
+                { name: "Realisasi", type: "area", data: res.data || [] }
+            ];
+            if (hasTop) {
+                seriesList.push({ name: "TOP", type: "line", data: res.top_data || [] });
+            }
+
+            return Promise.resolve(chartTrend.updateOptions({
+                xaxis: { categories: res.labels || [] },
+                dataLabels: { enabled: showLabel },
+                colors: hasTop ? ["#5B7CFA", "#0A1D56"] : ["#5B7CFA"],
+                stroke: {
+                    curve: hasTop ? ["smooth", "straight"] : "smooth",
+                    width: hasTop ? [2.5, 2] : 2.5,
+                    dashArray: hasTop ? [0, 4] : 0,
+                    colors: hasTop ? ["#5B7CFA", "#0A1D56"] : ["#5B7CFA"],
+                },
+                fill: {
+                    type: hasTop ? ["gradient", "solid"] : "gradient",
+                    gradient: {
+                        shade: "dark",
+                        type: "vertical",
+                        shadeIntensity: 0.4,
+                        gradientToColors: ["#A78BFA"],
+                        opacityFrom: 0.5,
+                        opacityTo: 0.05,
+                    },
+                },
+                markers: {
+                    size: hasTop ? [4, 0] : 4,
+                    colors: ["#fff", "#0A1D56"],
+                    strokeColors: ["#5B7CFA", "#0A1D56"],
+                    strokeWidth: 2,
+                    hover: { size: 6 },
+                },
+                legend: { show: hasTop },
+            })).then(function () {
+                return chartTrend.updateSeries(seriesList);
+            });
+        }
+
+        // Mode bulan
         return Promise.resolve(chartTrend.updateOptions({
             xaxis: { categories: res.labels || [] },
             dataLabels: { enabled: showLabel },
+            colors: ["#5B7CFA"],
+            stroke: {
+                curve: "smooth",
+                width: 2.5,
+                dashArray: 0,
+                colors: ["#5B7CFA"],
+            },
+            fill: {
+                type: "gradient",
+                gradient: {
+                    shade: "dark",
+                    type: "vertical",
+                    shadeIntensity: 0.4,
+                    gradientToColors: ["#A78BFA"],
+                    opacityFrom: 0.5,
+                    opacityTo: 0.05,
+                },
+            },
+            markers: {
+                size: 4,
+                colors: ["#fff"],
+                strokeColors: "#5B7CFA",
+                strokeWidth: 2,
+                hover: { size: 6 },
+            },
+            legend: { show: false },
         })).then(function () {
-            return chartTrend.updateSeries([{ name: "Netto", data: res.data || [] }]);
+            return chartTrend.updateSeries([{ name: "Netto", type: "area", data: res.data || [] }]);
         });
     }
 

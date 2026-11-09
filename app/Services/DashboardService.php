@@ -103,7 +103,7 @@ class DashboardService
     }
 
     // -------------------------------------------------------
-    // CHART: Netto per Hari (area/line)
+    // CHART: Netto Kumulatif per Hari & TOP Target (combo chart)
     // -------------------------------------------------------
     public function getChartPerHari(DashboardFilterRequest $request): array
     {
@@ -113,25 +113,41 @@ class DashboardService
             ->get()
             ->keyBy('tanggal');
 
-        $labels    = [];
-        $data      = [];
+        $labels   = [];
+        $dataReal = [];
+        $dataTop  = [];
+
+        $topValue = round((float) $this->sellout->topMarketingTarget($request));
+        $today    = Carbon::today();
 
         $period = CarbonPeriod::create(
             Carbon::parse($request->startDate())->startOfDay(),
             Carbon::parse($request->endDate())->startOfDay()
         );
 
+        $runningTotal = 0.0;
         foreach ($period as $date) {
             $key = $date->toDateString();
-            $labels[] = $date->locale('id')->translatedFormat('d M');
-            $data[] = $results->has($key) ? round((float) $results[$key]->total_netto) : 0;
+            $dailyNetto = $results->has($key) ? (float) $results[$key]->total_netto : 0.0;
+            $runningTotal += $dailyNetto;
+
+            $labels[]  = $date->locale('id')->translatedFormat('d M');
+            $dataTop[] = $topValue;
+
+            if ($date->gt($today)) {
+                $dataReal[] = null;
+            } else {
+                $dataReal[] = round($runningTotal);
+            }
         }
 
         return [
-            'labels' => $labels,
-            'data'   => $data,
-            'mode'   => 'hari',
-            'period' => $this->periodLabel($request),
+            'labels'    => $labels,
+            'data'      => $dataReal,
+            'top_data'  => $dataTop,
+            'top_value' => $topValue,
+            'mode'      => 'hari',
+            'period'    => $this->periodLabel($request),
         ];
     }
 
