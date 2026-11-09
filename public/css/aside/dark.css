@@ -410,7 +410,7 @@
         .menu-item-here
     ):not(.menu-item-active):hover
     > .menu-link {
-    background: linear-gradient(90deg, #241b53 20%, #582fa1 100%);
+    background: rgba(255, 255, 255, 0.06);
 }
 .aside-menu
     .menu-nav
@@ -427,7 +427,6 @@
     > .menu-link
     .menu-text {
     color: #ffffff;
-    font-weight: 550;
 }
 .aside-menu
     .menu-nav
@@ -1146,7 +1145,7 @@
         .menu-item-here
     ):not(.menu-item-active):hover
     > .menu-link {
-    background: linear-gradient(90deg, #241b53 20%, #582fa1 100%);
+    background: rgba(255, 255, 255, 0.06);
 }
 .aside-menu
     .menu-nav
@@ -1167,7 +1166,6 @@
     > .menu-link
     .menu-text {
     color: #ffffff;
-    font-weight: 550;
 }
 .aside-menu
     .menu-nav

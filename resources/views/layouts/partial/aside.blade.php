@@ -37,6 +37,151 @@
             data-menu-dropdown-timeout="500">
             <!--begin::Menu Nav-->
             <ul class="menu-nav">
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="javascript:void(0)" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <path
+                                        d="M5.5,4 L9.5,4 C10.3284271,4 11,4.67157288 11,5.5 L11,6.5 C11,7.32842712 10.3284271,8 9.5,8 L5.5,8 C4.67157288,8 4,7.32842712 4,6.5 L4,5.5 C4,4.67157288 4.67157288,4 5.5,4 Z M14.5,16 L18.5,16 C19.3284271,16 20,16.6715729 20,17.5 L20,18.5 C20,19.3284271 19.3284271,20 18.5,20 L14.5,20 C13.6715729,20 13,19.3284271 13,18.5 L13,17.5 C13,16.6715729 13.6715729,16 14.5,16 Z"
+                                        fill="#000000" />
+                                    <path
+                                        d="M5.5,10 L9.5,10 C10.3284271,10 11,10.6715729 11,11.5 L11,18.5 C11,19.3284271 10.3284271,20 9.5,20 L5.5,20 C4.67157288,20 4,19.3284271 4,18.5 L4,11.5 C4,10.6715729 4.67157288,10 5.5,10 Z M14.5,4 L18.5,4 C19.3284271,4 20,4.67157288 20,5.5 L20,12.5 C20,13.3284271 19.3284271,14 18.5,14 L14.5,14 C13.6715729,14 13,13.3284271 13,12.5 L13,5.5 C13,4.67157288 13.6715729,4 14.5,4 Z"
+                                        fill="#000000" opacity="0.3" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Performance Overview</span>
+                    </a>
+                </li>
+
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('dashboard.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <rect fill="#000000" opacity="0.3" x="13" y="4" width="3" height="16"
+                                        rx="1.5" />
+                                    <rect fill="#000000" x="8" y="9" width="3" height="11" rx="1.5" />
+                                    <rect fill="#000000" x="18" y="11" width="3" height="9" rx="1.5" />
+                                    <rect fill="#000000" x="3" y="13" width="3" height="7" rx="1.5" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Performance Selling Out</span>
+                    </a>
+                </li>
+
+                <li class="menu-item" aria-haspopup="true">
+                    <a href="{{ route('outlet.history') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <polygon points="0 0 24 0 24 24 0 24" />
+                                    <path
+                                        d="M4.5,11.5 L4.5,19.5 C4.5,20.3284271 5.17157288,21 6,21 L18,21 C18.8284271,21 19.5,20.3284271 19.5,19.5 L19.5,11.5 L4.5,11.5 Z"
+                                        fill="#000000" opacity="0.3" />
+                                    <path
+                                        d="M10,16 L10,21 L14,21 L14,16 C14,15.4477153 13.5522847,15 13,15 L11,15 C10.4477153,15 10,15.4477153 10,16 Z M2,11 L2,12 C2,12.5522847 2.44771525,13 3,13 L21,13 C21.5522847,13 22,12.5522847 22,12 L22,11 C22,10.4477153 21.5522847,10 21,10 L19.5,10 L17.7847771,4.57452685 C17.6302428,4.09958145 17.1877532,3.78 16.6877532,3.78 L7.31224682,3.78 C6.81224682,3.78 6.36975719,4.09958145 6.21522292,4.57452685 L4.5,10 L3,10 C2.44771525,10 2,10.4477153 2,11 Z"
+                                        fill="#000000" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Outlet Transaksi</span>
+                    </a>
+                </li>
+
+                <li class="menu-item" aria-haspopup="true">
+                    <a href="{{ route('visits.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <path
+                                        d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.62,11.5 9.5,10.38 9.5,9 C9.5,7.62 10.62,6.5 12,6.5 C13.38,6.5 14.5,7.62 14.5,9 C14.5,10.38 13.38,11.5 12,11.5 Z"
+                                        fill="#000000" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Kunjungan VS Realisasi</span>
+                    </a>
+                </li>
+
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="javascript:void(0)" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <path
+                                        d="M9.07117914,12.5710461 L13.8326627,12.5710461 C14.108805,12.5710461 14.3326627,12.3471885 14.3326627,12.0710461 L14.3326627,0.16733734 C14.3326627,-0.108805035 14.108805,-0.33266266 13.8326627,-0.33266266 C13.6282104,-0.33266266 13.444356,-0.208187188 13.3684243,-0.0183579985 L8.6069408,11.8853508 C8.50438409,12.1417426 8.62909204,12.4327278 8.8854838,12.5352845 C8.94454394,12.5589085 9.00756943,12.5710461 9.07117914,12.5710461 Z"
+                                        fill="#000000" opacity="0.3"
+                                        transform="translate(11.451854, 6.119192) rotate(-270.000000) translate(-11.451854, -6.119192) " />
+                                    <path
+                                        d="M9.23851648,24.5 L14,24.5 C14.2761424,24.5 14.5,24.2761424 14.5,24 L14.5,12.0962912 C14.5,11.8201488 14.2761424,11.5962912 14,11.5962912 C13.7955477,11.5962912 13.6116933,11.7207667 13.5357617,11.9105959 L8.77427814,23.8143047 C8.67172143,24.0706964 8.79642938,24.3616816 9.05282114,24.4642383 C9.11188128,24.4878624 9.17490677,24.5 9.23851648,24.5 Z"
+                                        fill="#000000"
+                                        transform="translate(11.500000, 18.000000) scale(1, -1) rotate(-270.000000) translate(-11.500000, -18.000000) " />
+                                    <rect fill="#000000" opacity="0.3"
+                                        transform="translate(12.000000, 12.000000) rotate(-270.000000) translate(-12.000000, -12.000000) "
+                                        x="11" y="2" width="2" height="20" rx="1" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Detail Kunjungan</span>
+                    </a>
+                </li>
+
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('selling-in.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <polygon points="0 0 24 0 24 24 0 24" />
+                                    <rect fill="#000000" opacity="0.3" x="3" y="3" width="2" height="18"
+                                        rx="1" />
+                                    <rect fill="#000000" x="6" y="5" width="14" height="3.5" rx="1" />
+                                    <rect fill="#000000" x="6" y="10.5" width="10" height="3.5"
+                                        rx="1" />
+                                    <rect fill="#000000" opacity="0.3" x="6" y="16" width="6" height="3.5"
+                                        rx="1" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Performance Selling In</span>
+                    </a>
+                </li>
+
+                <li class="menu-item menu-item-active" aria-haspopup="true">
+                    <a href="{{ route('stock.index') }}" class="menu-link">
+                        <span class="svg-icon menu-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
+                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                    <rect x="0" y="0" width="24" height="24" />
+                                    <path
+                                        d="M5,2 L19,2 C20.1045695,2 21,2.8954305 21,4 L21,6 C21,7.1045695 20.1045695,8 19,8 L5,8 C3.8954305,8 3,7.1045695 3,6 L3,4 C3,2.8954305 3.8954305,2 5,2 Z M11,4 C10.4477153,4 10,4.44771525 10,5 C10,5.55228475 10.4477153,6 11,6 L16,6 C16.5522847,6 17,5.55228475 17,5 C17,4.44771525 16.5522847,4 16,4 L11,4 Z M7,6 C7.55228475,6 8,5.55228475 8,5 C8,4.44771525 7.55228475,4 7,4 C6.44771525,4 6,4.44771525 6,5 C6,5.55228475 6.44771525,6 7,6 Z"
+                                        fill="#000000" opacity="0.3" />
+                                    <path
+                                        d="M5,9 L19,9 C20.1045695,9 21,9.8954305 21,11 L21,13 C21,14.1045695 20.1045695,15 19,15 L5,15 C3.8954305,15 3,14.1045695 3,13 L3,11 C3,9.8954305 3.8954305,9 5,9 Z M11,11 C10.4477153,11 10,11.4477153 10,12 C10,12.5522847 10.4477153,13 11,13 L16,13 C16.5522847,13 17,12.5522847 17,12 C17,11.4477153 16.5522847,11 16,11 L11,11 Z M7,13 C7.55228475,13 8,12.5522847 8,12 C8,11.4477153 7.55228475,11 7,11 C6.44771525,11 6,11.4477153 6,12 C6,12.5522847 6.44771525,13 7,13 Z"
+                                        fill="#000000" />
+                                    <path
+                                        d="M5,16 L19,16 C20.1045695,16 21,16.8954305 21,18 L21,20 C21,21.1045695 20.1045695,22 19,22 L5,22 C3.8954305,22 3,21.1045695 3,20 L3,18 C3,16.8954305 3.8954305,16 5,16 Z M11,18 C10.4477153,18 10,18.4477153 10,19 C10,19.5522847 10.4477153,20 11,20 L16,20 C16.5522847,20 17,19.5522847 17,19 C17,18.4477153 16.5522847,18 16,18 L11,18 Z M7,20 C7.55228475,20 8,19.5522847 8,19 C8,18.4477153 7.55228475,18 7,18 C6.44771525,18 6,18.4477153 6,19 C6,19.5522847 6.44771525,20 7,20 Z"
+                                        fill="#000000" />
+                                </g>
+                            </svg>
+                        </span>
+                        <span class="menu-text">Monitoring Stock GPJ vs Cabang</span>
+                    </a>
+                </li>
+
                 @hasanyrole(['Super Admin', 'Admin IT', 'Marketing Insight'])
                     <li class="menu-item menu-item-submenu" aria-haspopup="true" data-menu-toggle="hover">
                         <a href="javascript:;" class="menu-link menu-toggle">
@@ -117,121 +262,6 @@
                         </div>
                     </li>
                 @endhasanyrole
-                {{-- <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('summary.index') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <polygon points="0 0 24 0 24 24 0 24" />
-                                    <path
-                                        d="M5,13 L5,20 C5,20.5522847 5.44771525,21 6,21 L8,21 C8.55228475,21 9,20.5522847 9,20 L9,13 C9,12.4477153 8.55228475,12 8,12 L6,12 C5.44771525,12 5,12.4477153 5,13 Z M10,9 L10,20 C10,20.5522847 10.4477153,21 11,21 L13,21 C13.5522847,21 14,20.5522847 14,20 L14,9 C14,8.44771525 13.5522847,8 13,8 L11,8 C10.4477153,8 10,8.44771525 10,9 Z"
-                                        fill="#000000" opacity="0.3" />
-                                    <path
-                                        d="M19.2928932,4.29289322 L16,4 L16,20 C16,20.5522847 16.4477153,21 17,21 L19,21 C19.5522847,21 20,20.5522847 20,20 L20,5.70710678 C20,5.18633956 19.5951595,4.75550552 19.0761624,4.70740015 L19.2928932,4.29289322 Z M19.2928932,4.29289322 C19.6834175,3.90236893 20.3165825,3.90236893 20.7071068,4.29289322 C21.0976311,4.68341751 21.0976311,5.31658249 20.7071068,5.70710678 L17.7071068,8.70710678 C17.3165825,9.09763107 16.6834175,9.09763107 16.2928932,8.70710678 C15.9023689,8.31658249 15.9023689,7.68341751 16.2928932,7.29289322 L19.2928932,4.29289322 Z"
-                                        fill="#000000" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Summary</span>
-                    </a>
-                </li> --}}
-                <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('dashboard.index') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <polygon points="0 0 24 0 24 24 0 24" />
-                                    <path
-                                        d="M5,13 L5,20 C5,20.5522847 5.44771525,21 6,21 L8,21 C8.55228475,21 9,20.5522847 9,20 L9,13 C9,12.4477153 8.55228475,12 8,12 L6,12 C5.44771525,12 5,12.4477153 5,13 Z M10,9 L10,20 C10,20.5522847 10.4477153,21 11,21 L13,21 C13.5522847,21 14,20.5522847 14,20 L14,9 C14,8.44771525 13.5522847,8 13,8 L11,8 C10.4477153,8 10,8.44771525 10,9 Z"
-                                        fill="#000000" opacity="0.3" />
-                                    <path
-                                        d="M19.2928932,4.29289322 L16,4 L16,20 C16,20.5522847 16.4477153,21 17,21 L19,21 C19.5522847,21 20,20.5522847 20,20 L20,5.70710678 C20,5.18633956 19.5951595,4.75550552 19.0761624,4.70740015 L19.2928932,4.29289322 Z M19.2928932,4.29289322 C19.6834175,3.90236893 20.3165825,3.90236893 20.7071068,4.29289322 C21.0976311,4.68341751 21.0976311,5.31658249 20.7071068,5.70710678 L17.7071068,8.70710678 C17.3165825,9.09763107 16.6834175,9.09763107 16.2928932,8.70710678 C15.9023689,8.31658249 15.9023689,7.68341751 16.2928932,7.29289322 L19.2928932,4.29289322 Z"
-                                        fill="#000000" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Performance Selling Out</span>
-                    </a>
-                </li>
-                <li class="menu-item" aria-haspopup="true">
-                    <a href="{{ route('outlet.history') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <polygon points="0 0 24 0 24 24 0 24" />
-                                    <path
-                                        d="M4.5,11.5 L4.5,19.5 C4.5,20.3284271 5.17157288,21 6,21 L18,21 C18.8284271,21 19.5,20.3284271 19.5,19.5 L19.5,11.5 L4.5,11.5 Z"
-                                        fill="#000000" opacity="0.3" />
-                                    <path
-                                        d="M10,16 L10,21 L14,21 L14,16 C14,15.4477153 13.5522847,15 13,15 L11,15 C10.4477153,15 10,15.4477153 10,16 Z M2,11 L2,12 C2,12.5522847 2.44771525,13 3,13 L21,13 C21.5522847,13 22,12.5522847 22,12 L22,11 C22,10.4477153 21.5522847,10 21,10 L19.5,10 L17.7847771,4.57452685 C17.6302428,4.09958145 17.1877532,3.78 16.6877532,3.78 L7.31224682,3.78 C6.81224682,3.78 6.36975719,4.09958145 6.21522292,4.57452685 L4.5,10 L3,10 C2.44771525,10 2,10.4477153 2,11 Z"
-                                        fill="#000000" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Performance Outlet</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('selling-in.index') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <polygon points="0 0 24 0 24 24 0 24" />
-                                    <rect fill="#000000" opacity="0.3" x="3" y="3" width="2" height="18"
-                                        rx="1" />
-                                    <rect fill="#000000" x="6" y="5" width="14" height="3.5" rx="1" />
-                                    <rect fill="#000000" x="6" y="10.5" width="10" height="3.5"
-                                        rx="1" />
-                                    <rect fill="#000000" opacity="0.3" x="6" y="16" width="6" height="3.5"
-                                        rx="1" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Monitoring Selling In</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-active" aria-haspopup="true">
-                    <a href="{{ route('stock.index') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <polygon points="0 0 24 0 24 24 0 24" />
-                                    <path
-                                        d="M4,13 L4,18 C4,18.5522847 4.44771525,19 5,19 L19,19 C19.5522847,19 20,18.5522847 20,18 L20,13 L4,13 Z"
-                                        fill="#000000" opacity="0.3" />
-                                    <path
-                                        d="M4,5 L4,10 C4,10.5522847 4.44771525,11 5,11 L19,11 C19.5522847,11 20,10.5522847 20,10 L20,5 C20,4.44771525 19.5522847,4 19,4 L5,4 C4.44771525,4 4,4.44771525 4,5 Z"
-                                        fill="#000000" />
-                                    <rect fill="#000000" opacity="0.3" x="9" y="13" width="6" height="2"
-                                        rx="1" />
-                                    <rect fill="#000000" x="9" y="6" width="6" height="2" rx="1" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Monitoring Stock GPJ vs Cabang</span>
-                    </a>
-                </li>
-                <li class="menu-item" aria-haspopup="true">
-                    <a href="{{ route('visits.index') }}" class="menu-link">
-                        <span class="svg-icon menu-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-                                width="24px" height="24px" viewBox="0 0 24 24" version="1.1">
-                                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                    <rect x="0" y="0" width="24" height="24" />
-                                    <path
-                                        d="M12,2 C8.13,2 5,5.13 5,9 C5,14.25 12,22 12,22 C12,22 19,14.25 19,9 C19,5.13 15.87,2 12,2 Z M12,11.5 C10.62,11.5 9.5,10.38 9.5,9 C9.5,7.62 10.62,6.5 12,6.5 C13.38,6.5 14.5,7.62 14.5,9 C14.5,10.38 13.38,11.5 12,11.5 Z"
-                                        fill="#000000" />
-                                </g>
-                            </svg>
-                        </span>
-                        <span class="menu-text">Kunjungan VS Realisasi</span>
-                    </a>
-                </li>
             </ul>
             <!--end::Menu Nav-->
         </div>
