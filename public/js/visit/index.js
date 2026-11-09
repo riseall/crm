@@ -168,7 +168,7 @@ $(document).ready(function() {
             ],
             columns: [{
                     data: null,
-                    className: 'text-center font-weight-bold text-muted',
+                    className: 'text-center font-weight-bolder',
                     searchable: false,
                     orderable: false,
                     render: (d, t, r, meta) => meta.row + 1
@@ -176,18 +176,18 @@ $(document).ready(function() {
                 {
                     data: 'employee',
                     render: (d, t, r) =>
-                        `<div><strong class="text-dark font-size-sm">${d || '-'}</strong></div>
+                        `<div><strong class="font-weight-bolder text-dark">${d || '-'}</strong></div>
                          <span class="badge badge-light-primary font-weight-bold">${r.nik || '-'}</span>`
                 },
                 {
                     data: 'outlet',
                     render: (d, t, r) =>
-                        `<div><strong class="text-dark">${d || '-'}</strong></div>
+                        `<div><strong class="font-weight-bolder text-dark">${d || '-'}</strong></div>
                          <span class="badge badge-light-secondary font-weight-normal text-muted">${r.location_code || 'Outlet'}</span>`
                 },
                 {
                     data: 'total_kunjungan',
-                    className: 'text-center font-weight-bolder text-dark font-size-h6',
+                    className: 'text-center font-weight-bolder text-dark',
                     render: (d) => `<span class="badge badge-light-info font-weight-bolder font-size-sm px-3 py-2">${d || 0}</span>`
                 },
                 {
@@ -202,12 +202,30 @@ $(document).ready(function() {
                     searchable: false,
                     render: (d, t, r) => {
                         const countUsers = r.doctor_count !== undefined ? r.doctor_count : (r.users_visited || []).length;
-                        return `<button type="button" class="btn btn-icon btn-sm btn-light-primary btn-expand-row" title="Lihat ${countUsers} dokter/user">
+                        return `<button type="button" class="btn btn-icon btn-xs btn-light-primary btn-expand-row" title="Lihat ${countUsers} dokter/user">
                             <i class="fas fa-plus icon-xs"></i>
                         </button>`;
                     }
                 }
-            ]
+            ],
+            footerCallback: function(row, data, start, end, display) {
+                const api = this.api();
+
+                // Akumulasi Total Kunjungan (hanya baris yang terfilter)
+                const totalKunjungan = api
+                    .column(3, { search: 'applied' })
+                    .data()
+                    .reduce((sum, val) => sum + (Number(val) || 0), 0);
+
+                // Akumulasi Realisasi Selling Out (hanya baris yang terfilter)
+                const totalSellingOut = api
+                    .column(4, { search: 'applied' })
+                    .data()
+                    .reduce((sum, val) => sum + (Number(val) || 0), 0);
+
+                $('#foot_total_kunjungan').text(totalKunjungan.toLocaleString('id-ID'));
+                $('#foot_total_selling_out').text(formatRupiah(totalSellingOut));
+            }
         });
 
         // Penomoran baris otomatis berurutan (1, 2, 3...)

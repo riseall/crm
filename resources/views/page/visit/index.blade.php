@@ -304,6 +304,15 @@
                             <tbody>
                                 {{-- Populated via AJAX --}}
                             </tbody>
+                            <tfoot>
+                                <tr class="font-weight-bolder text-dark bg-light border-top">
+                                    <th class="text-left font-weight-bolder pl-4" colspan="3">Total</th>
+                                    <th class="text-center font-weight-bolder" id="foot_total_kunjungan">0</th>
+                                    <th class="text-right font-weight-bolder text-success" id="foot_total_selling_out">Rp
+                                        0</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
