@@ -265,9 +265,9 @@ class SelloutQueryService
         ];
 
         if ($includeOutletName) {
-            $selects[] = DB::raw("COALESCE(master.nama_outlet, so.id_outlet) as outlet_name");
+            $selects[] = DB::raw("COALESCE(NULLIF(TRIM(master.nama_outlet), ''), NULLIF(TRIM(so.nama_outlet), ''), so.id_outlet) as outlet_name");
         } else {
-            $selects[] = 'so.id_outlet as outlet_name';
+            $selects[] = DB::raw("COALESCE(NULLIF(TRIM(so.nama_outlet), ''), so.id_outlet) as outlet_name");
         }
 
         $selects[] = $includeUser
@@ -592,6 +592,7 @@ class SelloutQueryService
     {
         $query->where(function ($q) use ($search) {
             $q->where('so.id_outlet', 'like', "%{$search}%")
+                ->orWhere('so.nama_outlet', 'like', "%{$search}%")
                 ->orWhere('so.id_cbg', 'like', "%{$search}%")
                 ->orWhere('master.nama_outlet', 'like', "%{$search}%")
                 ->orWhere('ma.name', 'like', "%{$search}%")
@@ -608,8 +609,8 @@ class SelloutQueryService
         $transactions = $this->enrichedSummaryQuery(
             $request,
             [$start, $end],
-            $hasSearch,
-            $hasSearch,
+            true,
+            true,
             false,
             count($months) > 1 ? $months : null,
             $request->get('coverage_id')
@@ -621,37 +622,17 @@ class SelloutQueryService
 
         $query = $this->wrapAsSellout($transactions);
 
-        if (!$hasSearch) {
-            $query->leftJoin(
-                DB::raw($this->dwhTable('crm_mst_cust') . ' as vcd'),
-                'so.id_konversi',
-                '=',
-                'vcd.id_konversi'
-            )
-                ->leftJoin(
-                    DB::raw($this->authTable('users') . ' as ma'),
-                    'so.coverage_nik',
-                    '=',
-                    'ma.nik'
-                );
-        }
-
-        $outletNameSql = $hasSearch
-            ? 'so.outlet_name'
-            : 'COALESCE(vcd.nama_outlet, so.id_outlet)';
-        $userNameSql = $hasSearch ? 'so.user_name' : 'ma.name';
-
         return $query
             ->selectRaw("
                 so.dist,
                 so.id_outlet,
                 so.id_cbg,
                 so.id_konversi,
-                {$outletNameSql} as outlet_name,
+                so.outlet_name,
                 so.coverage_id,
                 so.coverage_desc,
                 so.coverage_nik,
-                {$userNameSql} as user_name,
+                so.user_name,
                 so.coverage_level,
                 so.coverage_pilar,
                 so.product_pilar,
@@ -666,11 +647,11 @@ class SelloutQueryService
                 'so.id_outlet',
                 'so.id_cbg',
                 'so.id_konversi',
-                DB::raw($outletNameSql),
+                'so.outlet_name',
                 'so.coverage_id',
                 'so.coverage_desc',
                 'so.coverage_nik',
-                DB::raw($userNameSql),
+                'so.user_name',
                 'so.coverage_level',
                 'so.coverage_pilar',
                 'so.product_pilar',
@@ -806,7 +787,7 @@ class SelloutQueryService
             ->selectRaw('
                 so.id_outlet as id_outlet,
                 COALESCE(NULLIF(so.id_konversi, ""), master.id_konversi, so.id_outlet) as id_konversi,
-                COALESCE(MAX(master.nama_outlet), so.id_outlet) as outlet_name,
+                COALESCE(NULLIF(MAX(master.nama_outlet), ""), NULLIF(MAX(so.nama_outlet), ""), so.id_outlet) as outlet_name,
                 COALESCE(NULLIF(so.code_product, ""), NULLIF(so.code_prod_ph, ""), "-") as sku,
                 COALESCE(NULLIF(so.`desc`, ""), so.code_product, so.code_prod_ph, "-") as product_name,
                 SUM(so.netto) as netto

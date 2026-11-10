@@ -26,8 +26,8 @@ class OutletPerformanceController extends Controller
     {
         $search = trim((string) data_get($request->input('search'), 'value', ''));
         $base = $this->sellout->outletHistoryAggregateQuery($request, $search);
-        $outletNameOrderSql = $search !== '' ? 'so.outlet_name' : 'COALESCE(vcd.outlet_name, so.id_outlet)';
-        $userNameOrderSql = $search !== '' ? 'so.user_name' : 'ma.name';
+        $outletNameOrderSql = 'so.outlet_name';
+        $userNameOrderSql = 'so.user_name';
 
         $grandTotalNetto = (float) DB::connection('db_dwh')
             ->query()
