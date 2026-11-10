@@ -8,16 +8,11 @@
 
 
 @section('content')
-    {{-- ===== FILTER BAR ===== --}}
-    <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Monitoring Selling Out" icon="fa-shopping-cart"
-        :show-bulan="false" :show-tahun="false" :show-period="true" :show-distributor="true" :show-reset="true"
-        id-reset="btnResetSellingOut">
-        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 160px;">
-            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Produk</label>
-            <select id="filter_product" class="form-control form-control-sm select2-product" style="width: 100%;"
-                multiple></select>
-        </div>
-    </x-filter-bar>
+    {{-- ===== FILTER BAR (8 FILTERS IN ONE LINE) ===== --}}
+    <x-filter-bar :months="$months" :years="range(now()->year, now()->year - 3)" :pilars="$pilars" title="Performance Selling Out"
+        icon="fa-shopping-cart" :show-period="true" :show-distributor="true" :show-divisi="true" :show-region="true" :show-pilar="true"
+        :show-pm="true" :show-product="true" :show-employee="true" :show-bulan="false" :show-tahun="false" :show-reset="true"
+        id-reset="btnResetSellingOut" />
 
     {{-- ===== SUMMARY CARDS ===== --}}
     <div class="row">
@@ -43,7 +38,8 @@
                     <div id="chartAchievementRace" class="achievement-race">
                         <div class="achievement-race__head">
                             <div class="achievement-race__title-group">
-                                <div class="btn btn-light-primary font-weight-bold"><i class="fas fa-trophy"></i></div>
+                                <div class="btn btn-icon btn-light-primary font-weight-bold"><i class="fas fa-trophy"></i>
+                                </div>
                                 <div class="achievement-race__title">Achievement RM</div>
                             </div>
                             <div class="achievement-race__legend">

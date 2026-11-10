@@ -34,7 +34,7 @@
         id-distributor="filter_dist" id-pilar="filter_pilar" id-apply="btnApplyFilter" id-reset="btnResetFilter"
         selected-start-date="{{ $startOfMonth }}" selected-end-date="{{ $endOfMonth }}">
 
-        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 220px; max-width: 320px;">
+        <div class="filter-item filter-item-product">
             <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Produk</label>
             <select id="filter_product_code" class="form-control form-control-sm select2-filter-product"
                 style="width: 100%;"></select>

@@ -19,6 +19,10 @@ class DashboardFilterRequest extends FormRequest
         $pilar = $this->normalizeArrayInput('pilar');
         $distributor = $this->normalizeArrayInput('distributor');
         $product = $this->normalizeArrayInput('product');
+        $divisi = $this->normalizeArrayInput('divisi');
+        $region = $this->normalizeArrayInput('region');
+        $pm = $this->normalizeArrayInput('pm');
+        $employee = $this->normalizeArrayInput('employee');
 
         if (is_array($bulan)) {
             $bulan = collect($bulan)
@@ -39,6 +43,10 @@ class DashboardFilterRequest extends FormRequest
             'pilar' => $pilar,
             'distributor' => $distributor,
             'product' => $product,
+            'divisi' => $divisi,
+            'region' => $region,
+            'pm' => $pm,
+            'employee' => $employee,
         ]);
     }
 
@@ -65,6 +73,14 @@ class DashboardFilterRequest extends FormRequest
             'distributor.*' => ['string', 'distinct', 'in:KFTD,AAM,METD'],
             'product'     => ['nullable', 'array'],
             'product.*'   => ['string', 'distinct', 'max:50'],
+            'divisi'      => ['nullable', 'array'],
+            'divisi.*'    => ['string', 'distinct', 'max:50'],
+            'region'      => ['nullable', 'array'],
+            'region.*'    => ['string', 'distinct', 'max:50'],
+            'pm'          => ['nullable', 'array'],
+            'pm.*'        => ['string', 'distinct', 'max:50'],
+            'employee'    => ['nullable', 'array'],
+            'employee.*'  => ['string', 'distinct', 'max:50'],
             'coverage_id' => 'nullable|string',
             'coverage_nik' => 'nullable|string',
             'outlet_id' => 'nullable|string',

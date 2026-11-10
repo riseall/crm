@@ -1,18 +1,27 @@
 @props([
     'showHeader' => true,
-    'title' => 'Dashboard',
+    'title' => 'Performance Selling Out',
     'subtitle' => '',
-    'icon' => 'fa-chart-line',
+    'icon' => 'fa-shopping-cart',
     'months' => [],
     'years' => [],
     'pilars' => [],
     'distributors' => ['KFTD', 'AAM', 'METD'],
+    'divisis' => ['ETHICAL', 'CONSUMER', 'OGB'],
+    'regions' => ['REGION 1', 'REGION 2', 'REGION 3', 'REGION 4', 'REGION 5'],
+    'pms' => [],
+    'employees' => [],
     'selectedMonth' => null,
     'selectedYear' => null,
-    'showBulan' => true,
-    'showTahun' => true,
+    'showBulan' => false,
+    'showTahun' => false,
     'showPilar' => true,
     'showDistributor' => false,
+    'showDivisi' => false,
+    'showRegion' => false,
+    'showPm' => false,
+    'showProduct' => false,
+    'showEmployee' => false,
     'showCoverage' => false,
     'showOutlet' => false,
     'showPeriod' => false,
@@ -27,6 +36,11 @@
     'idTahun' => 'filter_tahun',
     'idPilar' => 'filter_pilar',
     'idDistributor' => 'filter_distributor',
+    'idDivisi' => 'filter_divisi',
+    'idRegion' => 'filter_region',
+    'idPm' => 'filter_pm',
+    'idProduct' => 'filter_product',
+    'idEmployee' => 'filter_employee',
     'idCoverage' => 'filter_coverage_id',
     'idOutlet' => 'filter_outlet_id',
     'idPeriod' => 'filter_period',
@@ -37,6 +51,7 @@
     'btnResetText' => 'Reset',
     'btnResetIcon' => 'fa-undo',
     'idReset' => 'btnResetFilter',
+    'stackedActions' => true,
 ])
 
 @php
@@ -45,148 +60,198 @@
     $yearOptions = count($years) ? $years : range(now()->year, now()->year - 3);
     $activeStartDate = $selectedStartDate ?? ($periodRequired ? now()->startOfMonth()->toDateString() : '');
     $activeEndDate = $selectedEndDate ?? ($periodRequired ? now()->endOfMonth()->toDateString() : '');
-    $controlColumnClass = 'col-6 col-sm-auto';
 @endphp
 
-<div class="card card-custom gutter-b filter-bar-responsive">
-    <div class="card-body p-3 p-xl-4">
-        <div class="d-flex flex-wrap align-items-center justify-content-between">
-            @if ($showHeader)
-                <div class="col-auto mr-auto mb-2 mb-xl-0 pl-0">
-                    <div class="d-flex align-items-center">
-                        <div class="symbol symbol-35 symbol-light-primary mr-3 flex-shrink-0">
-                            <span class="symbol-label">
-                                <i class="fas {{ $icon }} text-primary icon-nm"></i>
+<div class="card card-custom filter-bar-responsive mb-5">
+    <div class="card-body p-2 p-md-3">
+        @if ($showHeader)
+            <div class="filter-bar-header d-flex align-items-center justify-content-between mb-2 pb-2">
+                <div class="d-flex align-items-center">
+                    <div class="symbol symbol-30 symbol-light-primary mr-2 flex-shrink-0">
+                        <span class="symbol-label">
+                            <i class="fas {{ $icon }} text-primary icon-md font-size-sm"></i>
+                        </span>
+                    </div>
+                    <div class="card-title mb-0">
+                        <h4 class="card-label font-weight-bolder mb-0 font-size-h6 text-nowrap">{{ $title }}</h4>
+                        @if ($subtitle)
+                            <span class="d-block text-muted font-size-xs font-weight-bold mt-0 text-nowrap">
+                                {{ $subtitle }}
                             </span>
-                        </div>
-                        <div class="card-title mb-0">
-                            <h4 class="card-label font-weight-bolder mb-0 font-size-h5 text-nowrap">{{ $title }}</h4>
-                            @if ($subtitle)
-                                <span class="d-block text-muted font-size-xs font-weight-bold mt-1 text-nowrap">
-                                    {{ $subtitle }}
-                                </span>
-                            @endif
-                        </div>
+                        @endif
                     </div>
                 </div>
-            @endif
+            </div>
+        @endif
 
-            <div class="col-auto flex-grow-1 pl-0">
-                <div class="d-flex flex-wrap align-items-end justify-content-end" style="gap: 10px;">
-                    @if ($showPeriod)
-                        <div class="col-12 col-sm-auto mb-2 p-0" style="min-width: 210px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">{{ $periodLabel }}</label>
-                            <div class="input-group">
-                                <input type="text" id="{{ $idPeriod }}"
-                                    class="form-control form-control-sm dashboard-date-range bg-white"
-                                    data-start-input="#{{ $idStartDate }}" data-end-input="#{{ $idEndDate }}"
-                                    data-required="{{ $periodRequired ? 'true' : 'false' }}" readonly
-                                    placeholder="Pilih interval tanggal">
-                                <div class="input-group-append">
-                                    <span class="input-group-text py-0 px-2">
-                                        <i class="far fa-calendar-alt font-size-xs"></i>
-                                    </span>
-                                </div>
-                            </div>
-                            <input type="hidden" id="{{ $idStartDate }}" value="{{ $activeStartDate }}">
-                            <input type="hidden" id="{{ $idEndDate }}" value="{{ $activeEndDate }}">
+        <div class="filter-strip d-flex align-items-center">
+            <div class="filter-tiles-container d-flex flex-wrap align-items-center flex-grow-1">
+                @if ($showPeriod)
+                    <div class="filter-tile filter-tile-period">
+                        <span class="filter-tile-label">{{ $periodLabel }}</span>
+                        <div class="input-group">
+                            <input type="text" id="{{ $idPeriod }}"
+                                class="form-control dashboard-date-range bg-transparent"
+                                data-start-input="#{{ $idStartDate }}" data-end-input="#{{ $idEndDate }}"
+                                data-required="{{ $periodRequired ? 'true' : 'false' }}" readonly placeholder="All">
                         </div>
-                    @endif
-
-                    @if ($showBulan)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 120px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Bulan</label>
-                            <select id="{{ $idBulan }}"
-                                class="form-control form-control-sm {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
-                                data-width="100%" style="width: 100%;"
-                                @if ($bulanMultiple) multiple @endif>
-                                @foreach ($months as $num => $name)
-                                    <option value="{{ $num }}"
-                                        {{ in_array((string) (int) $num, $activeMonths, true) ? 'selected' : '' }}>
-                                        {{ $name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($showTahun)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 90px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Tahun</label>
-                            <select id="{{ $idTahun }}" class="form-control form-control-sm selectpicker" data-width="100%">
-                                @foreach ($yearOptions as $y)
-                                    <option value="{{ $y }}"
-                                        {{ (int) $y === $activeYear ? 'selected' : '' }}>
-                                        {{ $y }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($showPilar)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 130px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Pilar</label>
-                            <select id="{{ $idPilar }}" class="form-control form-control-sm selectpicker" data-width="100%"
-                                multiple data-actions-box="true" data-selected-text-format="count > 1"
-                                data-none-selected-text="Semua pilar" data-select-all-text="Pilih semua"
-                                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
-                                @foreach ($pilars as $p)
-                                    <option value="{{ $p }}">{{ $p }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($showDistributor)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 145px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Distributor</label>
-                            <select id="{{ $idDistributor }}" class="form-control form-control-sm selectpicker" data-width="100%"
-                                multiple data-actions-box="true" data-selected-text-format="count > 1"
-                                data-none-selected-text="Semua distributor" data-select-all-text="Pilih semua"
-                                data-deselect-all-text="Hapus semua" data-count-selected-text="{0} dipilih">
-                                @foreach ($distributors as $d)
-                                    <option value="{{ $d }}">{{ $d }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($showCoverage)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 125px; max-width: 155px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">PIC</label>
-                            <select id="{{ $idCoverage }}" class="form-control form-control-sm select2-coverage"
-                                style="width: 100%;">
-                                <option value="">Semua PIC</option>
-                            </select>
-                        </div>
-                    @endif
-
-                    @if ($showOutlet)
-                        <div class="col-6 col-sm-auto mb-2 p-0" style="min-width: 135px; max-width: 165px;">
-                            <label class="font-size-xs font-weight-bolder text-dark-75 mb-1 d-block">Outlet</label>
-                            <select id="{{ $idOutlet }}" class="form-control form-control-sm select2-outlet" style="width: 100%;">
-                                <option value="">Semua Outlet</option>
-                            </select>
-                        </div>
-                    @endif
-
-                    {{ $slot }}
-
-                    <div class="col-auto mb-2 p-0 align-self-end">
-                        <div class="d-flex justify-content-end" style="gap: 6px;">
-                            <button class="btn btn-sm btn-primary font-weight-bolder text-nowrap px-3" id="{{ $idApply }}">
-                                <i class="fas {{ $btnIcon }} mr-1 font-size-xs"></i> {{ $btnText }}
-                            </button>
-                            @if ($showReset)
-                                <button type="button" class="btn btn-sm btn-light-danger font-weight-bolder text-nowrap px-3"
-                                    id="{{ $idReset }}">
-                                    <i class="fas {{ $btnResetIcon }} mr-1 font-size-xs"></i> {{ $btnResetText }}
-                                </button>
-                            @endif
-                        </div>
+                        <input type="hidden" id="{{ $idStartDate }}" value="{{ $activeStartDate }}">
+                        <input type="hidden" id="{{ $idEndDate }}" value="{{ $activeEndDate }}">
                     </div>
-                </div>
+                @endif
+
+                @if ($showDistributor)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">Distributor</span>
+                        <select id="{{ $idDistributor }}" class="form-control selectpicker" data-width="100%" multiple
+                            data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="All"
+                            data-select-all-text="Semua" data-deselect-all-text="Reset"
+                            data-count-selected-text="{0} terpilih">
+                            @foreach ($distributors as $d)
+                                <option value="{{ $d }}">{{ $d }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showDivisi)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">Divisi</span>
+                        <select id="{{ $idDivisi }}" class="form-control selectpicker" data-width="100%" multiple
+                            data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="All"
+                            data-select-all-text="Semua" data-deselect-all-text="Reset"
+                            data-count-selected-text="{0} terpilih">
+                            @foreach ($divisis as $div)
+                                <option value="{{ $div }}">{{ $div }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showRegion)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">Region</span>
+                        <select id="{{ $idRegion }}" class="form-control selectpicker" data-width="100%" multiple
+                            data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="All"
+                            data-select-all-text="Semua" data-deselect-all-text="Reset"
+                            data-count-selected-text="{0} terpilih">
+                            @foreach ($regions as $reg)
+                                <option value="{{ $reg }}">{{ $reg }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showPilar)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">Pilar</span>
+                        <select id="{{ $idPilar }}" class="form-control selectpicker" data-width="100%" multiple
+                            data-actions-box="true" data-selected-text-format="count > 1" data-none-selected-text="All"
+                            data-select-all-text="Semua" data-deselect-all-text="Reset"
+                            data-count-selected-text="{0} terpilih">
+                            @foreach ($pilars as $p)
+                                <option value="{{ $p }}">{{ $p }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showPm)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">PM</span>
+                        <select id="{{ $idPm }}" class="form-control select2-pm" style="width: 100%;" multiple
+                            data-placeholder="All">
+                            @foreach ($pms as $pm)
+                                <option value="{{ $pm }}">{{ $pm }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showProduct)
+                    <div class="filter-tile filter-tile-product">
+                        <span class="filter-tile-label">Produk</span>
+                        <select id="{{ $idProduct }}" class="form-control select2-product" style="width: 100%;"
+                            multiple data-placeholder="All"></select>
+                    </div>
+                @endif
+
+                @if ($showEmployee)
+                    <div class="filter-tile filter-tile-employee">
+                        <span class="filter-tile-label">Employee</span>
+                        <select id="{{ $idEmployee }}" class="form-control select2-employee" style="width: 100%;"
+                            multiple data-placeholder="All">
+                            @foreach ($employees as $emp)
+                                <option value="{{ $emp }}">{{ $emp }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                {{-- Legacy filters: Bulan, Tahun, PIC, Outlet --}}
+                @if ($showBulan)
+                    <div class="filter-tile" style="flex: 0.9 1 95px; min-width: 90px; max-width: 125px;">
+                        <span class="filter-tile-label">Bulan</span>
+                        <select id="{{ $idBulan }}"
+                            class="form-control {{ $bulanMultiple ? 'select2-month' : 'selectpicker' }}"
+                            data-width="100%" style="width: 100%;" @if ($bulanMultiple) multiple @endif>
+                            @foreach ($months as $num => $name)
+                                <option value="{{ $num }}"
+                                    {{ in_array((string) (int) $num, $activeMonths, true) ? 'selected' : '' }}>
+                                    {{ $name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showTahun)
+                    <div class="filter-tile" style="flex: 0.8 1 80px; min-width: 75px; max-width: 100px;">
+                        <span class="filter-tile-label">Tahun</span>
+                        <select id="{{ $idTahun }}" class="form-control selectpicker" data-width="100%">
+                            @foreach ($yearOptions as $y)
+                                <option value="{{ $y }}" {{ (int) $y === $activeYear ? 'selected' : '' }}>
+                                    {{ $y }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showCoverage)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">PIC</span>
+                        <select id="{{ $idCoverage }}" class="form-control select2-coverage" style="width: 100%;">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                @endif
+
+                @if ($showOutlet)
+                    <div class="filter-tile">
+                        <span class="filter-tile-label">Outlet</span>
+                        <select id="{{ $idOutlet }}" class="form-control select2-outlet" style="width: 100%;">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                @endif
+
+                {{ $slot }}
+            </div>
+
+            {{-- Stacked Action Buttons (Terapkan on top, Reset on bottom) --}}
+            <div class="filter-actions-stacked d-flex flex-column justify-content-center ml-2">
+                <button class="btn btn-xs btn-primary font-weight-bolder text-nowrap px-2 py-1"
+                    id="{{ $idApply }}">
+                    <i class="fas {{ $btnIcon }} mr-1 font-size-xs"></i> {{ $btnText }}
+                </button>
+                @if ($showReset)
+                    <button type="button"
+                        class="btn btn-xs btn-light-danger font-weight-bolder text-nowrap px-2 py-1"
+                        id="{{ $idReset }}">
+                        <i class="fas {{ $btnResetIcon }} mr-1 font-size-xs"></i> {{ $btnResetText }}
+                    </button>
+                @endif
             </div>
         </div>
     </div>
@@ -229,17 +294,23 @@
                         }
                     });
 
-                    ['.selectpicker', '.select2-product', '.select2-pm', '.select2-coverage', '.select2-outlet',
-                        '.select2-month'
+                    ['.selectpicker', '.select2-product', '.select2-pm', '.select2-employee',
+                        '.select2-coverage',
+                        '.select2-outlet', '.select2-month'
                     ]
                     .forEach(function(selector) {
-                        const $el = window.jQuery && window.jQuery(root.querySelector(selector));
+                        const $el = window.jQuery && window.jQuery(root.querySelectorAll(selector));
                         if ($el && $el.length) {
-                            if ($el.hasClass('select2-initialized')) {
-                                $el.val(null).trigger('change');
-                            } else {
-                                $el.selectpicker && $el.selectpicker('refresh');
-                            }
+                            $el.each(function() {
+                                const $item = window.jQuery(this);
+                                if ($item.hasClass('select2-hidden-accessible') || $item.data(
+                                        'select2')) {
+                                    $item.val(null).trigger('change');
+                                } else if ($item.data('selectpicker') || $item.hasClass(
+                                        'selectpicker')) {
+                                    $item.selectpicker && $item.selectpicker('refresh');
+                                }
+                            });
                         }
                     });
 
@@ -257,270 +328,404 @@
 @once
     @push('styles')
         <style>
-            /* ===== GLOBAL ULTRA-COMPACT DROPDOWN MENUS (Select2, Selectpicker, Datepicker) ===== */
-            .select2-dropdown {
-                font-size: 0.76rem !important;
-                border-color: #E4E6EF !important;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-            }
-            .select2-results__option {
-                padding: 4px 8px !important;
-                font-size: 0.76rem !important;
-                line-height: 1.35 !important;
-            }
-            .select2-container--default .select2-results__option--highlighted[aria-selected] {
-                background-color: #3699FF !important;
-                color: #ffffff !important;
-            }
-            .select2-search--dropdown {
-                padding: 4px 6px !important;
-            }
-            .select2-search--dropdown .select2-search__field {
-                padding: 3px 6px !important;
-                font-size: 0.76rem !important;
-                height: 28px !important;
-                border-radius: 4px !important;
-                border-color: #E4E6EF !important;
+            /* ===== ULTRA-COMPACT TILE FILTER BAR (SINGLE LINE 8-FILTER ARCHITECTURE) ===== */
+            .filter-bar-responsive .filter-bar-header {
+                border-bottom: 1px solid #EBEDF3;
             }
 
-            /* Select2 Multi-Select Compact Choice Pills */
-            .select2-container--default .select2-selection--multiple {
-                min-height: 32px !important;
-                max-height: 64px !important;
-                overflow-y: auto !important;
-                height: auto !important;
-                padding: 1px 4px !important;
-                border-color: #E4E6EF !important;
-                font-size: 0.75rem !important;
+            .filter-bar-responsive .filter-strip {
+                width: 100%;
+                display: flex;
+                align-items: center;
             }
-            .select2-container--default .select2-selection--multiple::-webkit-scrollbar {
-                width: 4px;
+
+            .filter-bar-responsive .filter-tiles-container {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                flex: 1 1 auto;
+                min-width: 0;
             }
-            .select2-container--default .select2-selection--multiple::-webkit-scrollbar-thumb {
-                background: #CBD5E1;
-                border-radius: 4px;
+
+            /* Single Filter Tile Box (Ultra-Compact) */
+            .filter-bar-responsive .filter-tile,
+            .filter-bar-responsive .filter-item {
+                background: #ffffff;
+                border: 1px solid #E4E6EF;
+                border-radius: 6px;
+                padding: 2px 6px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 44px;
+                height: 44px;
+                flex: 1 1 100px;
+                min-width: 88px;
+                max-width: 150px;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                box-sizing: border-box;
+                position: relative;
+                margin-bottom: 0 !important;
             }
-            .select2-container--default .select2-selection--multiple .select2-selection__rendered {
-                padding: 0 2px !important;
-                margin: 0 !important;
+
+            .filter-bar-responsive .filter-tile:hover,
+            .filter-bar-responsive .filter-tile:focus-within {
+                border-color: #B5B5C3;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            }
+
+            .filter-bar-responsive .filter-tile-period {
+                flex: 1.6 1 170px !important;
+                min-width: 155px !important;
+                max-width: 215px !important;
+            }
+
+            .filter-bar-responsive .filter-tile-product,
+            .filter-bar-responsive .filter-tile-employee {
+                flex: 1.25 1 120px !important;
+                min-width: 105px !important;
+                max-width: 165px !important;
+            }
+
+            /* Tile Label (Small, Uppercase, Crisp) */
+            .filter-bar-responsive .filter-tile-label,
+            .filter-bar-responsive .filter-tile>label,
+            .filter-bar-responsive .filter-item>label {
+                font-size: 0.60rem !important;
+                font-weight: 700 !important;
+                color: #7E8299 !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.03em !important;
+                margin-bottom: 0 !important;
+                line-height: 1.1 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                display: block !important;
+                pointer-events: none;
+            }
+
+            /* Form controls inside Filter Tiles */
+            .filter-bar-responsive .filter-tile .form-control,
+            .filter-bar-responsive .filter-tile .bootstrap-select,
+            .filter-bar-responsive .filter-tile .bootstrap-select>.btn,
+            .filter-bar-responsive .filter-tile .select2-container,
+            .filter-bar-responsive .filter-item .form-control,
+            .filter-bar-responsive .filter-item .bootstrap-select>.btn {
+                height: 20px !important;
+                min-height: 20px !important;
+                border: none !important;
+                padding: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                font-size: 0.74rem !important;
+                font-weight: 600 !important;
+                color: #181C32 !important;
+                line-height: 20px !important;
+                border-radius: 0 !important;
+                width: 100% !important;
+            }
+
+            .filter-bar-responsive .filter-tile-period .form-control {
+                font-size: 0.68rem !important;
+                font-weight: 600 !important;
+            }
+
+            .filter-bar-responsive .filter-tile .bootstrap-select>.btn,
+            .filter-bar-responsive .filter-item .bootstrap-select>.btn {
+                padding: 0 14px 0 0 !important;
                 display: flex !important;
-                flex-wrap: wrap !important;
                 align-items: center !important;
-                gap: 3px !important;
+                background-color: transparent !important;
             }
-            .select2-container--default .select2-selection--multiple .select2-selection__choice {
-                background-color: #F3F6F9 !important;
-                border: 1px solid #E4E6EF !important;
-                border-radius: 4px !important;
-                padding: 1px 6px !important;
-                margin: 2px 0 !important;
-                font-size: 0.70rem !important;
-                font-weight: 500 !important;
-                color: #3F4254 !important;
-                line-height: 1.3 !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                max-width: 170px !important;
+
+            .filter-bar-responsive .filter-tile .bootstrap-select .dropdown-toggle .filter-option-inner-inner,
+            .filter-bar-responsive .filter-item .bootstrap-select .dropdown-toggle .filter-option-inner-inner {
+                font-size: 0.74rem !important;
+                font-weight: 600 !important;
+                color: #181C32 !important;
+                line-height: 20px !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-                color: #7E8299 !important;
-                font-size: 0.75rem !important;
-                line-height: 1 !important;
-                margin-right: 4px !important;
+
+            .filter-bar-responsive .filter-tile .input-group {
+                height: 20px !important;
+            }
+
+            .filter-bar-responsive .filter-tile .input-group-append {
+                margin-left: 0 !important;
+            }
+
+            .filter-bar-responsive .filter-tile .input-group-text {
                 border: none !important;
                 background: transparent !important;
-                cursor: pointer !important;
-                float: none !important;
-                position: static !important;
-                display: inline-block !important;
+                padding: 0 2px !important;
+                height: 20px !important;
+                color: #B5B5C3 !important;
             }
-            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove::before,
-            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove::after {
-                content: "" !important;
-                display: none !important;
-            }
-            .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
-                color: #F64E60 !important;
+
+            /* Select2 inside filter-tile */
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--single,
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--multiple,
+            .filter-bar-responsive .filter-item .select2-container--default .select2-selection--multiple {
+                border: none !important;
                 background: transparent !important;
-            }
-            .select2-container--default .select2-selection--multiple .select2-search--inline {
-                margin: 0 !important;
+                min-height: 20px !important;
+                height: 20px !important;
                 padding: 0 !important;
+                line-height: 20px !important;
+                overflow: hidden !important;
             }
-            .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field {
-                margin: 2px 0 !important;
+
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--single .select2-selection__rendered {
+                padding: 0 !important;
+                line-height: 20px !important;
+                font-size: 0.74rem !important;
+                font-weight: 600 !important;
+                color: #181C32 !important;
+            }
+
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--multiple .select2-selection__rendered,
+            .filter-bar-responsive .filter-item .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+                padding: 0 !important;
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                white-space: nowrap !important;
+                line-height: 20px !important;
+                gap: 2px !important;
+            }
+
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--multiple .select2-selection__choice,
+            .filter-bar-responsive .filter-item .select2-container--default .select2-selection--multiple .select2-selection__choice {
+                margin: 0 2px 0 0 !important;
+                padding: 0 3px !important;
+                font-size: 0.65rem !important;
+                line-height: 18px !important;
+                height: 18px !important;
+                border-radius: 3px !important;
+                background-color: #F3F6F9 !important;
+                border: 1px solid #E4E6EF !important;
+                color: #3F4254 !important;
+            }
+
+            .filter-bar-responsive .filter-tile .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field,
+            .filter-bar-responsive .filter-item .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field {
+                margin: 0 !important;
+                height: 20px !important;
+                font-size: 0.72rem !important;
+                line-height: 20px !important;
+            }
+
+            /* Stacked Action Buttons (Terapkan + Reset) */
+            .filter-bar-responsive .filter-actions-stacked {
+                width: 74px;
+                flex: 0 0 74px;
+                height: 44px;
+                gap: 4px;
+            }
+
+            .filter-bar-responsive .filter-actions-stacked .btn {
+                height: 20px !important;
+                min-height: 20px !important;
                 padding: 0 4px !important;
-                height: 22px !important;
-                font-size: 0.75rem !important;
+                font-size: 0.68rem !important;
+                line-height: 20px !important;
+                font-weight: 700 !important;
+                border-radius: 4px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* Desktop (>= 1200px): Force STRICT SINGLE LINE */
+            @media (min-width: 1200px) {
+                .filter-bar-responsive .filter-tiles-container {
+                    flex-wrap: nowrap !important;
+                }
+            }
+
+            /* Tablet Breakpoint (768px - 1199px): 2 balanced rows */
+            @media (min-width: 768px) and (max-width: 1199px) {
+                .filter-bar-responsive .filter-tiles-container {
+                    flex-wrap: wrap !important;
+                }
+
+                .filter-bar-responsive .filter-tile,
+                .filter-bar-responsive .filter-item {
+                    flex: 1 1 calc(25% - 6px) !important;
+                    min-width: calc(25% - 6px) !important;
+                    max-width: 100% !important;
+                }
+            }
+
+            /* Mobile Breakpoint (< 768px): 2 columns or 1 column */
+            @media (max-width: 767px) {
+                .filter-bar-responsive .filter-strip {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+
+                .filter-bar-responsive .filter-tiles-container {
+                    flex-wrap: wrap !important;
+                    width: 100% !important;
+                }
+
+                .filter-bar-responsive .filter-tile,
+                .filter-bar-responsive .filter-item {
+                    flex: 1 1 calc(50% - 4px) !important;
+                    min-width: calc(50% - 4px) !important;
+                    max-width: 100% !important;
+                }
+
+                .filter-bar-responsive .filter-actions-stacked {
+                    width: 100% !important;
+                    flex: 1 1 auto !important;
+                    flex-direction: row !important;
+                    margin-left: 0 !important;
+                    margin-top: 6px !important;
+                    height: 30px !important;
+                }
+
+                .filter-bar-responsive .filter-actions-stacked .btn {
+                    flex: 1 1 auto !important;
+                    height: 28px !important;
+                    min-height: 28px !important;
+                }
+            }
+
+            /* ===== ULTRA-COMPACT DROPDOWN POPUPS (DateRangePicker, Selectpicker, Select2) ===== */
+            /* Select2 Dropdown */
+            .select2-dropdown {
+                font-size: 0.72rem !important;
+                border-color: #E4E6EF !important;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+                border-radius: 6px !important;
+            }
+
+            .select2-results__option {
+                padding: 3px 8px !important;
+                font-size: 0.72rem !important;
                 line-height: 1.3 !important;
             }
 
-            /* Bootstrap Selectpicker Popup Menu */
+            .select2-search--dropdown {
+                padding: 4px 6px !important;
+            }
+
+            .select2-search--dropdown .select2-search__field {
+                padding: 2px 6px !important;
+                font-size: 0.72rem !important;
+                height: 26px !important;
+                border-radius: 4px !important;
+                border-color: #E4E6EF !important;
+            }
+
+            /* Bootstrap Selectpicker Popup & Action Buttons */
             .bootstrap-select .dropdown-menu {
-                font-size: 0.76rem !important;
+                min-width: 160px !important;
+                font-size: 0.72rem !important;
                 padding: 4px 0 !important;
                 border-color: #E4E6EF !important;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+                border-radius: 6px !important;
             }
+
             .bootstrap-select .dropdown-menu.inner {
                 padding: 2px 0 !important;
             }
+
             .bootstrap-select .dropdown-menu li a {
-                padding: 4px 10px !important;
-                font-size: 0.76rem !important;
+                padding: 3px 10px !important;
+                font-size: 0.72rem !important;
                 line-height: 1.35 !important;
                 color: #3F4254 !important;
             }
+
             .bootstrap-select .dropdown-menu li a:hover,
             .bootstrap-select .dropdown-menu li.active a {
                 background-color: #F3F6F9 !important;
                 color: #3699FF !important;
             }
+
             .bootstrap-select .bs-actionsbox {
-                padding: 4px 8px !important;
+                padding: 4px 6px !important;
                 background: #F8FAFC !important;
                 border-bottom: 1px solid #E2E8F0 !important;
             }
-            .bootstrap-select .bs-actionsbox .btn {
-                padding: 2px 8px !important;
-                font-size: 0.70rem !important;
-                font-weight: 600 !important;
-                height: 24px !important;
-                line-height: 1.2 !important;
-            }
-            .bootstrap-select .bs-searchbox {
-                padding: 4px 8px !important;
-            }
-            .bootstrap-select .bs-searchbox .form-control {
-                padding: 3px 8px !important;
-                font-size: 0.76rem !important;
-                height: 28px !important;
-                border-radius: 4px !important;
+
+            .bootstrap-select .bs-actionsbox .btn-group {
+                display: flex !important;
+                width: 100% !important;
+                gap: 4px !important;
             }
 
-            /* DateRangePicker Popup Menu */
+            .bootstrap-select .bs-actionsbox .btn {
+                padding: 1px 6px !important;
+                font-size: 0.68rem !important;
+                font-weight: 600 !important;
+                height: 22px !important;
+                line-height: 1.2 !important;
+                white-space: nowrap !important;
+                flex: 1 1 auto !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* DateRangePicker Ultra-Compact Popup */
             .daterangepicker {
-                font-size: 0.75rem !important;
+                font-size: 0.72rem !important;
                 border-color: #E4E6EF !important;
                 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
-                padding: 6px !important;
-            }
-            .daterangepicker .calendar-table th,
-            .daterangepicker .calendar-table td {
-                font-size: 0.72rem !important;
-                min-width: 24px !important;
-                height: 24px !important;
-                line-height: 24px !important;
-                padding: 0 !important;
-            }
-            .daterangepicker .drp-buttons {
-                padding: 4px 8px !important;
-            }
-            .daterangepicker .drp-buttons .btn {
-                font-size: 0.72rem !important;
-                padding: 2px 8px !important;
-                height: 26px !important;
-            }
-            .daterangepicker .ranges li {
-                font-size: 0.75rem !important;
-                padding: 4px 10px !important;
+                padding: 4px !important;
+                border-radius: 6px !important;
             }
 
-            /* ===== 14-inch Laptop Responsive Compact Optimizations (1200px - 1536px) ===== */
-            @media (min-width: 1200px) and (max-width: 1536px) {
-                .gutter-b {
-                    margin-bottom: 0.85rem !important;
-                }
-                .card-custom .card-header {
-                    min-height: 44px !important;
-                    padding-top: 0.5rem !important;
-                    padding-bottom: 0.5rem !important;
-                }
-                .card-custom .card-body {
-                    padding: 0.85rem 1rem !important;
-                }
-                .card-custom .card-title .card-label {
-                    font-size: 0.95rem !important;
-                }
-                /* Stat Cards Compact Sizing */
-                .stat-card-responsive .card-body {
-                    padding: 0.6rem 0.85rem !important;
-                }
-                .stat-card-responsive .font-size-h3,
-                .stat-card-responsive .font-size-h4 {
-                    font-size: 1.15rem !important;
-                    line-height: 1.2;
-                }
-                .stat-card-responsive .symbol-40,
-                .stat-card-responsive .symbol-35 {
-                    width: 32px !important;
-                    height: 32px !important;
-                }
-                .stat-card-responsive .symbol-40 .symbol-label,
-                .stat-card-responsive .symbol-35 .symbol-label {
-                    width: 32px !important;
-                    height: 32px !important;
-                }
-                /* Filter Bar Compact Optimizations */
-                .filter-bar-responsive label {
-                    font-size: 0.72rem !important;
-                    font-weight: 700 !important;
-                    color: #3F4254 !important;
-                    margin-bottom: 0.2rem !important;
-                }
-                .filter-bar-responsive .form-control,
-                .filter-bar-responsive .selectpicker,
-                .filter-bar-responsive .select2-container .select2-selection--single {
-                    font-size: 0.78rem !important;
-                    min-height: 32px !important;
-                    height: 32px !important;
-                    border-color: #E4E6EF !important;
-                }
-                .filter-bar-responsive .select2-container .select2-selection--multiple {
-                    font-size: 0.75rem !important;
-                    min-height: 32px !important;
-                    max-height: 64px !important;
-                    overflow-y: auto !important;
-                    height: auto !important;
-                    border-color: #E4E6EF !important;
-                }
-                .filter-bar-responsive .bootstrap-select .dropdown-toggle .filter-option-inner-inner {
-                    font-size: 0.78rem !important;
-                    font-weight: 500 !important;
-                    line-height: 1.4 !important;
-                }
-                .filter-bar-responsive .btn {
-                    padding: 0.35rem 0.75rem !important;
-                    font-size: 0.78rem !important;
-                    height: 32px !important;
-                    display: inline-flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                }
-                /* Datatable & Tables */
-                .datatable-card-responsive .card-header {
-                    padding-top: 0.65rem !important;
-                    padding-bottom: 0.65rem !important;
-                }
-                .table-responsive .table th,
-                .table-responsive .table td {
-                    padding: 0.4rem 0.55rem !important;
-                    font-size: 0.78rem !important;
-                }
-                .table-responsive .table td .badge {
-                    font-size: 0.72rem !important;
-                }
-                .dataTables_wrapper .dataTables_length,
-                .dataTables_wrapper .dataTables_filter,
-                .dataTables_wrapper .dataTables_info,
-                .dataTables_wrapper .dataTables_paginate {
-                    font-size: 0.78rem !important;
-                }
+            .daterangepicker .ranges {
+                padding: 4px !important;
+            }
+
+            .daterangepicker .ranges ul {
+                width: 130px !important;
+            }
+
+            .daterangepicker .ranges li {
+                font-size: 0.70rem !important;
+                padding: 3px 8px !important;
+                border-radius: 4px !important;
+                margin-bottom: 2px !important;
+                line-height: 1.3 !important;
+                color: #3F4254 !important;
+            }
+
+            .daterangepicker .ranges li.active,
+            .daterangepicker .ranges li:hover {
+                background-color: #F3F6F9 !important;
+                color: #3699FF !important;
+            }
+
+            .daterangepicker .calendar-table th,
+            .daterangepicker .calendar-table td {
+                font-size: 0.68rem !important;
+                min-width: 22px !important;
+                height: 22px !important;
+                line-height: 22px !important;
+                padding: 0 !important;
+            }
+
+            .daterangepicker .drp-buttons {
+                padding: 4px 6px !important;
+            }
+
+            .daterangepicker .drp-buttons .btn {
+                font-size: 0.68rem !important;
+                padding: 2px 6px !important;
+                height: 22px !important;
             }
         </style>
     @endpush
 @endonce
-

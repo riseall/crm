@@ -33,25 +33,43 @@ $(document).ready(function () {
 
     function initProductFilter() {
         var productFilter = $("#filter_product");
-        if (!productFilter.length || !routes.productLookup) return;
+        if (productFilter.length && routes.productLookup) {
+            productFilter.select2({
+                placeholder: "All",
+                closeOnSelect: false,
+                width: "100%",
+                ajax: {
+                    url: routes.productLookup,
+                    dataType: "json",
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || "" };
+                    },
+                    processResults: function (data) {
+                        return data;
+                    },
+                    cache: true,
+                },
+            });
+        }
 
-        productFilter.select2({
-            placeholder: "Semua produk",
-            closeOnSelect: false,
-            width: "100%",
-            ajax: {
-                url: routes.productLookup,
-                dataType: "json",
-                delay: 250,
-                data: function (params) {
-                    return { q: params.term || "" };
-                },
-                processResults: function (data) {
-                    return data;
-                },
-                cache: true,
-            },
-        });
+        var pmFilter = $("#filter_pm");
+        if (pmFilter.length && !pmFilter.hasClass("select2-hidden-accessible")) {
+            pmFilter.select2({
+                placeholder: "All",
+                closeOnSelect: false,
+                width: "100%",
+            });
+        }
+
+        var empFilter = $("#filter_employee");
+        if (empFilter.length && !empFilter.hasClass("select2-hidden-accessible")) {
+            empFilter.select2({
+                placeholder: "All",
+                closeOnSelect: false,
+                width: "100%",
+            });
+        }
     }
 
     function loadAll() {
@@ -106,6 +124,8 @@ $(document).ready(function () {
         if (window.$ && $.fn && $.fn.select2) {
             $("#filter_product").val(null).trigger("change");
             $("#filter_distributor").val(null).trigger("change");
+            $("#filter_pm").val(null).trigger("change");
+            $("#filter_employee").val(null).trigger("change");
         }
         loadAll();
     });
