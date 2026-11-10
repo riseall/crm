@@ -87,16 +87,16 @@ const KTLogin = (function () {
             KTUtil.getById(formId),
             {
                 fields: {
-                    nik: {
-                        validators: {
-                            notEmpty: { message: "NIK is required" },
-                        },
-                    },
-                    password: {
-                        validators: {
-                            notEmpty: { message: "Password is required" },
-                        },
-                    },
+                    // nik: {
+                    //     validators: {
+                    //         notEmpty: { message: "NIK is required" },
+                    //     },
+                    // },
+                    // password: {
+                    //     validators: {
+                    //         notEmpty: { message: "Password is required" },
+                    //     },
+                    // },
                 },
                 plugins: {
                     trigger: new FormValidation.plugins.Trigger(),

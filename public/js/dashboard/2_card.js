@@ -23,19 +23,19 @@ Dashboard.Cards = (function ($, H) {
             maximumFractionDigits: 1,
         }) + '%');
 
-        var gapEl = $('#card_top_gap');
-        if (topValue > 0) {
-            var gap = topValue - (parseFloat(res.total_netto) || 0);
-            gapEl
-                .text((gap >= 0 ? 'Sisa ' : 'Lewat ') + H.formatRupiah(Math.abs(gap)))
-                .removeClass('text-muted text-success text-danger')
-                .addClass(gap >= 0 ? 'text-danger' : 'text-success');
-        } else {
-            gapEl
-                .text('TOP belum tersedia')
-                .removeClass('text-success text-danger')
-                .addClass('text-muted');
-        }
+        // var gapEl = $('#card_top_gap');
+        // if (topValue > 0) {
+        //     var gap = topValue - (parseFloat(res.total_netto) || 0);
+        //     gapEl
+        //         .text((gap >= 0 ? 'Sisa ' : 'Lewat ') + H.formatRupiah(Math.abs(gap)))
+        //         .removeClass('text-muted text-success text-danger')
+        //         .addClass(gap >= 0 ? 'text-danger' : 'text-success');
+        // } else {
+        //     gapEl
+        //         .text('TOP belum tersedia')
+        //         .removeClass('text-success text-danger')
+        //         .addClass('text-muted');
+        // }
 
         var growth = parseFloat(res.diff_netto) || 0;
         var growthEl = $('#card_growth');
