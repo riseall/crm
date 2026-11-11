@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Requests\DashboardFilterRequest;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -821,5 +822,536 @@ class SelloutQueryService
             ->unique()
             ->values()
             ->all();
+    }
+
+    public function formatNNName(?string $covDesc, ?string $level = 'MR'): string
+    {
+        if (!$covDesc) {
+            return 'NN';
+        }
+        $covDesc = trim((string) $covDesc);
+        if (preg_match('/^NN/i', $covDesc)) {
+            return $covDesc;
+        }
+
+        if (preg_match('/^([A-Za-z]+)[-_]([A-Za-z]+)(\d*)$/', $covDesc, $matches)) {
+            $pilar = strtoupper($matches[1]);
+            $cbg = strtoupper($matches[2]);
+            $num = isset($matches[3]) ? $matches[3] : '';
+            $lvl = $level ? $level : 'MR';
+            return 'NN' . $num . ' ' . $lvl . ' ' . $pilar . ' ' . $cbg;
+        }
+
+        return 'NN - ' . $covDesc;
+    }
+
+    public function achievementByRegional(DashboardFilterRequest $request): \Illuminate\Support\Collection
+    {
+        $regionConfigs = [
+            'R1' => ['keys' => ['1', 'R1'], 'coverage_id' => '2.1', 'label' => 'R1', 'desc' => 'Regional 1'],
+            'R2' => ['keys' => ['2', 'R2'], 'coverage_id' => '2.2', 'label' => 'R2', 'desc' => 'Regional 2'],
+            'R3' => ['keys' => ['3', 'R3'], 'coverage_id' => '2.3', 'label' => 'R3', 'desc' => 'Regional 3'],
+            'R4' => ['keys' => ['4', 'R4'], 'coverage_id' => '2.4', 'label' => 'R4', 'desc' => 'Regional 4'],
+            'CMA BARAT' => ['keys' => ['CMA BARAT'], 'coverage_id' => '1.1', 'label' => 'CMA BARAT', 'desc' => 'CMA Barat'],
+            'CMA TIMUR' => ['keys' => ['CMA TIMUR'], 'coverage_id' => '1.2', 'label' => 'CMA TIMUR', 'desc' => 'CMA Timur'],
+            'OTC BARAT' => ['keys' => ['OTC BARAT'], 'coverage_id' => '1.4', 'label' => 'OTC BARAT', 'desc' => 'OTC Barat'],
+            'OTC TIMUR' => ['keys' => ['OTC TIMUR'], 'coverage_id' => '1.4', 'label' => 'OTC TIMUR', 'desc' => 'OTC Timur'],
+            'MODERN OUTLET' => ['keys' => ['MODERN CHANNEL', 'MODERN OUTLET', 'MMR'], 'coverage_id' => '1.3', 'label' => 'MODERN OUTLET', 'desc' => 'Modern Outlet'],
+        ];
+
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+
+        $realQuery = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        $this->applyGlobalFilters($realQuery, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+        $realRows = $realQuery->selectRaw("UPPER(TRIM(so.regional)) as regional, SUM(so.netto) as total_netto")
+            ->whereNotNull('so.regional')
+            ->where('so.regional', '!=', '')
+            ->groupBy(DB::raw("UPPER(TRIM(so.regional))"))
+            ->pluck('total_netto', 'regional');
+
+        $topRows = $this->topMarketingBaseQuery($request)
+            ->selectRaw("
+                UPPER(TRIM(top.region)) as region,
+                TRIM(top.rm) as rm,
+                SUM(top.val_net) as total_top
+            ")
+            ->groupBy(DB::raw("UPPER(TRIM(top.region))"), DB::raw("TRIM(top.rm)"))
+            ->get();
+
+        $covIds = collect($regionConfigs)->pluck('coverage_id')->unique()->values()->all();
+        $mappings = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->whereIn('id_coverage', $covIds)
+            ->whereNull('deleted_at')
+            ->orderByDesc('is_active')
+            ->get();
+
+        $niks = $mappings->pluck('cov_nik')->filter()->unique()->values()->all();
+        $users = !empty($niks) ? User::whereIn('nik', $niks)->pluck('name', 'nik')->all() : [];
+
+        $hasChildrenSet = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->where('cov_level', 3)
+            ->whereNull('deleted_at')
+            ->get()
+            ->map(function ($m) {
+                $parts = explode('.', (string) $m->id_coverage);
+                return count($parts) >= 2 ? $parts[0] . '.' . $parts[1] : null;
+            })
+            ->filter()
+            ->unique()
+            ->flip()
+            ->all();
+
+        $results = [];
+        foreach ($regionConfigs as $code => $cfg) {
+            $realVal = 0.0;
+            foreach ($cfg['keys'] as $key) {
+                if (isset($realRows[$key])) {
+                    $realVal += (float) $realRows[$key];
+                }
+            }
+
+            $topVal = 0.0;
+            foreach ($topRows as $tr) {
+                $rKey = (string) $tr->region;
+                $rmKey = (string) $tr->rm;
+                if (in_array($rKey, $cfg['keys'], true) || $rmKey === $cfg['coverage_id']) {
+                    $topVal += (float) $tr->total_top;
+                }
+            }
+
+            $mapping = $mappings->firstWhere('id_coverage', $cfg['coverage_id']);
+            $nik = $mapping ? $mapping->cov_nik : null;
+            $name = ($nik && isset($users[$nik])) ? $users[$nik] : ($mapping ? $mapping->cov_desc : $cfg['desc']);
+
+            $ach = $topVal > 0 ? round(($realVal / $topVal) * 100, 2) : 0.0;
+            $hasChildren = isset($hasChildrenSet[$cfg['coverage_id']]);
+
+            $results[] = (object) [
+                'id'           => $code,
+                'code'         => $code,
+                'label'        => $cfg['label'],
+                'coverage_id'  => $cfg['coverage_id'],
+                'nik'          => $nik,
+                'name'         => $name ? $name : $cfg['label'],
+                'rm_name'      => $name ? $name : $cfg['label'],
+                'divisi'       => $mapping ? ($mapping->cov_divisi ? $mapping->cov_divisi : '-') : '-',
+                'real'         => round($realVal),
+                'top'          => round($topVal),
+                'achievement'  => $ach,
+                'has_children' => $hasChildren,
+                'level'        => 'RM',
+            ];
+        }
+
+        return collect($results);
+    }
+
+    public function achievementByPm(DashboardFilterRequest $request): \Illuminate\Support\Collection
+    {
+        $pmMappings = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->where('cov_level_desc', 'PM')
+            ->whereNull('deleted_at')
+            ->orderBy('id_coverage')
+            ->get();
+
+        $niks = $pmMappings->pluck('cov_nik')->filter()->unique()->values()->all();
+        $users = !empty($niks) ? User::whereIn('nik', $niks)->pluck('name', 'nik')->all() : [];
+
+        $topQuery = $this->topMarketingBaseQuery($request);
+        $topRows = $topQuery->selectRaw("TRIM(top.pm) as pm, SUM(top.val_net) as total_top")
+            ->whereNotNull('top.pm')
+            ->where('top.pm', '!=', '')
+            ->groupBy(DB::raw("TRIM(top.pm)"))
+            ->pluck('total_top', 'pm');
+
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+        $realQuery = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->join('crm_mst_products as mp', 'so.code_prod_ph', '=', 'mp.pt_ph')
+            ->whereNull('mp.deleted_at')
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        $this->applyGlobalFilters($realQuery, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+        $realRows = $realQuery->selectRaw("mp.id_coverage as pm, SUM(so.netto) as total_netto")
+            ->groupBy('mp.id_coverage')
+            ->pluck('total_netto', 'pm');
+
+        $results = [];
+        foreach ($pmMappings as $pm) {
+            $covId = (string) $pm->id_coverage;
+            $nik = $pm->cov_nik;
+            $name = ($nik && isset($users[$nik])) ? $users[$nik] : ($pm->cov_desc ? $pm->cov_desc : 'PM ' . $covId);
+            $realVal = isset($realRows[$covId]) ? (float) $realRows[$covId] : 0.0;
+            $topVal = isset($topRows[$covId]) ? (float) $topRows[$covId] : 0.0;
+            $ach = $topVal > 0 ? round(($realVal / $topVal) * 100, 2) : 0.0;
+
+            $results[] = (object) [
+                'id'           => $covId,
+                'code'         => 'PM ' . $covId,
+                'label'        => $name,
+                'coverage_id'  => $covId,
+                'nik'          => $nik,
+                'name'         => $name,
+                'pm_name'      => $name,
+                'divisi'       => $pm->cov_divisi ? $pm->cov_divisi : 'Marketing',
+                'real'         => round($realVal),
+                'top'          => round($topVal),
+                'achievement'  => $ach,
+                'has_children' => true,
+                'level'        => 'PM',
+            ];
+        }
+
+        return collect($results);
+    }
+
+    public function achievementSubordinates(DashboardFilterRequest $request, string $parentCoverageId, string $targetLevel): \Illuminate\Support\Collection
+    {
+        $targetLevel = strtoupper(trim($targetLevel));
+        $targetNum = $this->levelToNum($targetLevel);
+
+        $mappingsQuery = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->where('cov_level', $targetNum)
+            ->whereNull('deleted_at');
+
+        if ($targetLevel === 'AM') {
+            $amInTop = DB::connection(self::CONN_DWH)
+                ->table('crm_top_marketing')
+                ->where('sam', $parentCoverageId)
+                ->pluck('am')
+                ->unique()
+                ->values()
+                ->all();
+
+            $mappingsQuery->where(function ($q) use ($parentCoverageId, $amInTop) {
+                $q->where('id_coverage', 'like', $parentCoverageId . '.%');
+                if (!empty($amInTop)) {
+                    $q->orWhereIn('id_coverage', $amInTop);
+                }
+            });
+        } elseif ($targetLevel === 'MR') {
+            $mappingsQuery->where('id_coverage', 'like', $parentCoverageId . '.%');
+        } else {
+            $mappingsQuery->where('id_coverage', 'like', $parentCoverageId . '.%');
+        }
+
+        $mappings = $mappingsQuery->orderBy('id_coverage')->get();
+        if ($mappings->isEmpty()) {
+            return collect();
+        }
+
+        $niks = $mappings->pluck('cov_nik')->filter()->unique()->values()->all();
+        $users = !empty($niks) ? User::whereIn('nik', $niks)->pluck('name', 'nik')->all() : [];
+
+        $nextLevelNum = (int) $targetNum + 1;
+        $childCounts = [];
+        if ($nextLevelNum <= 5) {
+            $childCounts = DB::connection(self::CONN_DWH)
+                ->table('crm_mst_mappings')
+                ->where('cov_level', $nextLevelNum)
+                ->whereNull('deleted_at')
+                ->pluck('id_coverage')
+                ->all();
+        }
+
+        $levelCol = strtolower($targetLevel);
+        $topRows = $this->topMarketingBaseQuery($request)
+            ->whereNotNull('top.' . $levelCol)
+            ->selectRaw("TRIM(top.{$levelCol}) as cov_id, SUM(top.val_net) as total_top")
+            ->groupBy(DB::raw("TRIM(top.{$levelCol})"))
+            ->pluck('total_top', 'cov_id');
+
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+        $realRows = collect();
+
+        if ($targetLevel === 'MR') {
+            $realQuery = DB::connection(self::CONN_DWH)
+                ->table(self::SUMMARY_TABLE . ' as so')
+                ->join('crm_mst_cust_cov as mo', function ($j) {
+                    $j->on('so.id_konversi', '=', 'mo.id_konversi')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
+                })
+                ->where('mo.id_coverage', 'like', $parentCoverageId . '.%')
+                ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+            $this->applyGlobalFilters($realQuery, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+            $realRows = $realQuery->selectRaw("mo.id_coverage as cov_id, SUM(so.netto) as total_netto")
+                ->groupBy('mo.id_coverage')
+                ->pluck('total_netto', 'cov_id');
+        } elseif ($targetLevel === 'AM') {
+            $realQuery = DB::connection(self::CONN_DWH)
+                ->table(self::SUMMARY_TABLE . ' as so')
+                ->join('crm_mst_cust_cov as mo', function ($j) {
+                    $j->on('so.id_konversi', '=', 'mo.id_konversi')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
+                })
+                ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+            $this->applyGlobalFilters($realQuery, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+            $realRows = $realQuery->selectRaw("
+                SUBSTRING_INDEX(mo.id_coverage, '.', 4) as cov_id,
+                SUM(so.netto) as total_netto
+            ")
+            ->groupBy(DB::raw("SUBSTRING_INDEX(mo.id_coverage, '.', 4)"))
+            ->pluck('total_netto', 'cov_id');
+        } else {
+            $realQuery = DB::connection(self::CONN_DWH)
+                ->table(self::SUMMARY_TABLE . ' as so')
+                ->join('crm_mst_cust_cov as mo', function ($j) {
+                    $j->on('so.id_konversi', '=', 'mo.id_konversi')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
+                })
+                ->where('mo.id_coverage', 'like', $parentCoverageId . '.%')
+                ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+            $this->applyGlobalFilters($realQuery, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+            $realRows = $realQuery->selectRaw("
+                SUBSTRING_INDEX(mo.id_coverage, '.', 3) as cov_id,
+                SUM(so.netto) as total_netto
+            ")
+            ->groupBy(DB::raw("SUBSTRING_INDEX(mo.id_coverage, '.', 3)"))
+            ->pluck('total_netto', 'cov_id');
+        }
+
+        $results = [];
+        foreach ($mappings as $m) {
+            $covId = (string) $m->id_coverage;
+            $nik = $m->cov_nik;
+            $userName = ($nik && isset($users[$nik])) ? $users[$nik] : null;
+
+            if (!$userName) {
+                $displayName = $this->formatNNName($m->cov_desc, $targetLevel);
+            } else {
+                $displayName = $userName;
+            }
+
+            $realVal = isset($realRows[$covId]) ? (float) $realRows[$covId] : 0.0;
+            $topVal = isset($topRows[$covId]) ? (float) $topRows[$covId] : 0.0;
+            $ach = $topVal > 0 ? round(($realVal / $topVal) * 100, 2) : 0.0;
+
+            $hasChildren = false;
+            if ($nextLevelNum <= 5) {
+                foreach ($childCounts as $cc) {
+                    if (strpos((string) $cc, $covId . '.') === 0) {
+                        $hasChildren = true;
+                        break;
+                    }
+                }
+            }
+
+            $results[] = (object) [
+                'id'           => $covId,
+                'coverage_id'  => $covId,
+                'nik'          => $nik,
+                'name'         => $displayName,
+                'label'        => $displayName,
+                'level'        => $targetLevel,
+                'divisi'       => $m->cov_divisi ? $m->cov_divisi : '-',
+                'pilar'        => $m->cov_pilar ? $m->cov_pilar : '-',
+                'cov_desc'     => $m->cov_desc,
+                'real'         => round($realVal),
+                'top'          => round($topVal),
+                'achievement'  => $ach,
+                'has_children' => $hasChildren,
+            ];
+        }
+
+        return collect($results);
+    }
+
+    public function productsByPm(DashboardFilterRequest $request, string $pmCoverageId): \Illuminate\Support\Collection
+    {
+        $prods = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_products')
+            ->where('id_coverage', $pmCoverageId)
+            ->whereNull('deleted_at')
+            ->pluck('pt_ph')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($prods)) {
+            return collect();
+        }
+
+        $topProd = $this->topMarketingBaseQuery($request)
+            ->where('top.pm', $pmCoverageId)
+            ->whereIn('top.kode_ph', $prods)
+            ->selectRaw('top.kode_ph, MAX(top.nama_prod) as nama, SUM(top.val_net) as t')
+            ->groupBy('top.kode_ph')
+            ->get()
+            ->keyBy('kode_ph');
+
+        [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+        $realProd = DB::connection(self::CONN_DWH)
+            ->table(self::SUMMARY_TABLE . ' as so')
+            ->whereIn('so.code_prod_ph', $prods)
+            ->whereBetween('so.tgl_faktur', [$start, $end]);
+
+        $this->applyGlobalFilters($realProd, $request, 'so.pilar_sub', 'so.dist', 'so.code_prod_ph');
+
+        $realRows = $realProd->selectRaw("so.code_prod_ph as kode_ph, MAX(COALESCE(so.`desc`, '')) as nama, SUM(so.netto) as r")
+            ->groupBy('so.code_prod_ph')
+            ->get()
+            ->keyBy('kode_ph');
+
+        $results = [];
+        foreach ($prods as $p) {
+            $top = isset($topProd[$p]) ? (float) $topProd[$p]->t : 0.0;
+            $real = isset($realRows[$p]) ? (float) $realRows[$p]->r : 0.0;
+            $name = (isset($topProd[$p]) && !empty($topProd[$p]->nama))
+                ? $topProd[$p]->nama
+                : (isset($realRows[$p]) && !empty($realRows[$p]->nama) ? $realRows[$p]->nama : $p);
+
+            $ach = $top > 0 ? round(($real / $top) * 100, 2) : 0.0;
+
+            $results[] = (object) [
+                'id'           => $p,
+                'code'         => $p,
+                'name'         => $name,
+                'label'        => '[' . $p . '] ' . $name,
+                'product_name' => $name,
+                'top'          => round($top),
+                'real'         => round($real),
+                'achievement'  => $ach,
+                'has_children' => false,
+                'level'        => 'PRODUCT',
+            ];
+        }
+
+        return collect($results)->sortByDesc('achievement')->values();
+    }
+
+    public function searchAchievement(DashboardFilterRequest $request, string $search, string $mode = 'rm'): \Illuminate\Support\Collection
+    {
+        $needle = mb_strtolower(trim($search));
+        if ($needle === '') {
+            return collect();
+        }
+
+        if ($mode === 'pm') {
+            $pms = $this->achievementByPm($request);
+            $results = [];
+            foreach ($pms as $pm) {
+                $prods = $this->productsByPm($request, $pm->coverage_id);
+                $matchingProds = $prods->filter(function ($prod) use ($needle) {
+                    return strpos(mb_strtolower((string) $prod->name), $needle) !== false
+                        || strpos(mb_strtolower((string) $prod->code), $needle) !== false;
+                });
+
+                if (strpos(mb_strtolower((string) $pm->name), $needle) !== false
+                    || strpos(mb_strtolower((string) $pm->code), $needle) !== false
+                    || $matchingProds->isNotEmpty()) {
+                    $results[] = (object) [
+                        'pm_name'      => $pm->name,
+                        'product_name' => $matchingProds->isNotEmpty() ? $matchingProds->first()->name : '-',
+                        'code'         => $pm->code,
+                        'real'         => $matchingProds->isNotEmpty() ? $matchingProds->sum('real') : $pm->real,
+                        'top'          => $matchingProds->isNotEmpty() ? $matchingProds->sum('top') : $pm->top,
+                        'achievement'  => $matchingProds->isNotEmpty() ? ($matchingProds->sum('top') > 0 ? round(($matchingProds->sum('real') / $matchingProds->sum('top')) * 100, 2) : 0) : $pm->achievement,
+                    ];
+                }
+            }
+            return collect($results);
+        }
+
+        $matchingUsers = User::where('name', 'like', "%{$needle}%")
+            ->orWhere('nik', 'like', "%{$needle}%")
+            ->get();
+        $matchingNiks = $matchingUsers->pluck('nik')->all();
+
+        $matchingMappings = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->where(function ($q) use ($matchingNiks, $needle) {
+                if (!empty($matchingNiks)) {
+                    $q->whereIn('cov_nik', $matchingNiks);
+                }
+                $q->orWhere('cov_desc', 'like', "%{$needle}%")
+                  ->orWhere('id_coverage', 'like', "%{$needle}%");
+            })
+            ->whereNull('deleted_at')
+            ->get();
+
+        if ($matchingMappings->isEmpty()) {
+            return collect();
+        }
+
+        $allCovs = DB::connection(self::CONN_DWH)
+            ->table('crm_mst_mappings')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $allNiks = $allCovs->pluck('cov_nik')->filter()->unique()->values()->all();
+        $userNames = !empty($allNiks) ? User::whereIn('nik', $allNiks)->pluck('name', 'nik')->all() : [];
+
+        $covMap = [];
+        foreach ($allCovs as $ac) {
+            $covMap[$ac->id_coverage] = $ac;
+        }
+
+        $self = $this;
+        $resolveName = function ($id, $lvl) use ($covMap, $userNames, $self) {
+            if (!$id || !isset($covMap[$id])) return '-';
+            $nik = $covMap[$id]->cov_nik;
+            if ($nik && isset($userNames[$nik])) return $userNames[$nik];
+            return $self->formatNNName($covMap[$id]->cov_desc, $lvl);
+        };
+
+        $results = [];
+        foreach ($matchingMappings as $mm) {
+            $parts = explode('.', (string) $mm->id_coverage);
+            $rmId = count($parts) >= 2 ? $parts[0] . '.' . $parts[1] : null;
+            $samId = count($parts) >= 3 ? $parts[0] . '.' . $parts[1] . '.' . $parts[2] : null;
+            $amId = count($parts) >= 4 ? $parts[0] . '.' . $parts[1] . '.' . $parts[2] . '.' . $parts[3] : null;
+            $mrId = count($parts) >= 5 ? $mm->id_coverage : null;
+
+            $levelCol = strtolower($mm->cov_level_desc ? $mm->cov_level_desc : $this->numToLevel((string) $mm->cov_level));
+            if (!in_array($levelCol, ['rm', 'sam', 'am', 'mr'], true)) {
+                $levelCol = 'mr';
+            }
+            $top = (float) $this->topMarketingBaseQuery($request)
+                ->where('top.' . $levelCol, $mm->id_coverage)
+                ->sum('top.val_net');
+
+            [$start, $end] = $this->normalizeDateRange([$request->startDate(), $request->endDate()]);
+            $real = (float) DB::connection(self::CONN_DWH)
+                ->table(self::SUMMARY_TABLE . ' as so')
+                ->join('crm_mst_cust_cov as mo', function ($j) {
+                    $j->on('so.id_konversi', '=', 'mo.id_konversi')
+                        ->whereRaw($this->pilarMatchSql('so.pilar_sub', 'mo.pilar'));
+                })
+                ->where('mo.id_coverage', 'like', $mm->id_coverage . '%')
+                ->whereBetween('so.tgl_faktur', [$start, $end])
+                ->sum('so.netto');
+
+            $ach = $top > 0 ? round(($real / $top) * 100, 2) : 0.0;
+
+            $results[] = (object) [
+                'rm'          => $resolveName($rmId, 'RM'),
+                'sam'         => $resolveName($samId, 'SAM'),
+                'am'          => $resolveName($amId, 'AM'),
+                'mr'          => $resolveName($mrId, 'MR'),
+                'nik'         => $mm->cov_nik,
+                'coverage_id' => $mm->id_coverage,
+                'real'        => round($real),
+                'top'         => round($top),
+                'achievement' => $ach,
+            ];
+        }
+
+        return collect($results);
     }
 }

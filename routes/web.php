@@ -43,7 +43,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/consolidated-data', [DashboardController::class, 'getConsolidatedData'])->name('consolidated');
         Route::get('/chart/bulan',       [DashboardController::class, 'getChartPerBulan'])->name('chart.bulan');
         Route::get('/drilldown',         [DashboardController::class, 'getDrillDown'])->name('drilldown');
+        Route::get('/chart/race',        [DashboardController::class, 'getChartRace'])->name('chart.race');
         Route::get('/table/anggota',     [DashboardController::class, 'getTableAnggota'])->name('table.anggota');
+        Route::get('/table/achievement', [DashboardController::class, 'getTableAchievement'])->name('table.achievement');
         Route::get('/table/outlet',      [DashboardController::class, 'getTableOutlet'])->name('table.outlet');
         Route::get('/anggota/{nik}',     [DashboardController::class, 'detailAnggota'])
             ->name('anggota.detail');

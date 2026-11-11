@@ -7,6 +7,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -202,57 +203,337 @@ class DashboardService
         ];
     }
 
-    public function getAchievementRace(DashboardFilterRequest $request): array
+    public function getUserRoleContext(?User $user = null): array
     {
-        $topRows = $this->sellout->topMarketingByRegion($request);
-        $realRows = $this->sellout->realNettoByRegion($request);
-
-        $rows = [];
-
-        foreach ($topRows as $row) {
-            $key = $this->achievementKey($row->divisi, $row->region);
-            $rows[$key] = [
-                'label'  => (string) $row->region,
-                'divisi' => (string) $row->divisi,
-                'top'    => (float) $row->top_value,
-                'real'   => 0.0,
+        $user = $user ? $user : Auth::user();
+        if (!$user) {
+            return [
+                'category'     => 'MANAGEMENT',
+                'default_mode' => 'rm',
+                'allow_toggle' => true,
+                'coverage_id'  => null,
+                'level'        => 'MANAGEMENT',
             ];
         }
 
-        foreach ($realRows as $row) {
-            $key = $this->achievementKey($row->divisi, $row->region);
-
-            if (!isset($rows[$key])) {
-                $rows[$key] = [
-                    'label'  => (string) $row->region,
-                    'divisi' => (string) ($row->divisi ?: ''),
-                    'top'    => 0.0,
-                    'real'   => 0.0,
-                ];
-            }
-
-            $rows[$key]['real'] += (float) $row->real_value;
+        if ($this->coverageAccess->isGlobalAccessUser($user)) {
+            return [
+                'category'     => 'MANAGEMENT',
+                'default_mode' => 'rm',
+                'allow_toggle' => true,
+                'coverage_id'  => null,
+                'level'        => 'MANAGEMENT',
+            ];
         }
 
-        $data = collect($rows)
-            ->map(function (array $row) {
-                $ach = $row['top'] > 0 ? ($row['real'] / $row['top']) * 100 : 0;
+        $user->loadMissing('coverages');
+        $firstCov = $user->coverages->first();
+        $covId = $firstCov ? (string) $firstCov->id_coverage : null;
+        $covLevel = $firstCov ? (int) $firstCov->cov_level : null;
+        $covDesc = $firstCov ? (string) $firstCov->cov_level_desc : '';
 
-                return [
-                    'label'       => $row['label'],
-                    'divisi'      => $row['divisi'],
-                    'top'         => round($row['top']),
-                    'real'        => round($row['real']),
-                    'achievement' => round($ach, 2),
-                ];
-            })
-            ->filter(fn(array $row) => $row['top'] > 0)
-            ->sortByDesc('achievement')
-            ->values();
+        if ($covDesc === 'PM' || ($covId && strpos($covId, '3.') === 0) || $user->hasRole('Product Manager')) {
+            return [
+                'category'     => 'MARKETING',
+                'default_mode' => 'pm',
+                'allow_toggle' => true,
+                'coverage_id'  => $covId,
+                'level'        => 'PM',
+            ];
+        }
+
+        if ($covLevel === 3 || $user->hasRole('Senior Area Manager')) {
+            return [
+                'category'     => 'SAM',
+                'default_mode' => 'rm',
+                'allow_toggle' => false,
+                'coverage_id'  => $covId,
+                'level'        => 'SAM',
+            ];
+        }
+
+        if ($covLevel === 4 || $user->hasRole('Area Manager')) {
+            return [
+                'category'     => 'AM',
+                'default_mode' => 'rm',
+                'allow_toggle' => false,
+                'coverage_id'  => $covId,
+                'level'        => 'AM',
+            ];
+        }
+
+        if ($covLevel === 5 || $user->hasAnyRole(['Medical Representative', 'Sales Representative', 'Marketing Representative'])) {
+            $parentAmId = $covId && strrpos($covId, '.') !== false ? substr($covId, 0, strrpos($covId, '.')) : null;
+            return [
+                'category'           => 'MR',
+                'default_mode'       => 'rm',
+                'allow_toggle'       => false,
+                'coverage_id'        => $covId,
+                'parent_coverage_id' => $parentAmId,
+                'level'              => 'MR',
+            ];
+        }
 
         return [
-            'labels' => $data->pluck('label')->all(),
-            'data'   => $data->all(),
+            'category'     => 'MANAGEMENT',
+            'default_mode' => 'rm',
+            'allow_toggle' => true,
+            'coverage_id'  => $covId,
+            'level'        => 'MANAGEMENT',
+        ];
+    }
+
+    public function getAchievementRace(DashboardFilterRequest $request, ?string $mode = null): array
+    {
+        $roleCtx = $this->getUserRoleContext();
+        $effectiveMode = strtolower(trim((string) ($mode ? $mode : $request->get('race_mode', $roleCtx['default_mode']))));
+        if (!in_array($effectiveMode, ['rm', 'pm'], true)) {
+            $effectiveMode = $roleCtx['default_mode'];
+        }
+
+        $cacheKey = $this->sellout->cacheKey('race_v2_' . $effectiveMode . '_' . $roleCtx['category'] . '_' . ($roleCtx['coverage_id'] ? $roleCtx['coverage_id'] : 'all'), $request);
+
+        return Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request, $roleCtx, $effectiveMode) {
+            $data = collect();
+
+            if ($roleCtx['category'] === 'SAM' && $roleCtx['coverage_id']) {
+                $data = $this->sellout->achievementSubordinates($request, $roleCtx['coverage_id'], 'AM');
+            } elseif ($roleCtx['category'] === 'AM' && $roleCtx['coverage_id']) {
+                $data = $this->sellout->achievementSubordinates($request, $roleCtx['coverage_id'], 'MR');
+            } elseif ($roleCtx['category'] === 'MR' && isset($roleCtx['parent_coverage_id']) && $roleCtx['parent_coverage_id']) {
+                $data = $this->sellout->achievementSubordinates($request, $roleCtx['parent_coverage_id'], 'MR');
+            } else {
+                if ($effectiveMode === 'pm') {
+                    $data = $this->sellout->achievementByPm($request);
+                } else {
+                    $data = $this->sellout->achievementByRegional($request);
+                }
+            }
+
+            $sorted = $data->sortByDesc('achievement')->values();
+
+            return [
+                'labels'       => $sorted->pluck('label')->all(),
+                'data'         => $sorted->all(),
+                'mode'         => $effectiveMode,
+                'user_level'   => $roleCtx['category'],
+                'allow_toggle' => $roleCtx['allow_toggle'],
+            ];
+        });
+    }
+
+    public function getTableAchievement(DashboardFilterRequest $request): array
+    {
+        $roleCtx = $this->getUserRoleContext();
+        $mode = strtolower(trim((string) $request->get('mode', $roleCtx['default_mode'])));
+        if (!in_array($mode, ['rm', 'pm'], true)) {
+            $mode = $roleCtx['default_mode'];
+        }
+
+        $draw = (int) $request->input('draw', 1);
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 10);
+
+        $searchParam = $request->input('search');
+        $searchValue = '';
+        if (is_array($searchParam)) {
+            $searchValue = trim((string) ($searchParam['value'] ?? ''));
+        } elseif (is_string($searchParam)) {
+            $searchValue = trim($searchParam);
+        }
+
+        $orderParam = $request->input('order');
+        $orderCol = -1;
+        $orderDir = 'desc';
+        if (is_array($orderParam) && isset($orderParam[0])) {
+            $orderCol = (int) ($orderParam[0]['column'] ?? -1);
+            $orderDir = strtolower((string) ($orderParam[0]['dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+        }
+
+        if ($mode === 'pm') {
+            $cacheKey = $this->sellout->cacheKey('tbl_ach_pm_rows', $request);
+            $allRows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
+                $pmList = $this->sellout->achievementByPm($request);
+                $products = collect();
+
+                foreach ($pmList as $pm) {
+                    $pList = $this->sellout->productsByPm($request, $pm->coverage_id);
+                    foreach ($pList as $p) {
+                        $real = (float) $p->real;
+                        $top = (float) $p->top;
+                        $ach = (float) $p->achievement;
+
+                        $products->push((object) [
+                            'mode'        => 'pm',
+                            'pm'          => $pm->name,
+                            'produk'      => $p->name . ' (' . $p->code . ')',
+                            'sku'         => $p->code,
+                            'realisasi'   => $real,
+                            'top'         => $top,
+                            'achievement' => $ach,
+                            'is_unmapped' => 0,
+                            'nik'         => null,
+                        ]);
+                    }
+                }
+                return $products;
+            });
+        } else {
+            $cacheKey = $this->sellout->cacheKey('tbl_ach_mr_rows', $request);
+            $allRows = Cache::remember($cacheKey, $this->sellout->cacheTtl(), function () use ($request) {
+                $mappings = DB::connection('db_dwh')
+                    ->table('crm_mst_mappings')
+                    ->whereNull('deleted_at')
+                    ->get();
+
+                $niks = $mappings->pluck('cov_nik')->filter()->unique()->values()->all();
+                $users = User::whereIn('nik', $niks)->get()->keyBy('nik');
+
+                $rmMap = [];
+                $samMap = [];
+                $amMap = [];
+
+                foreach ($mappings as $m) {
+                    $user = isset($users[$m->cov_nik]) ? $users[$m->cov_nik] : null;
+                    $name = $user ? $user->name : ($m->cov_desc ? $m->cov_desc : 'NN');
+                    $lvl = (int) $m->cov_level;
+                    if ($lvl === 2) {
+                        $rmMap[$m->id_coverage] = $name;
+                    } elseif ($lvl === 3) {
+                        $samMap[$m->id_coverage] = $name;
+                    } elseif ($lvl === 4) {
+                        $amMap[$m->id_coverage] = $name;
+                    }
+                }
+
+                $topMap = $this->sellout->topMarketingByLevel($request, 'MR');
+                $mrQuery = $this->sellout->drilldownAggregateQuery($request, '5')->get();
+
+                return $mrQuery->map(function ($row) use ($rmMap, $samMap, $amMap, $topMap) {
+                    $isUnmapped = (int) $row->is_unmapped === 1 || $row->coverage_id === 'UNMAPPED';
+                    $covId = $row->coverage_id;
+
+                    $rm = '-';
+                    $sam = '-';
+                    $am = '-';
+
+                    if (!$isUnmapped && $covId) {
+                        $parts = explode('.', $covId);
+                        $amKey = count($parts) >= 4 ? implode('.', array_slice($parts, 0, 4)) : null;
+                        $samKey = count($parts) >= 3 ? implode('.', array_slice($parts, 0, 3)) : null;
+                        $rmKey = count($parts) >= 2 ? implode('.', array_slice($parts, 0, 2)) : null;
+
+                        $rm = isset($rmMap[$rmKey]) ? $rmMap[$rmKey] : '-';
+                        $sam = isset($samMap[$samKey]) ? $samMap[$samKey] : '-';
+                        if ($sam === '-' && $rmKey) {
+                            foreach ($samMap as $k => $v) {
+                                if (strpos($k, $rmKey . '.') === 0) {
+                                    $sam = $v;
+                                    break;
+                                }
+                            }
+                        }
+                        $am = isset($amMap[$amKey]) ? $amMap[$amKey] : '-';
+                        if ($am === '-' && $rmKey) {
+                            foreach ($amMap as $k => $v) {
+                                if (strpos($k, $rmKey . '.') === 0) {
+                                    $am = $v;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    $real = (float) $row->total_netto;
+                    $top = $isUnmapped ? 0.0 : (float) ($topMap[$covId] ?? 0);
+                    $ach = $top > 0 ? round(($real / $top) * 100, 2) : 0;
+
+                    $mrName = $isUnmapped
+                        ? 'UNMAPPED (' . ($row->coverage_desc ?: 'Data Belum Termapping') . ')'
+                        : (($row->user_name && $row->user_name !== 'N/A') ? $row->user_name : $this->sellout->formatNNName($row->coverage_desc, 'MR'));
+
+                    return (object) [
+                        'mode'        => 'rm',
+                        'rm'          => $rm,
+                        'sam'         => $sam,
+                        'am'          => $am,
+                        'mr'          => $mrName,
+                        'nik'         => ($isUnmapped || $row->coverage_nik === '-') ? null : $row->coverage_nik,
+                        'coverage_id' => $covId,
+                        'realisasi'   => $real,
+                        'top'         => $top,
+                        'achievement' => $ach,
+                        'is_unmapped' => $isUnmapped ? 1 : 0,
+                    ];
+                });
+            });
+        }
+
+        $filteredRows = $allRows;
+        if ($searchValue !== '') {
+            $needle = mb_strtolower($searchValue);
+            $filteredRows = $allRows->filter(function ($row) use ($needle, $mode) {
+                if ($mode === 'pm') {
+                    return Str::contains(mb_strtolower((string) $row->pm), $needle)
+                        || Str::contains(mb_strtolower((string) $row->produk), $needle)
+                        || Str::contains(mb_strtolower((string) $row->sku), $needle);
+                }
+                return Str::contains(mb_strtolower((string) $row->rm), $needle)
+                    || Str::contains(mb_strtolower((string) $row->sam), $needle)
+                    || Str::contains(mb_strtolower((string) $row->am), $needle)
+                    || Str::contains(mb_strtolower((string) $row->mr), $needle)
+                    || Str::contains(mb_strtolower((string) $row->nik), $needle)
+                    || Str::contains(mb_strtolower((string) $row->coverage_id), $needle);
+            });
+        }
+
+        $totalReal = (float) $filteredRows->sum('realisasi');
+        $totalTop = (float) $filteredRows->sum('top');
+        $totalAch = $totalTop > 0 ? round(($totalReal / $totalTop) * 100, 2) : 0;
+
+        if ($orderCol >= 0) {
+            if ($mode === 'pm') {
+                $colMap = [
+                    0 => 'pm',
+                    1 => 'produk',
+                    2 => 'realisasi',
+                    3 => 'top',
+                    4 => 'achievement',
+                ];
+            } else {
+                $colMap = [
+                    0 => 'rm',
+                    1 => 'sam',
+                    2 => 'am',
+                    3 => 'mr',
+                    4 => 'realisasi',
+                    5 => 'top',
+                    6 => 'achievement',
+                ];
+            }
+            $sortField = isset($colMap[$orderCol]) ? $colMap[$orderCol] : null;
+            if ($sortField) {
+                $filteredRows = $orderDir === 'asc'
+                    ? $filteredRows->sortBy($sortField)->values()
+                    : $filteredRows->sortByDesc($sortField)->values();
+            }
+        } else {
+            $filteredRows = $filteredRows->sortByDesc('realisasi')->values();
+        }
+
+        $pageData = $length > 0 ? $filteredRows->slice($start, $length)->values() : $filteredRows->values();
+
+        return [
+            'draw'            => $draw,
+            'recordsTotal'    => $allRows->count(),
+            'recordsFiltered' => $filteredRows->count(),
+            'data'            => $pageData->all(),
+            'mode'            => $mode,
+            'totals'          => [
+                'realisasi'   => $totalReal,
+                'top'         => $totalTop,
+                'achievement' => $totalAch,
+            ],
         ];
     }
 

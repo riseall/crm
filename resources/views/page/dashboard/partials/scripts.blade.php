@@ -4,8 +4,10 @@
         routes: {
             consolidatedData: "{{ route('dashboard.consolidated') }}",
             chartBulan: "{{ route('dashboard.chart.bulan') }}",
+            chartRace: "{{ route('dashboard.chart.race') }}",
             drilldown: @json($dashboardAccess['can_view_drilldown'] ?? true ? route('dashboard.drilldown') : null),
             tableAnggota: "{{ route('dashboard.table.anggota') }}",
+            tableAchievement: "{{ route('dashboard.table.achievement') }}",
             productLookup: "{{ route('product.produk') }}",
             detailAnggota: "{{ route('dashboard.anggota.detail', ':nik') }}",
             visitsDetail: "{{ route('visits.index') }}?nik=:nik",

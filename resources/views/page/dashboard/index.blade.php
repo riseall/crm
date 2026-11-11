@@ -38,13 +38,23 @@
                     <div id="chartAchievementRace" class="achievement-race">
                         <div class="achievement-race__head">
                             <div class="achievement-race__title-group">
-                                <div class="btn btn-icon btn-light-primary font-weight-bold"><i class="fas fa-trophy"></i>
+                                <div class="btn btn-icon btn-light-primary font-weight-bold"><i class="fas fa-running"></i>
                                 </div>
-                                <div class="achievement-race__title">Achievement RM</div>
+                                <div class="achievement-race__title" id="achievementRaceTitle">Achievement Progress</div>
                             </div>
-                            <div class="achievement-race__legend">
-                                <span class="achievement-race__legend-swatch"></span>
-                                <span>Achievement</span>
+                            <div class="d-flex align-items-center">
+                                <div class="achievement-race__legend mr-4">
+                                    <span class="achievement-race__legend-swatch"></span>
+                                    <span>Achievement</span>
+                                </div>
+                                <div class="btn-group btn-group-toggle" id="raceModeToggle" data-toggle="buttons">
+                                    <label class="btn btn-sm btn-outline-primary active" id="btnRaceRM">
+                                        <input type="radio" name="race_mode" value="rm" checked> RM
+                                    </label>
+                                    <label class="btn btn-sm btn-outline-primary" id="btnRacePM">
+                                        <input type="radio" name="race_mode" value="pm"> PM
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <div class="achievement-race__body">
@@ -123,18 +133,37 @@
     </div>
 
     {{-- ===== ROW 5 & 6: Tabel Detail ===== --}}
-    <x-datatable-card title="Detail Performance per Anggota" table-id="tblAnggota" table-class="table-sm" :load-assets="false"
+    <x-datatable-card title="Detail Achievement" table-id="tblAchievement" table-class="table-sm" :load-assets="false"
         :collapsible="true" :collapsed="false">
-        <th>No</th>
-        <th>NIK</th>
-        <th>Nama</th>
-        <th>Level</th>
-        <th>Pilar</th>
-        <th>Divisi</th>
-        <th>TOP</th>
-        <th>Real Netto</th>
-        <th>% Ach</th>
-        <th>Aksi</th>
+        <x-slot name="toolbar">
+            <div class="d-flex align-items-center flex-wrap mr-2">
+                <div class="btn-group btn-group-toggle" id="tableModeToggle" data-toggle="buttons">
+                    <label class="btn btn-sm btn-outline-primary active" id="btnTableRM">
+                        <input type="radio" name="table_mode" value="rm" checked> RM
+                    </label>
+                    <label class="btn btn-sm btn-outline-primary" id="btnTablePM">
+                        <input type="radio" name="table_mode" value="pm"> PM
+                    </label>
+                </div>
+            </div>
+        </x-slot>
+        <th>RM</th>
+        <th>SAM</th>
+        <th>AM</th>
+        <th>MR</th>
+        <th class="text-right">Realisasi</th>
+        <th class="text-right">TOP</th>
+        <th class="text-center">Achievement</th>
+        <th class="text-center">Aksi</th>
+        <x-slot name="footer">
+            <tr id="tblAchievementFootRow">
+                <th colspan="4" class="text-right font-weight-bold">TOTAL</th>
+                <th class="text-right font-weight-bold" id="totalRealisasi">Rp 0</th>
+                <th class="text-right font-weight-bold" id="totalTop">Rp 0</th>
+                <th class="text-center font-weight-bold" id="totalAch">0,0%</th>
+                <th></th>
+            </tr>
+        </x-slot>
     </x-datatable-card>
 @endsection
 

@@ -115,6 +115,11 @@
                         </tr>
                     </thead>
                     <tbody></tbody>
+                    @isset($footer)
+                        <tfoot>
+                            {{ $footer }}
+                        </tfoot>
+                    @endisset
                 </table>
             </div>
         </div>

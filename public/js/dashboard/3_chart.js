@@ -659,28 +659,111 @@ Dashboard.Charts = (function ($, H) {
         });
     }
 
+    var currentRaceMode = "rm";
 
     function initAchievementRace() {
         chartAchievementRaceEl = document.querySelector("#achievementRaceRows");
+
+        $("#raceModeToggle input[name='race_mode']").on("change", function () {
+            var mode = $(this).val();
+            setRaceMode(mode, true);
+        });
+
+        $(chartAchievementRaceEl).on("click", ".achievement-race__row", function () {
+            var filter = $(this).data("filter-name");
+            if (filter && Dashboard.Tables && typeof Dashboard.Tables.search === "function") {
+                var current = typeof Dashboard.Tables.getSearch === "function" ? Dashboard.Tables.getSearch() : "";
+                if (current === filter) {
+                    Dashboard.Tables.search("");
+                } else {
+                    Dashboard.Tables.search(filter);
+                }
+                var tableCard = $("#tblAchievement").closest(".card");
+                if (tableCard.length) {
+                    $("html, body").animate({ scrollTop: tableCard.offset().top - 80 }, 400);
+                }
+            }
+        });
     }
 
-    function getAchievementTier(achievement) {
-        if (achievement >= 90) return "over";
-        if (achievement >= 70) return "near";
-        if (achievement >= 40) return "mid";
-        return "low";
-    }
+    function setRaceMode(mode, syncTable) {
+        if (!mode) return;
+        currentRaceMode = mode;
 
-    function loadAchievementRace() {
-        if (!chartAchievementRaceEl || !consolidatedData || !consolidatedData.achievement_race) {
-            return Promise.resolve();
+        var radio = $("#raceModeToggle input[value='" + mode + "']");
+        if (radio.length) {
+            radio.prop("checked", true);
+            radio.closest(".btn-group").find("label").removeClass("active");
+            radio.closest("label").addClass("active");
         }
-        var res = consolidatedData.achievement_race;
-        var rows = res.data || [];
 
+        if (syncTable && Dashboard.Tables && typeof Dashboard.Tables.setMode === "function") {
+            Dashboard.Tables.setMode(mode, false);
+        }
+
+        fetchAndRenderRace(mode);
+    }
+
+    function fetchAndRenderRace(mode) {
+        if (!chartAchievementRaceEl) return;
+        chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat achievement...</div>';
+
+        var raceUrl = routes.chartAchievementRace || routes.chartRace || (window.DashboardPage && window.DashboardPage.routes ? window.DashboardPage.routes.chartRace : null);
+        if (!raceUrl) return;
+
+        var params = $.extend({}, H.getFilters(), { race_mode: mode });
+        $.get(raceUrl, params).done(function (res) {
+            if (consolidatedData) {
+                consolidatedData.achievement_race = res;
+            }
+            renderAchievementRaceData(res);
+        }).fail(function () {
+            chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty text-danger">Gagal memuat achievement</div>';
+        });
+    }
+
+    function renderAchievementRaceData(res) {
+        if (!chartAchievementRaceEl) return;
+        if (!res) {
+            chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty">Data achievement belum tersedia</div>';
+            return;
+        }
+
+        var titleEl = $("#achievementRaceTitle");
+        if (titleEl.length) {
+            var title = "Achievement Progress";
+            if (res.user_level === "SAM") title = "Achievement AM";
+            else if (res.user_level === "AM") title = "Achievement MR";
+            else if (res.user_level === "MR") title = "Achievement MR (Area)";
+            else if (res.mode === "pm") title = "Achievement PM";
+            else if (res.mode === "rm") title = "Achievement RM";
+            titleEl.text(title);
+        }
+
+        var isPm = (res.mode === "pm");
+        $(chartAchievementRaceEl)
+            .toggleClass("achievement-race--pm", isPm)
+            .toggleClass("achievement-race--rm", !isPm);
+
+        if (res.allow_toggle === false) {
+            $("#raceModeToggle").hide();
+        } else {
+            $("#raceModeToggle").show();
+            if (res.mode) {
+                currentRaceMode = res.mode;
+                var r = $("#raceModeToggle input[value='" + res.mode + "']");
+                if (r.length) {
+                    r.prop("checked", true);
+                    r.closest(".btn-group").find("label").removeClass("active");
+                    r.closest("label").addClass("active");
+                }
+            }
+        }
+
+        var rows = res.data || [];
         if (!rows.length) {
             chartAchievementRaceEl.innerHTML = '<div class="achievement-race__empty">Data achievement belum tersedia</div>';
-            return Promise.resolve();
+            return;
         }
 
         chartAchievementRaceEl.innerHTML = rows.map(function (row) {
@@ -689,13 +772,15 @@ Dashboard.Charts = (function ($, H) {
             var markerLeft = Math.min(Math.max(width, 4), 100);
             var tier = getAchievementTier(achievement);
             var title = [
+                (row.name ? row.name + " (" + row.label + ")" : row.label),
                 "TOP: " + H.formatRupiah(row.top),
                 "REAL: " + H.formatRupiah(row.real),
                 "ACH: " + formatPercent(achievement),
             ].join("\n");
 
+            var filterName = row.name || row.label || "";
             return [
-                '<div class="achievement-race__row" title="' + escapeHtml(title) + '">',
+                '<div class="achievement-race__row" style="cursor: pointer;" data-filter-name="' + escapeHtml(filterName) + '" title="' + escapeHtml(title) + '">',
                     '<div class="achievement-race__label">' + escapeHtml(row.label) + '</div>',
                     '<div class="achievement-race__track">',
                         '<div class="achievement-race__bar achievement-race__bar--' + tier + '" style="width:' + width + '%">',
@@ -708,7 +793,20 @@ Dashboard.Charts = (function ($, H) {
                 '</div>',
             ].join("");
         }).join("");
+    }
 
+    function getAchievementTier(achievement) {
+        if (achievement >= 90) return "over";
+        if (achievement >= 70) return "near";
+        if (achievement >= 40) return "mid";
+        return "low";
+    }
+
+    function loadAchievementRace() {
+        if (!consolidatedData || !consolidatedData.achievement_race) {
+            return Promise.resolve();
+        }
+        renderAchievementRaceData(consolidatedData.achievement_race);
         return Promise.resolve();
     }
 
@@ -731,5 +829,9 @@ Dashboard.Charts = (function ($, H) {
         init: init,
         loadAll: loadAll,
         renderAll: renderAll,
+        setRaceMode: setRaceMode,
+        getRaceMode: function () {
+            return currentRaceMode;
+        },
     };
 })(jQuery, Dashboard.Helpers);

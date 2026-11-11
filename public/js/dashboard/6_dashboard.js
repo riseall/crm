@@ -20,7 +20,7 @@ $(document).ready(function () {
         chartSegment: routes.chartSegment,
         chartPilar: routes.chartPilar,
         chartCoverage: routes.chartCoverage,
-        chartAchievementRace: routes.chartAchievementRace,
+        chartAchievementRace: routes.chartRace || routes.chartAchievementRace,
     });
     if (canViewDrilldown) {
         Dashboard.Drilldown.init(routes.drilldown, {
@@ -29,6 +29,7 @@ $(document).ready(function () {
     }
     Dashboard.Tables.init({
         tableAnggota: routes.tableAnggota,
+        tableAchievement: routes.tableAchievement,
     });
 
     function initProductFilter() {

@@ -29,6 +29,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $dashboardAccess = $this->coverageAccess->dashboardAccessConfig($user);
+        $dashboardAccess['user_role_context'] = $this->service->getUserRoleContext($user);
 
         return view('page.dashboard.index', [
             'dashboardAccess' => $dashboardAccess,
@@ -84,6 +85,16 @@ class DashboardController extends Controller
     public function getTableAnggota(DashboardFilterRequest $request)
     {
         return response()->json($this->service->getTableAnggota($request));
+    }
+
+    public function getChartRace(DashboardFilterRequest $request)
+    {
+        return response()->json($this->service->getAchievementRace($request, $request->get('race_mode')));
+    }
+
+    public function getTableAchievement(DashboardFilterRequest $request)
+    {
+        return response()->json($this->service->getTableAchievement($request));
     }
 
     public function detailAnggota(Request $request, $nik)
